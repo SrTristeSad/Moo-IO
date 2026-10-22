@@ -33,6 +33,7 @@ if win then
   BOOL CloseHandle(HANDLE);
   BOOL TerminateProcess(HANDLE,unsigned int);
   DWORD GetLastError(void);
+  DWORD WaitForSingleObject(HANDLE,DWORD);
   ]]
   kernel=ffi.load("kernel32")
 end
@@ -75,7 +76,7 @@ end
 function Host.new()
   return setmetatable({
     state="idle",code="",address="",port=8080,
-    elapsed=0,check=0,process=nil,error=nil
+    elapsed=0,check=0,process=nil,error=nil,progress=""
   },Host)
 end
 function Host:start()
@@ -93,6 +94,7 @@ function Host:start()
   self.code=hex(SecureRandom.bytes(8))
   self.address=ip..":"..self.port
   self.elapsed=0;self.check=0;self.error=nil
+  self.progress="Preparando sala..."
   local keys={"MOO_IO_ROOM_CODE","MOO_IO_GUI_HOST"}
   local originals={}
   for _,key in ipairs(keys) do originals[key]=getenv(key) end
@@ -100,17 +102,17 @@ function Host:start()
   setenv(keys[2],"1")
   local command='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'..script..'"'
   local cmd=ffi.new("char[?]",#command+1,command)
-  local startup=ffi.new("STARTUPINFOA")
-  startup.cb=ffi.sizeof(startup)
-  startup.dwFlags=1 -- STARTF_USESHOWWINDOW
-  startup.wShowWindow=0 -- SW_HIDE
-  local info=ffi.new("PROCESS_INFORMATION")
+  local startup=ffi.new("STARTUPINFOA[1]")
+  startup[0].cb=ffi.sizeof("STARTUPINFOA")
+  startup[0].dwFlags=1 -- STARTF_USESHOWWINDOW
+  startup[0].wShowWindow=0 -- SW_HIDE
+  local info=ffi.new("PROCESS_INFORMATION[1]")
   local launched=kernel.CreateProcessA(nil,cmd,nil,nil,0,0x08000000,nil,root,startup,info)
   local lastError=launched==0 and tonumber(kernel.GetLastError()) or 0
   for _,key in ipairs(keys) do setenv(key,originals[key]) end
   if launched==0 then return false,"Nao foi possivel iniciar o Node (Windows "..lastError..")" end
-  kernel.CloseHandle(info.hThread)
-  self.process=info.hProcess
+  kernel.CloseHandle(info[0].hThread)
+  self.process=info[0].hProcess
   self.state="starting"
   return true
 end
@@ -120,7 +122,31 @@ function Host:update(dt)
   self.check=self.check+dt
   if self.check>=0.6 then
     self.check=0
-    if ping(self.port) then self.state="ready";return end
+    if ping(self.port) then self.state="ready";self.progress="Sala pronta.";return end
+    local path=love.filesystem.getSourceBaseDirectory().."/server/data/mooio-host.log"
+    local log=io.open(path,"rb")
+    if log then
+      local len=log:seek("end") or 0
+      log:seek("set",math.max(0,len-1800))
+      local content=log:read("*a") or ""
+      log:close()
+      if content:find("MOOIO_PHASE_INSTALLING",1,true) then
+        self.progress="Instalando componentes do servidor (primeira execucao)..."
+      end
+      if content:find("MOOIO_PHASE_STARTING",1,true) then
+        self.progress="Iniciando servidor Node.js..."
+      end
+      if content:find("MOOIO_PHASE_ERROR",1,true) then
+        self.progress="O servidor encontrou um erro. Verifique a instalacao do Node.js."
+      end
+    end
+    if self.process and kernel.WaitForSingleObject(self.process,0)==0 then
+      self.state="failed"
+      self.error=self.progress.." Veja server/data/mooio-host.log."
+      kernel.CloseHandle(self.process)
+      self.process=nil
+      return
+    end
   end
   if self.elapsed>90 then
     self.state="failed"
