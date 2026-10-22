@@ -1,10 +1,6 @@
 name: Moo IO - incorporar ZIP enviado
+# One-time legacy import. Manual only: do not overwrite packaged art on push.
 on:
-  push:
-    branches: [main]
-    paths:
-      - tools/import-uploaded-art.mjs
-      - .github/workflows/import-uploaded-art.yml
   workflow_dispatch:
 permissions:
   contents: write
@@ -12,6 +8,9 @@ jobs:
   import-exact-upload:
     if: github.repository == 'SrTristeSad/Moo-IO'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: windows
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +36,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A assets/custom/img/
+          git add -A windows/assets/custom/img/
           git diff --cached --stat
           if git diff --cached --quiet; then
             echo 'Arquivos já atualizados.'

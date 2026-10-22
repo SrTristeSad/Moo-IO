@@ -8,6 +8,9 @@ permissions:
 jobs:
   node:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: windows
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,6 +24,9 @@ jobs:
       - run: node --test tests/*.test.mjs
   powershell-syntax:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
     steps:
       - uses: actions/checkout@v4
       - name: Check LAN launcher syntax

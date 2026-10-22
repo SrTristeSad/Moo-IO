@@ -1,12 +1,12 @@
 node_modules/
-server/node_modules/
-server/data/
+windows/server/node_modules/
+windows/server/data/
 dist/
 *.log
 *.zip
-assets/reference/
-client-official/
-client/public/img/
+windows/assets/reference/
+windows/client-official/
+windows/client/public/img/
 
 # Locally generated art audit and unpinned npm lock
 ARTES-PENDENTES.txt

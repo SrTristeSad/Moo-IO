@@ -5,18 +5,15 @@ on:
     branches: [main]
     paths:
       - .github/workflows/package-windows.yml
-      - scripts/build-windows.ps1
-      - scripts/start-server.ps1
-      - scripts/moo-io.ps1
-      - MOO-IO.vbs
-      - src/net/mooio_host.lua
-      - server/**
-      - assets/**
+      - windows/**
 permissions:
   contents: read
 jobs:
   offline-windows:
     runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: windows
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $dir = Join-Path $env:GITHUB_WORKSPACE 'dist\Moo-IO-Windows'
+          $dir = Join-Path $env:GITHUB_WORKSPACE 'windows\dist\Moo-IO-Windows'
           $node = Join-Path $dir 'runtime\node\node.exe'
           if (-not (Test-Path (Join-Path $dir 'love.exe'))) { throw 'Faltou o LÖVE' }
           if (-not (Test-Path (Join-Path $dir 'server\node_modules\ws\package.json'))) {
@@ -113,10 +110,10 @@ jobs:
       - name: Gerar ZIP pronto
         shell: pwsh
         run: |
-          Compress-Archive -Path (Join-Path $env:GITHUB_WORKSPACE 'dist\Moo-IO-Windows') -DestinationPath (Join-Path $env:GITHUB_WORKSPACE 'dist\Moo-IO-Windows-Pronto.zip') -CompressionLevel Optimal -Force
+          Compress-Archive -Path (Join-Path $env:GITHUB_WORKSPACE 'windows\dist\Moo-IO-Windows') -DestinationPath (Join-Path $env:GITHUB_WORKSPACE 'windows\dist\Moo-IO-Windows-Pronto.zip') -CompressionLevel Optimal -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Moo-IO-Windows-Pronto
-          path: dist/Moo-IO-Windows-Pronto.zip
+          path: windows/dist/Moo-IO-Windows-Pronto.zip
           if-no-files-found: error
           retention-days: 30

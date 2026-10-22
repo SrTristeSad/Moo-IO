@@ -11,6 +11,9 @@ permissions:
 jobs:
   game-e2e:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: windows
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4

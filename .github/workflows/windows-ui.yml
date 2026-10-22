@@ -3,9 +3,9 @@ on:
   push:
     branches: [main]
     paths:
-      - main.lua
-      - src/game/**
-      - src/net/mooio_host.lua
+      - windows/main.lua
+      - windows/src/game/**
+      - windows/src/net/**
       - .github/workflows/windows-ui.yml
   workflow_dispatch:
 permissions:
@@ -16,6 +16,9 @@ concurrency:
 jobs:
   native-windows-ui:
     runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: windows
     timeout-minutes: 16
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +75,7 @@ jobs:
             $out = Join-Path $env:RUNNER_TEMP "$name-out.log"
             $err = Join-Path $env:RUNNER_TEMP "$name-err.log"
             Write-Host "Running $name..."
-            $proc = Start-Process -FilePath $env:MOOIO_WIN_LOVE -ArgumentList @($env:GITHUB_WORKSPACE) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            $proc = Start-Process -FilePath $env:MOOIO_WIN_LOVE -ArgumentList @((Join-Path $env:GITHUB_WORKSPACE 'windows')) -WorkingDirectory (Join-Path $env:GITHUB_WORKSPACE 'windows') -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
             if (-not $proc.WaitForExit(50000)) {
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
               throw "$name timed out"
@@ -81,7 +84,7 @@ jobs:
             Write-Host $text
             if ($proc.ExitCode -ne 0) { throw "$name exited with $($proc.ExitCode)" }
             if (-not $text.Contains($test.Expected)) { throw "$name did not report PASS" }
-            Remove-Item "Env:\$name"
+            [Environment]::SetEnvironmentVariable($name, $null, 'Process')
           }
       - name: Logs se houver erro
         if: failure()
