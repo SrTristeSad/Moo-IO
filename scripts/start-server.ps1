@@ -16,14 +16,14 @@ try {
     throw 'MOO_IO_ROOM_CODE ausente. Inicie a sala pelo cliente Moo IO.'
   }
   if (-not (Test-Path (Join-Path $root 'server\node_modules\ws\package.json'))) {
-    "Instalando dependencias do servidor..." | Out-File $log
+    "MOOIO_PHASE_INSTALLING" | Out-File $log
     & npm.cmd install --prefix (Join-Path $root 'server') --no-audit --no-fund *>> $log
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao instalar dependencias do servidor.' }
   }
-  "Iniciando Moo IO Node.js..." | Out-File $log -Append
+  "MOOIO_PHASE_STARTING" | Out-File $log -Append
   & node.exe (Join-Path $root 'server\src\index.js') *>> $log
   if ($LASTEXITCODE -ne 0) { throw "Servidor encerrou com erro $LASTEXITCODE." }
 } catch {
-  $_.ToString() | Out-File $log -Append
+  ("MOOIO_PHASE_ERROR " + $_.ToString()) | Out-File $log -Append
   exit 1
 }
