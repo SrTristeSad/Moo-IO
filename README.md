@@ -12,7 +12,7 @@ Jogo multiplayer em **Lua/LÖVE 2D**, com servidor de partida **Node.js**. Proje
 
 ### Jogar sozinho e convidar amigos
 
-1. Instale **Node.js 20+**, **LÖVE 2D 11.5** com LuaSocket e abra **MOO-IO.vbs** no Windows.
+1. Instale **Node.js 20+** e **LÖVE 2D 11.5** com LuaSocket. Baixe o ZIP completo do GitHub, **extraia todos os arquivos** e execute **MOO-IO.vbs** de dentro da pasta extraída (não execute direto de dentro do ZIP).
 2. Clique em **Jogar**. O cliente começa a criar sua sala particular sem abrir um terminal e tenta entrar nela assim que estiver pronta.
 3. Dentro da partida, pressione **F2** para abrir o convite da sala. Use **Copiar convite** e envie aos amigos.
 4. Amigos abrem **Jogar**, digitam o IP/porta e o código de acesso separadamente **ou colam um convite completo**, e clicam em **Entrar na sala**.
@@ -35,6 +35,12 @@ A tela **Servidores** já separa os dois tipos de serviço. É uma organização
 - **Firebase:** futura autenticação de usuários, amigos, descoberta e lista de salas. Falta vincular um projeto Firebase, configurar regras e credenciais de aplicação. Firebase não substitui o motor de jogo Node nem garante comunicação direta pela internet.
 
 Para entrar em uma sala **Moo IO compatível**, utilize o campo IP/código de **Jogar**.
+
+## Interface em blocos e correção do servidor interno
+
+O menu usa painéis retangulares, relevos e cores inspiradas em jogos de blocos, sem reutilizar texturas, fontes ou imagens proprietárias do Minecraft. O botão **Voltar** fica no canto superior direito, fora da área do logotipo; a mensagem de erro/status aparece numa faixa própria no rodapé. **Tentar novamente** só aparece quando ocorre uma falha.
+
+Foi corrigida a localização do script interno. Antes o cliente usava `love.filesystem.getSourceBaseDirectory()`, que aponta para o diretório **pai** do jogo, e por isso mostrava um falso erro de `start-server.ps1` ausente. Agora o Moo IO verifica a pasta da origem real com `love.filesystem.getSource()` e somente inicia quando existem `main.lua`, `server/src/index.js` e `scripts/start-server.ps1` juntos. Se algum arquivo estiver realmente faltando, a interface explica que é necessário extrair o ZIP completo.
 
 ## Testes
 
