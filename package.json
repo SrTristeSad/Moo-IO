@@ -1,0 +1,14 @@
+{
+  "name": "moo-io",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Moo IO community LAN multiplayer",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:server": "npm install --prefix server --no-audit --no-fund",
+    "start:server": "node server/src/index.js",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
