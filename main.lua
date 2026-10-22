@@ -106,6 +106,16 @@ function love.load()
     end
     return
   end
+  if os.getenv("MOO_IO_MENU_TEST")=="1" then
+    local ok,err=pcall(require("src.test_mooio_menu"))
+    if ok then
+      local pass,why=pcall(err)
+      if not pass then ok=false;err=why end
+    end
+    if not ok then print("MOO IO MENU FAIL: "..tostring(err)) end
+    love.event.quit(ok and 0 or 1)
+    return
+  end
   -- Normal opening: stay on Moo IO home; no network or terminal is opened.
   -- CI may inject an invitation to prove that the native Play flow reaches C.
   if os.getenv("MOO_IO_E2E")=="1" then
