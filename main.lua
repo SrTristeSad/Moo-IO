@@ -310,13 +310,17 @@ function love.update(dt)
     camera:followReference(localPlayer.visualX or localPlayer.x,
       localPlayer.visualY or localPlayer.y,dt)
   end
-  if client.state=="spawn_confirmed" and not died and not pause:isOpen() then
-    if panels:isOpen() or clans:isOpen() then input.keys={} end
+  -- The multiplayer server must still receive keepalive packets while
+  -- ESC options are open. Only player movement and attacks are suspended.
+  if client.state=="spawn_confirmed" and not died then
     heartbeatClock=heartbeatClock+dt
     if heartbeatClock>=15 then
       heartbeatClock=0
       client:send("0",{})
     end
+  end
+  if client.state=="spawn_confirmed" and not died and not pause:isOpen() then
+    if panels:isOpen() or clans:isOpen() then input.keys={} end
     input:update(dt)
     movementClock=movementClock+dt
     if movementClock>=0.07 then
