@@ -211,9 +211,9 @@ local function decorate(showWorld)
   if showWorld then
     -- Existing MooMoo top-down map preview is already drawn underneath.
     -- No counterfeit server players; keep the real world art visible.
-    love.graphics.setColor(0.025,0.055,0.037,0.55)
+    love.graphics.setColor(0.025,0.055,0.037,0.25)
     love.graphics.rectangle("fill",0,0,1280,720)
-    love.graphics.setColor(0.06,0.11,0.075,0.74)
+    love.graphics.setColor(0.06,0.11,0.075,0.20)
     love.graphics.rectangle("fill",30,34,1220,657,5,5)
     love.graphics.setColor(0.45,0.75,0.28,0.94)
     love.graphics.rectangle("fill",36,40,1208,6)
