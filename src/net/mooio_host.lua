@@ -1,6 +1,7 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
 -- Hidden Windows Node host, driven from the native LÖVE client.
 local SecureRandom=require("src.net.secure_random")
+local Network=require("src.net.mooio_network")
 local Host={}
 Host.__index=Host
 local ffiOK,ffi=pcall(require,"ffi")
@@ -68,18 +69,18 @@ local function ping(port)
   if not ok then return false end
   local old=http.TIMEOUT
   http.TIMEOUT=0.35
-  local good,body,code=pcall(http.request,"http://127.0.0.1:"..port.."/mooio/status")
+  local good,body,code=pcall(http.request,"http://127.0.0.1:"..(port+1).."/status")
   http.TIMEOUT=old
   return good and tonumber(code)==200 and type(body)=="string"
     and body:find('"project"%s*:%s*"Moo%-IO"')~=nil
 end
 function Host.new()
   return setmetatable({
-    state="idle",code="",address="",port=8080,
+    state="idle",code="",address="",port=8080,hostIP="",mode="lan",
     elapsed=0,check=0,process=nil,error=nil,progress="",lastLog=""
   },Host)
 end
-function Host:start()
+function Host:start(mode,requestedIP)
   if self.state=="starting" or self.state=="ready" then return false,"Sala ja iniciada" end
   if not win then return false,"Hospedagem automatica disponivel inicialmente no Windows." end
   if ping(self.port) then return false,"Ja existe uma sala Moo IO nesta porta." end
@@ -89,18 +90,26 @@ function Host:start()
   local f=io.open(script,"rb")
   if not f then return false,"Arquivo scripts/start-server.ps1 ausente" end
   f:close()
-  local ip=localAddress()
-  if not ip then return false,"Endereco da rede local nao identificado. Conecte-se ao Wi-Fi ou cabo." end
+  mode=mode=="vpn" and "vpn" or "lan"
+  local ip=mode=="vpn" and requestedIP or localAddress()
+  if not Network.accept(ip,mode) then
+    return false,mode=="vpn"
+      and "Informe o IPv4 valido exibido pelo aplicativo VPN (nao IP publico)."
+      or "Endereco LAN invalido. Verifique o Wi-Fi ou cabo."
+  end
+  self.hostIP=ip;self.mode=mode
   self.code=hex(SecureRandom.bytes(8))
   self.address=ip..":"..self.port
   self.elapsed=0;self.check=0;self.error=nil
   self.progress="Preparando sala..."
   self.lastLog=""
-  local keys={"MOO_IO_ROOM_CODE","MOO_IO_GUI_HOST"}
+  local keys={"MOO_IO_ROOM_CODE","MOO_IO_GUI_HOST","MOO_IO_BIND_IP","MOO_IO_NETWORK_MODE"}
   local originals={}
   for _,key in ipairs(keys) do originals[key]=getenv(key) end
   setenv(keys[1],self.code)
   setenv(keys[2],"1")
+  setenv(keys[3],ip)
+  setenv(keys[4],mode)
   local command='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'..script..'"'
   local cmd=ffi.new("char[?]",#command+1,command)
   local startup=ffi.new("STARTUPINFOA[1]")
@@ -173,7 +182,7 @@ function Host:stop()
       local old=http.TIMEOUT
       http.TIMEOUT=1
       pcall(http.request,{
-        url="http://127.0.0.1:"..self.port.."/mooio/shutdown",
+        url="http://127.0.0.1:"..(self.port+1).."/shutdown",
         method="POST",
         headers={["X-MooIO-Code"]=self.code,["Content-Length"]="0"},
         source=ltn12.source.empty(),sink=ltn12.sink.null()
@@ -186,6 +195,6 @@ function Host:stop()
     kernel.CloseHandle(self.process)
     self.process=nil
   end
-  self.state="idle";self.code="";self.address=""
+  self.state="idle";self.code="";self.address="";self.hostIP=""
 end
 return Host
