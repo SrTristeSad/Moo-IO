@@ -29,7 +29,8 @@ import { createConnectionHandler } from "./network/connection.js";
 import { AdminConsole } from "./admin/console.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 // Moo IO modification: invitation-gated community LAN rooms.
-import { validRoomCode, publicProtocol, requireRoomInvite } from "./mooio/invite.js";
+import { validRoomCode, equalRoomCode, publicProtocol, requireRoomInvite } from "./mooio/invite.js";
+import { allowedRoomInterface } from "./mooio/network.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "../..");
@@ -40,6 +41,8 @@ const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : pat
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const ROOM_CODE = process.env.MOO_IO_ROOM_CODE || "";
+const NETWORK_MODE = process.env.MOO_IO_NETWORK_MODE === "vpn" ? "vpn" : "lan";
+if (!allowedRoomInterface(HOST, NETWORK_MODE)) throw new Error("HOST must be a private IPv4 assigned to LAN/VPN (not 0.0.0.0 or public IP)");
 if (!validRoomCode(ROOM_CODE)) throw new Error("MOO_IO_ROOM_CODE must be 8-64 letters, digits or dashes");
 
 // Game servers shown in the client's server picker (region "local" = this host).
@@ -253,7 +256,7 @@ app.post("/mooio/shutdown", (req, res) => {
 });
 app.get("/mooio/status", (_req, res) => {
     res.set("Cache-Control", "no-store");
-    res.json({ project: "Moo-IO", mode: "lan", build: build.BUILD_ID });
+    res.json({ project: "Moo-IO", mode: NETWORK_MODE, build: build.BUILD_ID });
 });
 
 app.use(express.static(PUBLIC_DIR));
@@ -274,6 +277,34 @@ server.on("upgrade", (req, socket, head) => {
     }
     wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, req, game));
 });
+
+// Local-only process controller. The game port binds to a single private
+// LAN/VPN adapter, so the GUI uses a distinct 127.0.0.1 control socket.
+if (process.env.MOO_IO_GUI_HOST === "1") {
+    const controller = createServer((req,res) => {
+        res.setHeader("content-type", "application/json");
+        res.setHeader("cache-control", "no-store");
+        if (req.url === "/status" && req.method === "GET") {
+            res.writeHead(200);
+            return res.end(JSON.stringify({project:"Moo-IO",mode:NETWORK_MODE,host:HOST}));
+        }
+        if (req.url === "/shutdown" && req.method === "POST" &&
+            equalRoomCode(ROOM_CODE,req.headers["x-mooio-code"])) {
+            res.writeHead(200);
+            res.end('{"ok":true}');
+            setTimeout(()=>process.kill(process.pid,"SIGTERM"),50);
+            return;
+        }
+        res.writeHead(403);
+        res.end('{"error":"forbidden"}');
+    });
+    controller.listen(PORT + 1,"127.0.0.1");
+    controller.on("error",error=>{
+        log("Moo IO controller failed: "+error.message);
+        process.exitCode=1;
+        server.close();
+    });
+}
 
 server.listen(PORT, HOST, () => {
     log(`Moo IO LAN room on http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
