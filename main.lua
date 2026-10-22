@@ -508,7 +508,8 @@ local function homeAction(action)
   if action=="play_tab" then
     home.screen="play"
     if hosted.state=="ready" then
-      home:setStatus("Sua sala particular esta ativa. F2 no jogo para convidar.")
+      home.autoJoin=false
+      connectRoom(hosted.hostIP,hosted.port,hosted.code)
     elseif hosted.state=="starting" then
       home.autoJoin=true
       home:setStatus("Criando sua sala particular...")
