@@ -9,9 +9,10 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const base=path.resolve(process.argv[2]||path.join(root,"assets","reference","img"));
 const signature=Buffer.from("89504e470d0a1a0a","hex");
 export function verifyPNG(buffer){
-  if(buffer.length<45)throw Error("arquivo pequeno demais para PNG");
+  if(buffer.length<8)throw Error("arquivo pequeno demais para PNG");
   if(!buffer.subarray(0,8).equals(signature))
     throw Error("assinatura PNG incorreta (arquivo nao e PNG)");
+  if(buffer.length<45)throw Error("arquivo pequeno demais para PNG");
   let at=8,width=0,height=0,seenIHDR=false,seenIEND=false;
   const compressed=[];
   while(at+12<=buffer.length){
