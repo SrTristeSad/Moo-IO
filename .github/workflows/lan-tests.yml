@@ -16,6 +16,8 @@ jobs:
       - run: npm install --prefix server --no-audit --no-fund
       - run: npm install --no-audit --no-fund
       - run: node --check server/src/index.js
+      - name: Verificar todos os 176 PNGs do ZIP entregue
+        run: node tools/verify-bundled-art.mjs
       - run: node --test tests/*.test.mjs
   powershell-syntax:
     runs-on: windows-latest
