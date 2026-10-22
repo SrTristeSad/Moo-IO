@@ -62,40 +62,23 @@ As artes definitivas ficam para depois. Este repositório não redistribui image
 Servidor reconstruído baseado em [al007ex/moomoo-clone](https://github.com/al007ex/moomoo-clone), commit `06f7c1ca965a7628671676c8d9a7efd3997bb5e7` (Apache-2.0). Cliente Lua importado do snapshot autorizado anterior ao V2 do Moo-Quest. Contribuições novas Moo IO e cliente distribuídas sob AGPL-3.0-only, respeitando as atribuições anteriores. Veja [NOTICE.md](NOTICE.md) e [LICENSE](LICENSE).
 
 
-## Imagens: PNG verdadeiro e arte personalizada
+## Artes incluídas no GitHub — sem preparação ao jogar
 
-O cliente espera 180 nomes de sprites nas categorias animais, armas,
-chapeus, acessorios, recursos e icones. A origem congelada contem seis
-imagens **WebP lossless com extensao .png**; elas sao imagens validas no
-formato WebP, nao PNGs genuinos. A preparacao local converte o conteudo
-para PNG verdadeiro preservando os pixels e a transparencia.
+O repositório distribui os 180 arquivos gráficos requeridos pelo
+cliente diretamente em `assets/custom/img/`, separados em `animals/`,
+`weapons/`, `hats/`, `accessories/`, `resources/` e `icons/`.
 
-**Sem terminal no Windows:** instale Node.js 20+, LOVE 2D 11.5 e LuaSocket,
-extraia o ZIP completo, execute `MOO-IO.vbs` e clique `Jogar`.
-O proprio lancador prepara os PNGs antes de abrir o cliente, tanto para anfitrioes quanto para quem apenas entra por convite. Na primeira instalacao pode demorar por causa da transferencia. O servidor tambem verifica as imagens ao criar uma sala.
-Se ainda nao tiver os sprites, o processo baixa a referencia congelada
-do GitHub, convertendo os WebPs automaticamente. A faixa de status mostra
-o andamento e eventuais erros. A inicializacao inicial exige internet
-se nao houver a pasta de imagens antiga.
+Nenhum sprite é baixado, convertido ou gerado no computador do jogador.
+`MOO-IO.vbs` abre o jogo com as imagens já presentes; o servidor não
+executa nenhuma instalação de imagens. Se estiver faltando o martelo,
+o lançador informa que o pacote baixado está incompleto.
 
-Preparacao manual opcional: `npm install`, `npm run assets:sync`
-e `npm run assets:check` para verificar os PNGs resultantes.
-O relatorio `ARTES-PENDENTES.txt` separa arquivos ausentes dos
-arquivos com formato invalido.
+**Arte diferente do original:** a distribuição usa assets CC0 da
+Kenney, não os sprites originais da FRVR/MooMoo.io. O conjunto fornece
+imagens reais, mas certas armas, roupas e animais são alternativas
+visuais e precisarão de artes personalizadas para reproduzir o estilo
+que você deseja. Os nomes exigidos pelo código são preservados.
 
-O cliente carrega primeiro `assets/custom/img/<categoria>/<arquivo>.png`,
-depois `assets/reference/img/<categoria>/<arquivo>.png`.
-A pasta `assets/custom/img` pode conter seus sprites originais,
-com nomes do `support/reference-image-manifest.json`.
-O arco de diamante `weapons/bow_1_d.png` nao existe no pacote original:
-sem arte propria, o cliente usa a imagem-base do arco, nao uma imagem falsa.
-
-Para aproveitar uma instalacao antiga, indique a pasta que ja contem as
-subpastas `animals`, `weapons` etc. em `MOO_IO_ART_SOURCE_DIR`
-ou coloque-as em `assets/custom/img`. O script tambem verifica uma
-pasta Moo-Quest irma.
-
-**Direitos:** os arquivos originais de MooMoo.io/FRVR pertencem a terceiros,
-por isso sao preparados para uso local e nao foram adicionados ao
-repositorio. Voce pode versionar imagens suas em `assets/custom/img`
-se possuir os direitos para distribui-las publicamente.
+A relação de imagens, licença, fonte e mudanças está em
+`assets/custom/CC0-PROVENANCE.md`. `npm run assets:check` é destinado
+aos desenvolvedores e aos testes, e não precisa ser executado para jogar.

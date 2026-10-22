@@ -23,20 +23,6 @@ try {
     throw "O IP $($env:HOST) nao esta atribuido a um adaptador de rede ativo. Abra sua VPN e use o IP que ela mostra."
   }
 
-  # Prepare images before admitting players. No image is fabricated.
-  # Existing local/custom PNGs are preserved; mislabeled WEBP is transcoded.
-  if (-not (Test-Path (Join-Path $root 'node_modules\sharp\package.json')) -or
-      -not (Test-Path (Join-Path $root 'node_modules\adm-zip\package.json'))) {
-    "MOOIO_PHASE_ASSET_DEPENDENCIES" | Out-File $log
-    & npm.cmd install --prefix $root --no-audit --no-fund *>> $log
-    if ($LASTEXITCODE -ne 0) { throw 'Falha ao instalar conversor de imagens.' }
-  }
-  "MOOIO_PHASE_ASSETS" | Out-File $log -Append
-  & node.exe (Join-Path $root 'tools\sync-reference-art.mjs') *>> $log
-  if ($LASTEXITCODE -ne 0) {
-    throw 'Falha ao preparar sprites. Consulte ARTES-PENDENTES.txt.'
-  }
-
   if (-not (Test-Path (Join-Path $root 'server\node_modules\ws\package.json'))) {
     "MOOIO_PHASE_INSTALLING" | Out-File $log
     & npm.cmd install --prefix (Join-Path $root 'server') --no-audit --no-fund *>> $log

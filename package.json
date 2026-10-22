@@ -11,7 +11,8 @@
     "start:server": "node server/src/index.js",
     "test": "node --test tests/*.test.mjs",
     "assets:sync": "node tools/sync-reference-art.mjs",
-    "assets:check": "node tools/inspect-reference-png.mjs assets/reference/img"
+    "assets:check": "node tools/verify-bundled-art.mjs",
+    "assets:bundle": "node tools/build-bundled-art.mjs"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
