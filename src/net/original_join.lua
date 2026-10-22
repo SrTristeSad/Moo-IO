@@ -4,8 +4,9 @@
 -- it checks the presence of a 'captcha' value, not an external CAPTCHA service.
 -- This is only appropriate for the local test server.
 local Join={}
-local function localhost(host)
-  return host=="127.0.0.1" or host=="localhost"
+-- Moo IO modification: hosts may be reached from other machines on LAN.
+local function validHost(host)
+  return type(host)=="string" and host:match("^[%w%.%-]+$")~=nil
 end
 local function getError(response)
   if type(response)~="string" then return "resposta ausente" end
@@ -25,12 +26,17 @@ function Join.guest(options)
   local host=options.host or "127.0.0.1"
   local port=options.port or 8080
   local server=options.server or "LC"
-  if not localhost(host) then return nil,"ticket guest apenas em localhost" end
+  if not validHost(host) then return nil,"host invalido" end
   if type(port)~="number" or port<1 or port>65535 or port%1~=0 then
     return nil,"porta invalida"
   end
   if type(server)~="string" or not server:match("^[A-Za-z0-9]+$") then
     return nil,"servidor invalido"
+  end
+  local roomCode=options.inviteCode
+  if type(roomCode)~="string" or not roomCode:match("^[%w%-]+$")
+    or #roomCode<8 or #roomCode>64 then
+    return nil,"codigo de convite invalido"
   end
   local http=options.http or require("socket.http")
   local ltn12=options.ltn12 or require("ltn12")
@@ -59,7 +65,8 @@ function Join.guest(options)
     headers={
       ["Content-Type"]="application/json",
       ["Content-Length"]=tostring(#body),
-      ["Connection"]="close"
+      ["Connection"]="close",
+      ["X-MooIO-Code"]=roomCode
     },
     source=ltn12.source.string(body),
     sink=ltn12.sink.table(chunks)
