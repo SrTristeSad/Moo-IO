@@ -37,7 +37,7 @@ function Original.new(options)
   local socketHttp=options.http or require("socket.http")
   return setmetatable({
     host=options.host or "127.0.0.1",port=options.port or 8080,
-    server=options.server or "LC",
+    server=options.server or "LC",inviteCode=options.inviteCode,
     name=options.name or "Jogador",
     autoSpawn=options.autoSpawn~=false,
     authToken=options.authToken,
@@ -73,6 +73,7 @@ function Original:connect()
   -- One fresh, single-use ticket is required for every WebSocket attempt.
   local grant,joinError=self.join.guest({
     host=self.host,port=self.port,server=self.server,did=self.did,
+    inviteCode=self.inviteCode,
     authToken=self.authToken,
     http=self.http,ltn12=self.ltn12
   })
@@ -103,7 +104,7 @@ function Original:connect()
   self.websocket=ws
   self.state="connecting"
   self.error=nil
-  self.status="Ticket guest original emitido; abrindo WebSocket em localhost..."
+  self.status="Ticket da sala emitido; abrindo WebSocket..."
   -- Do not print URLs containing the secret single-use ticket.
   return true
 end
@@ -127,7 +128,7 @@ function Original:update()
           self.handshake=handshake
           self.state="handshake_received"
           self.events[#self.events+1]={kind="io-init",data=handshake}
-          local params,buildError=Build.load(self.build)
+          local params,buildError=Build.load(self.build,{host=self.host,port=self.port})
           if handshake.pinned and not params then
             self.state="blocked"
             self.error=tostring(buildError)
