@@ -26,5 +26,5 @@ test("lossless WebP mislabeled .png converts to a real pixel-identical PNG",asyn
   assert.throws(()=>verifyPNG(webp),/assinatura PNG/);
   const png=await sharp(webp).png().toBuffer();
   assert.equal(verifyPNG(png),"1x1");
-  assert.deepEqual(await sharp(png).raw().toBuffer(),raw);
+  assert.deepEqual(await sharp(png).ensureAlpha().raw().toBuffer(),raw);
 });
