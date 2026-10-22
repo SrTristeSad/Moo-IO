@@ -52,5 +52,19 @@ return function()
   assert(home:click(453,300)=="grid")
   assert(home.showGrid==false)
   assert(home:click(445,390)=="fullscreen")
+  -- Render each page to an offscreen canvas to catch graphical/layout crashes.
+  local canvas=love.graphics.newCanvas(1280,720)
+  love.graphics.setCanvas(canvas)
+  for _,page in ipairs({"home","play","server","settings"}) do
+    home.screen=page
+    home:draw("idle","")
+  end
+  home.screen="play"
+  home.roomOverlay=true
+  home:draw("idle","")
+  home:drawRoomOverlay()
+  home.roomOverlay=false
+  love.graphics.setCanvas()
+  canvas:release()
   print("MOO IO MENU PASS: pessoal/IP/convite/F2/servidores Lite-Firebase/configuracoes")
 end
