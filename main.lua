@@ -35,6 +35,7 @@ local menu=Menu.new()
 local home=Home.new()
 local hosted=Host.new()
 local joinRequested=false
+local connectRoom
 local panels=Panels.new()
 local profile=Profile.new()
 local clans=Clans.new()
@@ -144,9 +145,13 @@ function love.update(dt)
   if home.starting and hosted.state=="ready" then
     home.starting=false;home.hosting=true
     home.hostAddress=hosted.address;home.hostCode=hosted.code
-    home:setStatus("Sala criada! Copie o convite ou clique em JOGAR AGORA.")
+    home:setStatus("Sala particular criada. Convide amigos pelo F2.")
+    if home.autoJoin then
+      home.autoJoin=false
+      connectRoom(hosted.hostIP,hosted.port,hosted.code)
+    end
   elseif home.starting and hosted.state=="failed" then
-    home.starting=false;home.hosting=false
+    home.starting=false;home.hosting=false;home.autoJoin=false
     home:setStatus(hosted.error or "Nao foi possivel iniciar o servidor.",true)
   end
   if not client then return end
@@ -340,6 +345,15 @@ function love.draw()
     clans:draw(true)
     Notices.draw(world,w,h)
     profile:draw(world)
+    if hosted.state=="ready" then
+      home:drawRoomOverlay()
+      if not home.roomOverlay then
+        love.graphics.setColor(0,0,0,0.58)
+        love.graphics.rectangle("fill",w-230,h-55,214,38,8,8)
+        love.graphics.setColor(0.85,1,0.86)
+        love.graphics.print("F2: CONVIDAR AMIGOS",w-219,h-45)
+      end
+    end
     if uiSmoke and uiSmokeClicked and not uiSmokeDrawn then
       uiSmokeDrawn=true
       print("MOO IO E2E PASS: convite -> handshake -> C/D -> mundo e HUD renderizados")
@@ -457,7 +471,7 @@ menuAction=function(action)
 end
 
 -- Native menu actions. Only one authoritative Node session exists at a time.
-local function connectRoom(ip,port,inviteCode)
+connectRoom=function(ip,port,inviteCode)
   if client then client:close();client=nil end
   world=World.new()
   local ok,connection=pcall(Original.new,{
@@ -481,7 +495,28 @@ local function connectRoom(ip,port,inviteCode)
 end
 
 local function homeAction(action)
-  if action=="create" then
+  if action=="play_tab" then
+    home.screen="play"
+    if hosted.state=="ready" then
+      home:setStatus("Sua sala particular esta ativa. F2 no jogo para convidar.")
+    elseif hosted.state=="starting" then
+      home.autoJoin=true
+      home:setStatus("Criando sua sala particular...")
+    else
+      home.autoJoin=true
+      homeAction("create")
+    end
+  elseif action=="server_to_play" then
+    home.screen="play"
+    home.autoJoin=false
+    home:setStatus("Entre usando IP, porta e codigo fornecidos pelo anfitriao.")
+  elseif action=="provider_lite" then
+    home:setStatus("V2 Lite: requer um servidor dedicado e compatibilidade de protocolo.")
+  elseif action=="provider_firebase" then
+    home:setStatus("Firebase: login e busca de salas dependem da configuracao do projeto.")
+  elseif action=="back" then
+    home.autoJoin=false
+  elseif action=="create" then
     if client then client:close();client=nil end
     home:setStatus("Iniciando servidor local sem terminal...")
     local ok,err=hosted:start(home.serverMode,home.vpnIP)
@@ -489,7 +524,7 @@ local function homeAction(action)
       home.starting=true;home.hosting=false
       home.hostCode="";home.hostAddress=""
     else
-      home.starting=false
+      home.starting=false;home.autoJoin=false
       home:setStatus(tostring(err),true)
     end
   elseif action=="mode_lan" or action=="mode_vpn" then
@@ -497,7 +532,8 @@ local function homeAction(action)
       and "Abra sua VPN com os amigos e informe o IP virtual deste computador."
       or "Modo LAN: amigos conectados ao mesmo roteador.")
   elseif action=="join" then
-    local target,why=Home.parseInvite(home.invite)
+    home.autoJoin=false
+    local target,why=Home.parseInvite(home.invite,home.joinCode)
     if not target then home:setStatus(why,true);return end
     connectRoom(target.host,target.port,target.code)
   elseif action=="play_local" then
@@ -508,13 +544,13 @@ local function homeAction(action)
     if client then client:close();client=nil end
     hosted:stop()
     home.hosting=false;home.starting=false
-    home.hostAddress="";home.hostCode=""
+    home.hostAddress="";home.hostCode="";home.autoJoin=false
     home:setStatus("Sala encerrada.")
   elseif action=="retry" then
     if hosted.state=="ready" and (home.invite=="" or home.invite==home:roomInvite()) then
       connectRoom(hosted.hostIP,hosted.port,hosted.code)
     else
-      local target,why=Home.parseInvite(home.invite)
+      local target,why=Home.parseInvite(home.invite,home.joinCode)
       if target then connectRoom(target.host,target.port,target.code)
       else home:setStatus(why,true) end
     end
@@ -562,6 +598,21 @@ local function openProfile(sid)
 end
 
 function love.keypressed(key)
+  if phase=="playing" and home.roomOverlay then
+    if key=="escape" or key=="f2" then home.roomOverlay=false end
+    return
+  end
+  if phase=="playing" and hosted.state=="ready" and key=="f2"
+    and not chatOpen and not panels:isOpen() and not clans:isOpen() then
+    home.roomOverlay=true
+    input.keys={};lastMove=false
+    if client and client.state=="spawn_confirmed" then
+      client:send("e",{})
+      client:send("F",{0,Pack.null})
+    end
+    mouseAttack=false;spaceAttack=false
+    return
+  end
   if phase=="death" then return end
   if profile:isOpen() then
     if key=="escape" or key=="p" then closeProfile() end
@@ -583,6 +634,7 @@ function love.keypressed(key)
   if key=="escape" then
     if chatOpen then chatOpen=false;chatDraft="";return end
     if phase=="playing" then
+      home.roomOverlay=false
       if client then client:close();client=nil end
       phase="menu"
       home.screen="home"
@@ -709,6 +761,14 @@ function love.focus(focused)
   end
 end
 function love.mousepressed(x,y,button)
+  if home.roomOverlay then
+    if button==1 and home:overlayClick(x,y)=="copy" then
+      local link=home:roomInvite()
+      if link~="" then love.system.setClipboardText(link) end
+      home:setStatus("Convite copiado para enviar aos amigos.")
+    end
+    return
+  end
   if diagnostic or phase=="death" then return end
   if phase=="menu" then
     if button==1 then homeAction(home:click(x,y)) end
