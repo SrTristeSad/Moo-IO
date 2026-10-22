@@ -1,47 +1,40 @@
 # Moo IO
 
-Projeto comunitario de multiplayer com **cliente Lua / LOVE 2D** e **servidor Node.js reconstruido**, separado do Moo-Quest privado. O codigo do **Server V2 do Moo-Quest nao esta incluido**.
+Jogo multiplayer em **Lua/LÖVE 2D**, com servidor de partida **Node.js**. Projeto comunitário separado do Moo-Quest; o servidor privado V2 do Moo-Quest **não está incluído**.
 
-## Windows — jogar sem terminal
+## Menu principal
 
-Requisitos: Node.js 20+, LÖVE 2D 11.5 e LuaSocket disponivel no runtime LÖVE. Requer internet **somente na instalacao inicial das dependencias do Node**.
+| Tela | Para que serve |
+| --- | --- |
+| **Jogar** | Cria uma sala particular ao ser selecionado. O jogo inicia o servidor interno e entra automaticamente na partida; amigos podem ser convidados. Também permite entrar em outra sala pelo IP e código. |
+| **Servidores** | Área própria para os futuros servidores dedicados **V2 Lite** e o catálogo de salas/contas via **Firebase**. Essas integrações ainda não estão conectadas a serviços externos. |
+| **Configurações** | Grade do mapa e tela cheia. |
 
-1. Extraia o projeto no computador.
-2. Execute **MOO-IO.vbs** (recomendado; abre a interface do jogo sem terminal). MOO-IO.bat redireciona para o mesmo launcher.
-3. O menu inicial oferece **JOGAR**, **SERVIDOR** e **CONFIGURACOES**.
-4. Em **SERVIDOR**, clique em **CRIAR SALA LAN**. O servidor Node inicia em segundo plano; o jogo mostra a instalacao, o andamento e os erros na propria tela.
-5. Quando a sala estiver pronta, clique em **COPIAR CONVITE**, envie a um amigo da mesma rede ou escolha **JOGAR AGORA**.
-6. O amigo abre seu Moo IO, escolhe **JOGAR**, cola o convite no campo e pressiona **ENTRAR NA PARTIDA**.
-7. O cliente faz ticket, WebSocket, handshake criptografado e envia o spawn automaticamente. A tela do mundo so aparece depois da confirmacao real do servidor.
+### Jogar sozinho e convidar amigos
 
-Convite de exemplo (apenas ilustrativo): `192.168.1.10:8080/a1b2c3d4e5f6a7b8`.
+1. Instale **Node.js 20+**, **LÖVE 2D 11.5** com LuaSocket e abra **MOO-IO.vbs** no Windows.
+2. Clique em **Jogar**. O cliente começa a criar sua sala particular sem abrir um terminal e tenta entrar nela assim que estiver pronta.
+3. Dentro da partida, pressione **F2** para abrir o convite da sala. Use **Copiar convite** e envie aos amigos.
+4. Amigos abrem **Jogar**, digitam o IP/porta e o código de acesso separadamente **ou colam um convite completo**, e clicam em **Entrar na sala**.
 
-**Nao e necessario abrir PowerShell, CMD ou o painel do servidor para hospedar ou entrar.** O Node pode ser instalado como dependencia do jogo em versoes futuras, mas nesta etapa o usuario precisa ter Node.js instalado. A primeira instalacao pode baixar pacotes com npm sem mostrar terminal.
+Exemplo de convite: `192.168.1.10:8080/abcd1234567890ef`. O código de acesso é necessário para obter o ticket de entrada no servidor reconstruído. Quando alguém entra, o servidor Node é responsável por movimentação, animais, construções, recursos e combate. Não são criados jogadores ou entidades fictícios no cliente.
 
-## Jogar pela VPN com amigos fora da sua casa
+**Bots não foram adicionados.** A estrutura de sala particular permite incluí-los futuramente, mas não há comportamento de bots nem opções falsas na interface.
 
-A VPN precisa estar instalada e conectada **nos dois computadores**. No jogo, abra **Servidor → VPN privada**, informe o IPv4 virtual do anfitriao mostrado pelo Tailscale, ZeroTier, Radmin VPN ou similar e clique em **Criar sala na VPN**. O Moo IO escuta apenas nesse endereco e mostra um convite `IP:8080/CODIGO`. O amigo abre **Jogar** e cola o convite.
+### Amigos de outras redes
 
-O modo VPN aceita apenas faixas de enderecos privados ou de redes virtuais conhecidas, nunca IPs publicos arbitrarios. O controle do servidor fica apenas no computador anfitriao. **Nao abra a porta no roteador nem publique a sala na internet**: o backend herdado ainda usa autenticacao de testes.
+Para partidas fora da mesma LAN, conecte os computadores a uma VPN privada (por exemplo, Tailscale, ZeroTier ou Radmin), selecione **VPN** dentro de **Jogar** e informe o endereço virtual atribuído ao PC anfitrião. O convite poderá ser usado pelos outros participantes da VPN.
 
-Guia completo: [docs/VPN-PRIVADA.md](docs/VPN-PRIVADA.md).
+Veja [Guia de VPN](docs/VPN-PRIVADA.md). A VPN deve estar instalada e conectada; o jogo não instala esses serviços nem atravessa CGNAT sozinho.
 
-## Funcionalidades do novo menu
+### Servidores V2 Lite e Firebase
 
-- **Jogar:** definir apelido, colar convite, entrar automaticamente na partida e tentar novamente quando houver erro.
-- **Servidor:** escolher LAN ou VPN privada, hospedar sala na interface de rede selecionada, copiar convite, entrar na propria sala e encerra-la.
-- **Configuracoes:** grade do mapa e tela cheia.
-- **Dentro da partida:** WASD, mouse, barra de itens, ataque, coleta, loja e demais recursos do cliente Lua herdado. Esc permite retornar ao menu sem desligar a sala hospedada.
+A tela **Servidores** já separa os dois tipos de serviço. É uma organização da navegação, **não significa que as APIs já estejam funcionais**.
 
-As artes proprietarias do jogo original NAO estao no pacote. Para renderizacao completa, coloque apenas PNGs com licenca valida em `assets/custom/img/<categoria>/<arquivo>.png`. O cliente nao inventa entidades ou sprites ausentes.
+- **V2 Lite:** servidor dedicado comunitário. Falta validar o protocolo e integrar o cliente ao serviço.
+- **Firebase:** futura autenticação de usuários, amigos, descoberta e lista de salas. Falta vincular um projeto Firebase, configurar regras e credenciais de aplicação. Firebase não substitui o motor de jogo Node nem garante comunicação direta pela internet.
 
-## Erros e limitacoes
-
-- O convite permite **LAN ou VPN privada** por IP virtual, inclusive entre amigos em cidades diferentes na mesma VPN. Ainda nao ha Steam Networking, instalacao automatica de VPN nem servidor publico seguro; nao exponha a porta 8080 publicamente.
-- Se o computador estiver em Wi-Fi com isolamento de clientes ou firewall bloqueando TCP 8080, o convite nao conseguira conectar.
-- Se o Node nao iniciar, a interface apresenta um erro; consulte `server/data/mooio-host.log` para diagnostico tecnico quando necessario. Esse arquivo nao precisa ser aberto por jogadores comuns.
-- A conexao convidada da base reconstruida possui login/CAPTCHA de desenvolvimento e nao esta pronta para servidores na internet. Consulte SECURITY.md.
-- A renderizacao e gameplay foram testadas automaticamente em Linux contra um servidor Node real. A experiencia visual e a hospedagem oculta no Windows ainda devem ser testadas em computadores de jogadores.
+Para entrar em uma sala **Moo IO compatível**, utilize o campo IP/código de **Jogar**.
 
 ## Testes
 
@@ -50,13 +43,14 @@ npm install --prefix server
 npm test
 ```
 
-O GitHub Actions executa testes do protocolo/tickets e um teste de partida Lua/LÖVE contra o servidor Node real, exigindo spawn confirmado e renderizacao da HUD. Veja [Actions](https://github.com/SrTristeSad/Moo-IO/actions).
+O GitHub Actions verifica conexões/tickets, navegação do menu e um cliente Lua/LÖVE recebendo confirmação real de partida e renderizando HUD a partir do Node. Verifique os resultados em [Actions](https://github.com/SrTristeSad/Moo-IO/actions).
 
-## Codigo aberto e creditos
+O anfitrião Windows e a conexão entre PCs reais ainda exigem teste prático; os testes em CI não confirmam funcionamento em todos os adaptadores de rede ou instalações locais.
 
-- Servidor reconstruido de [al007ex/moomoo-clone](https://github.com/al007ex/moomoo-clone), commit `06f7c1ca965a7628671676c8d9a7efd3997bb5e7`, sob **Apache License 2.0**, com avisos preservados em `licenses/upstream-server-APACHE-2.0.txt`.
-- Cliente Lua derivado do snapshot autorizado do Moo-Quest, commit `5ad8c32d1889dcb94e5645982acc2a0f2d570e09`, anterior ao V2.
-- Codigo novo Moo IO e cliente sob **AGPL-3.0-only**, respeitando direitos preexistentes e os termos Apache-2.0. Consulte LICENSE e NOTICE.md.
-- Nao sao distribuidos bundle oficial FRVR, artes ou sons proprietarios, nem o Server V2 privado.
+## Segurança, artes e código aberto
 
-Quem modificar e distribuir este projeto deve cumprir as licencas correspondentes, inclusive disponibilizando o codigo das modificacoes quando aplicavel. Nao e obrigatorio enviar o codigo especificamente para este repositorio.
+Esta versão é para LAN ou VPN **privada confiável**. A API herdada tem mecanismos de autenticação de desenvolvimento; **não exponha o servidor à internet pública**. Consulte [SECURITY.md](SECURITY.md).
+
+As artes definitivas ficam para depois. Este repositório não redistribui imagens nem scripts proprietários do jogo oficial; recursos próprios com licença apropriada podem ficar em `assets/custom/img/`.
+
+Servidor reconstruído baseado em [al007ex/moomoo-clone](https://github.com/al007ex/moomoo-clone), commit `06f7c1ca965a7628671676c8d9a7efd3997bb5e7` (Apache-2.0). Cliente Lua importado do snapshot autorizado anterior ao V2 do Moo-Quest. Contribuições novas Moo IO e cliente distribuídas sob AGPL-3.0-only, respeitando as atribuições anteriores. Veja [NOTICE.md](NOTICE.md) e [LICENSE](LICENSE).
