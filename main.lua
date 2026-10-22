@@ -32,6 +32,9 @@ local uiSmokeDrawn=false
 local world=World.new()
 local camera=nil
 local menuCamera=nil
+local menuPreview=nil
+local previewW,previewH=0,0
+local previewAge=2
 local menu=Menu.new()
 local home=Home.new()
 local hosted=Host.new()
@@ -185,7 +188,10 @@ function love.update(dt)
   if diagnostic then return end
   -- The menu backdrop reuses the original top-down world preview even
   -- before connecting to a Node server.
-  if phase=="menu" then menu.world:update(dt) end
+  if phase=="menu" then
+    menu.world:update(dt)
+    previewAge=previewAge+dt
+  end
   hosted:update(dt)
   if home.starting or hosted.state=="failed" then home.serverLog=hosted.lastLog end
   if home.starting and hosted.state=="starting"
@@ -375,7 +381,28 @@ function love.draw()
   if phase=="menu" then
     -- The background is the original MooMoo world scene, not a static
     -- fake screenshot or a generated entity pretending to be online.
-    View.draw(menu.world,menuCamera,frameDelta,{showGrid=menu.grid})
+    -- Reuse a cached view of the familiar top-down game world on the title
+    -- screen. Rendering all procedural foliage every frame slowed the menu,
+    -- particularly on software-rendered or lower-end Windows machines.
+    -- Rebuild once per second or immediately on resize/grid changes.
+    if not menuPreview or previewW~=w or previewH~=h or previewAge>=1 then
+      if menuPreview and (previewW~=w or previewH~=h) then
+        menuPreview:release()
+        menuPreview=nil
+      end
+      if not menuPreview then
+        menuPreview=love.graphics.newCanvas(w,h)
+        previewW,previewH=w,h
+      end
+      love.graphics.push("all")
+      love.graphics.setCanvas(menuPreview)
+      love.graphics.clear(0,0,0,0)
+      View.draw(menu.world,menuCamera,frameDelta,{showGrid=menu.grid})
+      love.graphics.pop()
+      previewAge=0
+    end
+    love.graphics.setColor(1,1,1,1)
+    love.graphics.draw(menuPreview,0,0)
     local state=client and client.state or "idle"
     home:draw(state,client and (client.error or client.status) or "",true)
     if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen) end
@@ -626,6 +653,7 @@ homeAction=function(action)
     end
   elseif action=="grid" then
     menu.grid=home.showGrid
+    previewAge=2
     home:setStatus(home.showGrid and "Grade ativada." or "Grade desativada.")
   elseif action=="fullscreen" then
     local ok,err=love.window.setFullscreen(home.fullscreen)
@@ -697,6 +725,7 @@ local function pauseAction(action)
   if action=="toggle_grid" then
     home.showGrid=not home.showGrid
     menu.grid=home.showGrid
+    previewAge=2
   elseif action=="toggle_fullscreen" then
     home.fullscreen=not home.fullscreen
     local ok,err=love.window.setFullscreen(home.fullscreen)
@@ -1003,6 +1032,7 @@ function love.quit()
 end
 
 function love.resize(w,h)
+  previewAge=2
   if camera then camera:resize(w,h) end
   if menuCamera then menuCamera:resize(w,h) end
 end
