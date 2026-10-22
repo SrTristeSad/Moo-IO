@@ -2,6 +2,7 @@
 -- Moo IO native home menu. No terminal, external HTML or original-client menu.
 local Home={}
 Home.__index=Home
+local Network=require("src.net.mooio_network")
 
 local palette={
   base={0.055,0.095,0.10}, panel={0.10,0.16,0.17},
@@ -54,30 +55,13 @@ local function copy(value)
   if value and value~="" then love.system.setClipboardText(value) return true end
   return false
 end
-local function privateIPv4(ip)
-  local a,b,c,d=ip:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
-  if not a then return false end
-  a,b,c,d=tonumber(a),tonumber(b),tonumber(c),tonumber(d)
-  if a>255 or b>255 or c>255 or d>255 then return false end
-  return a==10 or a==127 or a==192 and b==168 or a==172 and b>=16 and b<=31
-end
 function Home.parseInvite(value)
-  if type(value)~="string" then return nil,"Convite vazio." end
-  value=value:match("^%s*(.-)%s*$")
-  local host,port,code=value:match("^([%w%.%-]+):(%d%d?%d?%d?%d?)/([%w%-]+)$")
-  if not host or not privateIPv4(host) then
-    return nil,"Use um IPv4 privado da mesma rede, como 192.168.1.10."
-  end
-  port=tonumber(port)
-  if not port or port<1 or port>65535 or #code<8 or #code>64 then
-    return nil,"Porta ou codigo de convite invalido."
-  end
-  return {host=host,port=port,code=code}
+  return Network.invite(value)
 end
 
 function Home.new()
   return setmetatable({
-    screen="home",nickname="Jogador",invite="",focus=nil,
+    screen="home",nickname="Jogador",invite="",vpnIP="",serverMode="lan",focus=nil,
     status="",error=false,hosting=false,starting=false,
     hostAddress="",hostCode="",connectionState="idle",serverLog="",
     showGrid=true,fullscreen=false,sessionTitle=""
@@ -115,7 +99,10 @@ function Home:click(sx,sy)
   elseif self.screen=="server" then
     self.focus=nil
     if not self.hosting and not self.starting then
-      if within(x,y,550,247,627,62) then return "create" end
+      if within(x,y,550,238,302,52) then self.serverMode="lan";return "mode_lan" end
+      if within(x,y,868,238,309,52) then self.serverMode="vpn";return "mode_vpn" end
+      if self.serverMode=="vpn" and within(x,y,550,326,627,49) then self.focus="vpnIP";return "focus" end
+      if within(x,y,550,self.serverMode=="vpn" and 401 or 332,627,58) then return "create" end
     elseif self.hosting then
       if within(x,y,550,412,627,58) then return "copy" end
       if within(x,y,550,486,300,58) then return "play_local" end
@@ -168,6 +155,9 @@ function Home:textinput(s)
   elseif self.focus=="invite" then
     s=s:gsub("[%c%s]","")
     self.invite=(self.invite..s):sub(1,128)
+  elseif self.focus=="vpnIP" then
+    s=s:gsub("[^%d%.]","")
+    self.vpnIP=(self.vpnIP..s):sub(1,15)
   end
 end
 function Home:draw(connectionState,connectionDetail)
@@ -197,7 +187,7 @@ function Home:draw(connectionState,connectionDetail)
     rectangle(563,192,610,360,{0.10,0.17,0.17,0.85},20)
     label("CRIAR OU ENTRAR EM SALAS",598,240,28,palette.fg)
     label("Um jogador hospeda a partida e convida",598,303,19,palette.subdued)
-    label("os amigos da mesma rede local.",598,337,19,palette.subdued)
+    label("os amigos pela LAN ou VPN privada.",598,337,19,palette.subdued)
     label("Servidor Node.js + cliente Lua/LÖVE",598,432,17,palette.accent)
   else
     button("< VOLTAR",64,56,115,44,false)
@@ -209,19 +199,30 @@ function Home:draw(connectionState,connectionDetail)
       label("Seu nome",550,203,17,palette.subdued)
       input(self.nickname,"Jogador",550,230,627,53,self.focus=="nickname")
       label("Cole o convite recebido de um amigo",550,320,17,palette.subdued)
-      input(self.invite,"192.168.1.10:8080/codigo",550,353,627,53,self.focus=="invite")
+      input(self.invite,"100.80.12.34:8080/codigo",550,353,627,53,self.focus=="invite")
       button("ENTRAR NA PARTIDA",550,430,300,58,true)
       button("CRIAR SALA",866,430,310,58,false)
       button("TENTAR NOVAMENTE",550,503,627,54,false)
     elseif self.screen=="server" then
       label("Hospede um mundo no seu computador",550,207,20,palette.fg)
       if not self.hosting and not self.starting then
-        button("CRIAR SALA LAN",550,247,627,62,true)
-        label("O servidor sera iniciado sem abrir o terminal.",550,337,17,palette.subdued)
-        label("Outros jogadores entram usando um convite.",550,365,17,palette.subdued)
+        button(self.serverMode=="lan" and "LAN SELECIONADA" or "REDE LOCAL",
+          550,238,302,52,self.serverMode=="lan")
+        button(self.serverMode=="vpn" and "VPN SELECIONADA" or "VPN PRIVADA",
+          868,238,309,52,self.serverMode=="vpn")
+        if self.serverMode=="vpn" then
+          label("IP mostrado na sua VPN (Tailscale, ZeroTier, Radmin)",550,300,15,palette.subdued)
+          input(self.vpnIP,"100.80.12.34",550,326,627,49,self.focus=="vpnIP")
+          button("CRIAR SALA NA VPN",550,401,627,58,true)
+          label("Os dois PCs devem estar na mesma VPN privada.",550,484,15,palette.subdued)
+        else
+          button("CRIAR SALA LAN",550,332,627,58,true)
+          label("Amigos conectados ao mesmo roteador.",550,426,17,palette.subdued)
+          label("Para jogar longe, selecione VPN PRIVADA.",550,463,15,palette.accent)
+        end
         if self.serverLog~="" then
-          label("ULTIMO REGISTRO DO SERVIDOR",550,415,14,palette.accent)
-          label(self.serverLog,550,438,12,palette.subdued,627,"left")
+          label("LOG DO SERVIDOR",550,536,12,palette.accent)
+          label(self.serverLog:sub(-110),550,553,11,palette.subdued,627,"left")
         end
       elseif self.starting and not self.hosting then
         label("Preparando o servidor e instalando dependencias...",550,291,19,palette.accent)
@@ -231,7 +232,7 @@ function Home:draw(connectionState,connectionDetail)
           label(self.serverLog,550,421,12,palette.subdued,620,"left")
         end
       else
-        label("SALA ATIVA NA REDE LOCAL",550,260,18,palette.accent)
+        label(self.serverMode=="vpn" and "SALA ATIVA NA VPN" or "SALA ATIVA NA LAN",550,260,18,palette.accent)
         rectangle(550,307,627,80,palette.panel2,10)
         label(self:roomInvite(),565,329,19,palette.fg,597,"center")
         button("COPIAR CONVITE",550,412,627,58,false)
