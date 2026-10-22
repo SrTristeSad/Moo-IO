@@ -72,7 +72,7 @@ para PNG verdadeiro preservando os pixels e a transparencia.
 
 **Sem terminal no Windows:** instale Node.js 20+, LOVE 2D 11.5 e LuaSocket,
 extraia o ZIP completo, execute `MOO-IO.vbs` e clique `Jogar`.
-A primeira sala prepara as imagens locais antes de iniciar o servidor.
+O proprio lancador prepara os PNGs antes de abrir o cliente, tanto para anfitrioes quanto para quem apenas entra por convite. Na primeira instalacao pode demorar por causa da transferencia. O servidor tambem verifica as imagens ao criar uma sala.
 Se ainda nao tiver os sprites, o processo baixa a referencia congelada
 do GitHub, convertendo os WebPs automaticamente. A faixa de status mostra
 o andamento e eventuais erros. A inicializacao inicial exige internet
