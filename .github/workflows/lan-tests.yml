@@ -25,5 +25,16 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'scripts/moo-io.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          foreach ($script in @('scripts/moo-io.ps1', 'scripts/start-server.ps1')) {
+            if (-not (Test-Path $script -PathType Leaf)) { throw "Script ausente: $script" }
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_ }
+              exit 1
+            }
+          }
+          if (-not (Test-Path 'server/src/index.js')) { throw 'Servidor Node ausente' }
+          if (-not (Test-Path 'MOO-IO.vbs')) { throw 'Launcher do jogo ausente' }
