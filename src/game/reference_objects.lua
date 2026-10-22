@@ -154,6 +154,13 @@ local function buildSprite(key,size,rotation,draw)
   image:setFilter("linear","linear")
   love.graphics.push("all")
   love.graphics.setCanvas(image)
+  -- A sprite can be requested for the first time while a player is
+  -- translated, rotated or scaled. Canvas rendering must start in its own
+  -- coordinate system, or the sprite is rasterized outside its texture and
+  -- becomes invisible even while its inventory icon remains visible.
+  love.graphics.origin()
+  love.graphics.setShader()
+  love.graphics.setScissor()
   love.graphics.clear(0,0,0,0)
   love.graphics.translate(dim/2,dim/2)
   love.graphics.rotate(rotation)
