@@ -2,6 +2,28 @@
 
 Jogo multiplayer em **Lua/LÖVE 2D**, com servidor de partida **Node.js**. Projeto comunitário separado do Moo-Quest; o servidor privado V2 do Moo-Quest **não está incluído**.
 
+## Menu e saida segura da partida
+
+O menu inicial usa como fundo a pre-visualizacao em tempo real do mundo
+top-down ja existente no cliente Moo IO/MooMoo; e apenas uma demonstracao
+visual local e **nao cria uma partida ou jogadores artificiais**.
+
+**Esc durante a partida** abre o menu de pausa/configuracoes sobre o
+mundo real recebido do servidor. A partida multiplayer continua rodando:
+o jogador para de enviar comandos de movimento e ataque enquanto o menu
+esta aberto, mas nao pausa os demais participantes. Na interface:
+
+- **Voltar ao jogo**: fecha o menu, sem desconectar.
+- **Configuracoes**: liga/desliga a grade do mapa e a tela cheia.
+- **Sair da partida (convidado)**: desconecta somente este usuario.
+- **Sair e encerrar sala (anfitriao)**: pergunta antes de desligar
+  o servidor e desconectar todos. Cancelar mantem a sala funcionando.
+
+A confirmacao vale tambem para o botao **Encerrar** na tela Jogar e para
+o fechamento da janela no Windows quando o usuario hospeda uma sala.
+O botao **Jogar** do menu principal apenas abre as escolhas, nao inicia
+servidor nem entra em partida sozinho.
+
 ## Menu principal
 
 | Tela | Para que serve |

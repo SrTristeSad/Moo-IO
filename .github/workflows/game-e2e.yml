@@ -40,6 +40,15 @@ jobs:
           set -o pipefail
           timeout 25s xvfb-run -a love . 2>&1 | tee "$RUNNER_TEMP/mooio-room-choice.log"
           grep -F 'MOO IO ROOM CHOICE PASS:' "$RUNNER_TEMP/mooio-room-choice.log"
+      - name: ESC configuracoes e confirmacao de encerramento
+        env:
+          MOO_IO_PAUSE_TEST: '1'
+          SDL_AUDIODRIVER: dummy
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -o pipefail
+          timeout 30s xvfb-run -a love . 2>&1 | tee "$RUNNER_TEMP/mooio-pause.log"
+          grep -F 'MOO IO PAUSE PASS:' "$RUNNER_TEMP/mooio-pause.log"
       - name: Validar sprites de itens com jogador transformado
         env:
           MOO_IO_SPRITE_TEST: '1'

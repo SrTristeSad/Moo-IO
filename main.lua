@@ -6,6 +6,7 @@ local World=require("src.game.world_state")
 local View=require("src.game.reference_view")
 local Menu=require("src.game.reference_menu")
 local Home=require("src.game.mooio_home")
+local Pause=require("src.game.mooio_pause")
 local Host=require("src.net.mooio_host")
 local Auth=require("src.net.local_auth")
 local Config=require("src.game.config")
@@ -34,6 +35,9 @@ local menuCamera=nil
 local menu=Menu.new()
 local home=Home.new()
 local hosted=Host.new()
+local pause=Pause.new()
+local sessionIsHost=false
+local allowQuit=false
 local joinRequested=false
 local connectRoom
 local homeAction
@@ -122,6 +126,21 @@ function love.load()
     love.event.quit(ok and 0 or 1)
     return
   end
+  if os.getenv("MOO_IO_PAUSE_TEST")=="1" then
+    local ok,err=pcall(function()
+      require("src.test_pause_flow")(pause,hosted,home,
+        function() phase="playing" end,
+        function() return phase end,
+        function() return client end,
+        function(value) client=value end,
+        function(value) sessionIsHost=value end,
+        function() return sessionIsHost end,
+        homeAction)
+    end)
+    if not ok then print("MOO IO PAUSE FAIL: "..tostring(err)) end
+    love.event.quit(ok and 0 or 1)
+    return
+  end
   if os.getenv("MOO_IO_HUD_TEST")=="1" then
     local ok,err=pcall(function() require("src.test_missing_asset_ui")() end)
     if not ok then print("MOO IO HUD FAIL: "..tostring(err)) end
@@ -164,6 +183,9 @@ function love.update(dt)
   frameDelta=dt
   if integration then integration:update(dt);return end
   if diagnostic then return end
+  -- The menu backdrop reuses the original top-down world preview even
+  -- before connecting to a Node server.
+  if phase=="menu" then menu.world:update(dt) end
   hosted:update(dt)
   if home.starting or hosted.state=="failed" then home.serverLog=hosted.lastLog end
   if home.starting and hosted.state=="starting"
@@ -271,7 +293,6 @@ function love.update(dt)
     phase="menu"
     menu.status=""
   end
-  if phase=="menu" then menu.world:update(dt) end
   -- Use the actual menu click handler, not Original:spawn(), so CI verifies
   -- the user's Play button and the real Node connection together.
   -- The Moo IO E2E uses the same automatic spawn path as normal players.
@@ -281,7 +302,7 @@ function love.update(dt)
     camera:followReference(localPlayer.visualX or localPlayer.x,
       localPlayer.visualY or localPlayer.y,dt)
   end
-  if client.state=="spawn_confirmed" and not died then
+  if client.state=="spawn_confirmed" and not died and not pause:isOpen() then
     if panels:isOpen() or clans:isOpen() then input.keys={} end
     heartbeatClock=heartbeatClock+dt
     if heartbeatClock>=15 then
@@ -352,8 +373,12 @@ function love.draw()
     return
   end
   if phase=="menu" then
+    -- The background is the original MooMoo world scene, not a static
+    -- fake screenshot or a generated entity pretending to be online.
+    View.draw(menu.world,menuCamera,frameDelta,{showGrid=menu.grid})
     local state=client and client.state or "idle"
-    home:draw(state,client and (client.error or client.status) or "")
+    home:draw(state,client and (client.error or client.status) or "",true)
+    if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen) end
     return
   end
   if client and client.state=="spawn_confirmed" and not died
@@ -369,7 +394,7 @@ function love.draw()
     clans:draw(true)
     Notices.draw(world,w,h)
     profile:draw(world)
-    if hosted.state=="ready" then
+    if hosted.state=="ready" and not pause:isOpen() then
       home:drawRoomOverlay()
       if not home.roomOverlay then
         -- Invite hint no longer obscures the bottom-right resource HUD.
@@ -388,6 +413,10 @@ function love.draw()
       uiSmokeDrawn=true
       print("MOO IO E2E PASS: convite -> handshake -> C/D -> mundo e HUD renderizados")
       love.event.quit(0)
+    end
+    if pause:isOpen() then
+      pause:draw(home.showGrid,home.fullscreen)
+      return
     end
     -- Only show missing PNG diagnostics on explicit developer opt-in.
     if os.getenv("MOO_IO_DEBUG_ASSETS")=="1" then
@@ -415,6 +444,7 @@ function love.draw()
   love.graphics.printf("Carregando mundo e jogadores...",0,h/2-20,w,"center")
   love.graphics.setColor(0.68,0.75,0.73)
   love.graphics.printf(client and client.status or "Aguardando servidor...",40,h/2+26,w-80,"center")
+  if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen) end
 end
 
 local menuAction
@@ -514,6 +544,8 @@ connectRoom=function(ip,port,inviteCode)
     return false
   end
   client=connection
+  sessionIsHost=hosted.state=="ready"
+    and ip==hosted.hostIP and inviteCode==hosted.code
   menu.name=home.nickname
   joinRequested=true
   home.screen="play"
@@ -573,11 +605,11 @@ homeAction=function(action)
       connectRoom(hosted.hostIP,hosted.port,hosted.code)
     else home:setStatus("A sala ainda nao esta pronta.",true) end
   elseif action=="stop" then
-    if client then client:close();client=nil end
-    hosted:stop()
-    home.hosting=false;home.starting=false
-    home.hostAddress="";home.hostCode=""
-    home:setStatus("Sala encerrada.")
+    -- Even from the main menu, the owner must confirm disconnecting
+    -- everybody before the host process can be stopped.
+    if hosted.state=="ready" or hosted.state=="starting" then
+      pause:confirm(true,false)
+    end
   elseif action=="retry" then
     if hosted.state=="ready" and (home.invite=="" or home.invite==home:roomInvite()) then
       connectRoom(hosted.hostIP,hosted.port,hosted.code)
@@ -629,7 +661,61 @@ local function openProfile(sid)
   return true
 end
 
+-- One gate for leaving a live match or terminating an owned room.
+-- Choosing cancel/ESC from the confirmation never touches host:stop().
+local function stopGameplay(owned)
+  pause:close()
+  if client then client:close();client=nil end
+  joinRequested=false
+  sessionIsHost=false
+  home.roomOverlay=false
+  if owned then
+    hosted:stop()
+    home.hosting=false;home.starting=false
+    home.hostAddress="";home.hostCode=""
+  end
+  input.keys={};lastMove=false
+  mouseAttack=false;spaceAttack=false
+  chatOpen=false;chatDraft=""
+  panels:reset();clans:close();profile:close()
+  phase="menu";died=false
+  home.screen="play"
+  home:setStatus(owned and "Sala encerrada. Os participantes foram desconectados."
+    or "Voce saiu da partida. A sala do anfitriao continua online.")
+end
+local function stopPlayerControls()
+  input.keys={}
+  lastMove=false
+  mouseAttack=false;spaceAttack=false
+  chatOpen=false;chatDraft=""
+  if client and client.state=="spawn_confirmed" then
+    client:send("e",{})
+    client:send("F",{0,Pack.null})
+  end
+end
+local function pauseAction(action)
+  if action=="toggle_grid" then
+    home.showGrid=not home.showGrid
+    menu.grid=home.showGrid
+  elseif action=="toggle_fullscreen" then
+    home.fullscreen=not home.fullscreen
+    local ok,err=love.window.setFullscreen(home.fullscreen)
+    if not ok then home.fullscreen=not home.fullscreen;home:setStatus(tostring(err),true) end
+  elseif action=="leave_guest" then
+    stopGameplay(false)
+  elseif action=="leave_owner" or action=="quit_owner" then
+    stopGameplay(true)
+    if action=="quit_owner" then
+      allowQuit=true
+      love.event.quit()
+    end
+  end
+end
 function love.keypressed(key)
+  if pause:isOpen() then
+    pauseAction(pause:keypressed(key))
+    return
+  end
   if phase=="playing" and home.roomOverlay then
     if key=="escape" or key=="f2" then home.roomOverlay=false end
     return
@@ -643,6 +729,14 @@ function love.keypressed(key)
       client:send("F",{0,Pack.null})
     end
     mouseAttack=false;spaceAttack=false
+    return
+  end
+  if phase=="playing" and key=="escape" then
+    stopPlayerControls()
+    panels:close();clans:close()
+    if profile:isOpen() then closeProfile() end
+    home.roomOverlay=false
+    pause:open(sessionIsHost)
     return
   end
   if phase=="death" then return end
@@ -663,16 +757,9 @@ function love.keypressed(key)
     homeAction(home:keypressed(key))
     return
   end
-  if key=="escape" then
-    if chatOpen then chatOpen=false;chatDraft="";return end
-    if phase=="playing" then
-      home.roomOverlay=false
-      if client then client:close();client=nil end
-      phase="menu"
-      home.screen="home"
-      home:setStatus("Voce saiu da partida. Seu servidor pode continuar ativo.")
-      return
-    end
+  if key=="escape" and chatOpen then
+    chatOpen=false;chatDraft=""
+    return
   end
   if chatOpen then
     if key=="return" or key=="kpenter" then
@@ -793,6 +880,10 @@ function love.focus(focused)
   end
 end
 function love.mousepressed(x,y,button)
+  if pause:isOpen() then
+    if button==1 then pauseAction(pause:click(x,y)) end
+    return
+  end
   if home.roomOverlay then
     if button==1 and home:overlayClick(x,y)=="copy" then
       local link=home:roomInvite()
@@ -881,12 +972,14 @@ end
 -- Browser storeDisplay uses mouseover/mouseout for live item details.
 -- Only presentation changes; no purchase, equip or Node packet on hover.
 function love.mousemoved(x,y)
+  if pause:isOpen() then return end
   if phase=="playing" and panels:isOpen() and love.graphics then
     local w,h=love.graphics.getDimensions()
     panels:hover(x,y,w,h)
   end
 end
 function love.wheelmoved(dx,dy)
+  if pause:isOpen() then return end
   if clans:isOpen() then clans:wheelmoved(dx,dy);return end
   if phase=="playing" then panels:wheelmoved(dx,dy,world) end
 end
@@ -898,6 +991,13 @@ function love.mousereleased(_,_,button)
   end
 end
 function love.quit()
+  if not allowQuit and (hosted.state=="ready" or hosted.state=="starting") then
+    -- The window close button must not silently terminate an owner's map.
+    stopPlayerControls()
+    home.roomOverlay=false
+    pause:confirm(true,true)
+    return true -- cancel OS close; show confirmation in existing window
+  end
   if client then client:close() end
   if hosted then hosted:stop() end
 end

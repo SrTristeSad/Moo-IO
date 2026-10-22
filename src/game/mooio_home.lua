@@ -207,8 +207,21 @@ function Home:textinput(chars)
     self.vpnIP=(self.vpnIP..chars):sub(1,15)
   end
 end
-local function decorate()
-  -- Procedural block pattern replaces placeholder gradient circles.
+local function decorate(showWorld)
+  if showWorld then
+    -- Existing MooMoo top-down map preview is already drawn underneath.
+    -- No counterfeit server players; keep the real world art visible.
+    love.graphics.setColor(0.025,0.055,0.037,0.55)
+    love.graphics.rectangle("fill",0,0,1280,720)
+    love.graphics.setColor(0.06,0.11,0.075,0.74)
+    love.graphics.rectangle("fill",30,34,1220,657,5,5)
+    love.graphics.setColor(0.45,0.75,0.28,0.94)
+    love.graphics.rectangle("fill",36,40,1208,6)
+    love.graphics.setColor(1,1,1,0.08)
+    love.graphics.rectangle("line",34,38,1212,650,5,5)
+    return
+  end
+  -- Fallback decor only when no game background is provided.
   for iy=0,18 do
     for ix=0,32 do
       local x,y=ix*40,iy*40
@@ -236,15 +249,15 @@ local function decorate()
     love.graphics.rectangle("fill",t[1]+10*t[3],t[2]+9*t[3],43*t[3],27*t[3])
   end
 end
-function Home:draw(state,detail)
+function Home:draw(state,detail,showWorld)
   self.connectionState=state or self.connectionState
   love.graphics.push("all")
   local w,h=love.graphics.getDimensions()
   local z=math.min(w/1280,h/720)
   love.graphics.translate((w-1280*z)/2,(h-720*z)/2)
   love.graphics.scale(z)
-  love.graphics.clear(C.bg)
-  decorate()
+  if not showWorld then love.graphics.clear(C.bg) end
+  decorate(showWorld)
   -- Fixed header: the back button lives at the upper right, never over logo.
   love.graphics.setColor(0.09,0.12,0.095)
   love.graphics.rectangle("fill",58,72,325,83)
