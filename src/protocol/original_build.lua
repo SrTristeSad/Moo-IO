@@ -74,7 +74,7 @@ local function candidates()
 end
 M.candidates=candidates
 
-function M.load(expectedBuildId)
+function M.load(expectedBuildId,remote)
   local inspected=0
   local incompatible=false
   local malformed=false
@@ -102,6 +102,23 @@ function M.load(expectedBuildId)
     local params=M.parse(data)
     if params and (not expectedBuildId or params.buildId==expectedBuildId) then
       return params,nil,"node-runtime/server/data/protocol-build.json"
+    end
+  end
+  -- Moo IO modification: a second LAN PC cannot read server/data locally.
+  -- Fetch only the nonsecret protocol mixer constants from the host.
+  if remote and type(remote.host)=="string" and remote.host:match("^[%w%.%-]+$")
+    and type(remote.port)=="number" and remote.port>=1 and remote.port<=65535
+    and remote.port%1==0 then
+    local http=require("socket.http")
+    local old=http.TIMEOUT
+    http.TIMEOUT=3
+    local ok,body,code=pcall(http.request,"http://"..remote.host..":"..remote.port.."/mooio/protocol")
+    http.TIMEOUT=old
+    if ok and tonumber(code)==200 and type(body)=="string" then
+      local params=M.parse(body)
+      if params and params.buildId==expectedBuildId then
+        return params,nil,"mooio/protocol"
+      end
     end
   end
   if incompatible then
