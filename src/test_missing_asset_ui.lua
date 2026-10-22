@@ -1,0 +1,31 @@
+-- Focused regression for the annotated gameplay screenshot.
+return function()
+  local Animals=require("src.game.animals")
+  local Assets=require("src.game.reference_assets")
+  local Config=require("src.game.config")
+  local World=require("src.game.world_state")
+  local View=require("src.game.reference_view")
+  local Camera=require("src.camera")
+  local Hud=require("src.game.reference_hud")
+  for original,fallback in pairs(Animals.fallbackArt) do
+    assert(Assets.get("animals",fallback..".png"),
+      "Upload fallback cannot be loaded for "..original)
+  end
+  assert(Animals.byId(10).src=="yeti_1")
+  assert(Animals.fallbackArt[Animals.byId(10).src]=="vince")
+  local world=World.new()
+  local camera=Camera.new()
+  camera:follow(Config.mapScale/2,Config.mapScale/2)
+  local can=love.graphics.newCanvas(1280,720)
+  love.graphics.push("all")
+  love.graphics.setCanvas(can)
+  love.graphics.clear(0,0,0,0)
+  View.draw(world,camera,0.016,{showGrid=true})
+  Hud.draw(world,false,"",true)
+  love.graphics.pop()
+  local source=can:newImageData()
+  local r,g,b,a=source:getPixel(640,590)
+  assert(a>0.5,"HUD age bar must have legible background")
+  can:release()
+  print("MOO IO HUD PASS: supplied fallback, foliage and age HUD")
+end

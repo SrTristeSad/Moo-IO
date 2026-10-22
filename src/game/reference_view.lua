@@ -174,9 +174,19 @@ local function renderAnimal(a,camera,world)
   local x,y=camera:worldToScreen(a.visualX or a.x,a.visualY or a.y)
   -- renderAI: tmpScale = scale * 1.2 * spriteMlt
   local radius=kind.scale*1.2*(kind.spriteMlt or 1)*camera.zoom
-  Assets.draw("animals",kind.src..".png",x,y,radius*2,radius*2,
-    (a.dir or 0)+(a.dirPlus or 0)-pi/2,
-    View.animalOpacity(a,kind))
+  local angle=(a.dir or 0)+(a.dirPlus or 0)-pi/2
+  local alpha=View.animalOpacity(a,kind)
+  -- Only real supplied PNGs: an absent enemy sprite must not make
+  -- a server-authoritative enemy completely invisible.
+  local rendered=Assets.draw("animals",kind.src..".png",
+    x,y,radius*2,radius*2,angle,alpha)
+  if not rendered then
+    local candidate=Animals.fallbackArt and Animals.fallbackArt[kind.src]
+    if candidate then
+      Assets.draw("animals",candidate..".png",
+        x,y,radius*2,radius*2,angle,alpha)
+    end
+  end
 end
 local function drawWeapon(weapon,variant,scale)
   local filename,fallback=Assets.weaponFilename(

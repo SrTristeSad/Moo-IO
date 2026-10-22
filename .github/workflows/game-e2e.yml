@@ -40,6 +40,15 @@ jobs:
           set -o pipefail
           timeout 30s xvfb-run -a love . 2>&1 | tee "$RUNNER_TEMP/mooio-sprites.log"
           grep -F 'MOO IO SPRITES PASS:' "$RUNNER_TEMP/mooio-sprites.log"
+      - name: HUD de partida e animais do ZIP
+        env:
+          MOO_IO_HUD_TEST: '1'
+          SDL_AUDIODRIVER: dummy
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -o pipefail
+          timeout 30s xvfb-run -a love . 2>&1 | tee "$RUNNER_TEMP/mooio-hud.log"
+          grep -F 'MOO IO HUD PASS:' "$RUNNER_TEMP/mooio-hud.log"
       - name: Iniciar servidor da partida
         shell: bash
         run: |

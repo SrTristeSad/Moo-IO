@@ -39,7 +39,8 @@ local function drawResource(typ,s,biome)
       local scale=s*(i==0 and 1 or 0.5)
       local color=snowOrDesert and (i==0 and "#e3f1f4" or "#ffffff")
         or (i==0 and "#9ebf57" or "#b4db62")
-      P.star(7,scale,scale*0.7,color,i==0 and P.outline or nil)
+      -- Organic rounded canopy instead of sharp seven-point star.
+      P.blob(8,scale,scale*0.86,color,i==0 and P.outline or nil)
     end
   elseif typ==1 then
     if biome==2 then

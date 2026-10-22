@@ -32,6 +32,7 @@ function A.get(category,filename)
     end
   end
   missing[id]=#failed>0 and table.concat(failed,"; ") or "arquivo nao encontrado"
+  print("[MOO IO ARTE] "..id..": "..missing[id])
   cache[id]=false
   return nil
 end

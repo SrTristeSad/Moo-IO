@@ -140,6 +140,9 @@ local function kills(world,w)
   love.graphics.print(content,x+10,y+9)
 end
 local function ageBar(world,w,h)
+  -- Maintain legibility even with dense trees behind the translucent HUD.
+  love.graphics.setColor(0.10,0.15,0.11,0.86)
+  love.graphics.rectangle("fill",w/2-175,h-158,350,71,7,7)
   color(1,1,1)
   love.graphics.setFont(fontLarge)
   local label="AGE "..tostring(world.age or 1)
@@ -199,6 +202,9 @@ local function actionBar(world,w,h)
   local width=count*(slot+space)-space
   local origin=(w-width)/2
   local y=h-83
+  -- Protect the slots from foliage showing through behind them.
+  love.graphics.setColor(0.10,0.15,0.11,0.84)
+  love.graphics.rectangle("fill",origin-9,y-8,width+18,82,7,7)
   for i,entry in ipairs(entries) do
     local x=origin+(i-1)*(slot+space)
     box(x,y,slot,slot)

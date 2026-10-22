@@ -112,6 +112,12 @@ function love.load()
     love.event.quit(ok and 0 or 1)
     return
   end
+  if os.getenv("MOO_IO_HUD_TEST")=="1" then
+    local ok,err=pcall(function() require("src.test_missing_asset_ui")() end)
+    if not ok then print("MOO IO HUD FAIL: "..tostring(err)) end
+    love.event.quit(ok and 0 or 1)
+    return
+  end
   if os.getenv("MOO_IO_SPRITE_TEST")=="1" then
     local ok,err=pcall(function() require("src.test_sprite_render")() end)
     if not ok then print("MOO IO SPRITES FAIL: "..tostring(err)) end
@@ -360,10 +366,16 @@ function love.draw()
     if hosted.state=="ready" then
       home:drawRoomOverlay()
       if not home.roomOverlay then
-        love.graphics.setColor(0,0,0,0.58)
-        love.graphics.rectangle("fill",w-230,h-55,214,38,8,8)
-        love.graphics.setColor(0.85,1,0.86)
-        love.graphics.print("F2: CONVIDAR AMIGOS",w-219,h-45)
+        -- Invite hint no longer obscures the bottom-right resource HUD.
+        love.graphics.push("all")
+        local hint="F2  CONVIDAR AMIGOS"
+        local font=love.graphics.getFont()
+        local hintW=font:getWidth(hint)+24
+        love.graphics.setColor(0.08,0.13,0.10,0.88)
+        love.graphics.rectangle("fill",16,16,hintW,34,7,7)
+        love.graphics.setColor(0.86,1,0.82)
+        love.graphics.print(hint,28,24)
+        love.graphics.pop()
       end
     end
     if uiSmoke and uiSmokeClicked and not uiSmokeDrawn then
@@ -371,18 +383,20 @@ function love.draw()
       print("MOO IO E2E PASS: convite -> handshake -> C/D -> mundo e HUD renderizados")
       love.event.quit(0)
     end
-    -- Missing reference sprites remain optional; original third-party art is not shipped.
-    -- Never substitute a generated image or fabricated gameplay entity.
-    local absent,total=Assets.missingSummary(3)
-    if total>0 then
-      love.graphics.setColor(0,0,0,0.78)
-      love.graphics.rectangle("fill",12,12,620,47+18*#absent,4,4)
-      love.graphics.setColor(1,0.82,0.62)
-      love.graphics.print("Arquivos PNG ausentes ("..total.."):",20,19)
-      for i,file in ipairs(absent) do
-        love.graphics.print(file,20,20+i*18)
+    -- Only show missing PNG diagnostics on explicit developer opt-in.
+    if os.getenv("MOO_IO_DEBUG_ASSETS")=="1" then
+      local absent,total=Assets.missingSummary(3)
+      if total>0 then
+        love.graphics.push("all")
+        love.graphics.setColor(0,0,0,0.88)
+        love.graphics.rectangle("fill",16,58,590,34+19*#absent,5,5)
+        love.graphics.setColor(1,0.83,0.63)
+        love.graphics.print("PNG ausentes: "..total,24,64)
+        for i,file in ipairs(absent) do
+          love.graphics.print(file,24,64+i*19)
+        end
+        love.graphics.pop()
       end
-      love.graphics.print("Adicione apenas PNGs com licenca em assets/custom/img/",20,23+(#absent+1)*18)
     end
     return
   end
