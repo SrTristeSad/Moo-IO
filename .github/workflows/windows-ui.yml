@@ -1,0 +1,70 @@
+name: Moo IO - interface nativa Windows
+on:
+  push:
+    branches: [main]
+    paths:
+      - main.lua
+      - src/game/**
+      - src/net/mooio_host.lua
+      - .github/workflows/windows-ui.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-mooio-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-windows-ui:
+    runs-on: windows-2022
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar LÖVE 11.5 nativo x64
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/love2d/love/releases/download/11.5/love-11.5-win64.zip'
+          $zip = Join-Path $env:RUNNER_TEMP 'love-11.5-win64.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'love-runtime')
+          $exe = Get-ChildItem (Join-Path $env:RUNNER_TEMP 'love-runtime') -Recurse -Filter 'lovec.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'lovec.exe not found in official archive' }
+          "MOOIO_WIN_LOVE=$($exe.FullName)" >> $env:GITHUB_ENV
+          & $exe.FullName --version
+      - name: Rodar testes de menu e encerramento no Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $modes = @(
+            @{ Env = 'MOO_IO_MENU_TEST'; Expected = 'MOO IO MENU PASS:' },
+            @{ Env = 'MOO_IO_ROOM_CHOICE_TEST'; Expected = 'MOO IO ROOM CHOICE PASS:' },
+            @{ Env = 'MOO_IO_PAUSE_TEST'; Expected = 'MOO IO PAUSE PASS:' },
+            @{ Env = 'MOO_IO_SPRITE_TEST'; Expected = 'MOO IO SPRITES PASS:' },
+            @{ Env = 'MOO_IO_HUD_TEST'; Expected = 'MOO IO HUD PASS:' }
+          )
+          foreach ($test in $modes) {
+            $name = $test.Env
+            [Environment]::SetEnvironmentVariable($name, '1', 'Process')
+            $out = Join-Path $env:RUNNER_TEMP "$name-out.log"
+            $err = Join-Path $env:RUNNER_TEMP "$name-err.log"
+            Write-Host "Running $name..."
+            $proc = Start-Process -FilePath $env:MOOIO_WIN_LOVE -ArgumentList @($env:GITHUB_WORKSPACE) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if (-not $proc.WaitForExit(70000)) {
+              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+              throw "$name timed out"
+            }
+            $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + (Get-Content $err -Raw -ErrorAction SilentlyContinue)
+            Write-Host $text
+            if ($proc.ExitCode -ne 0) { throw "$name exited with $($proc.ExitCode)" }
+            if (-not $text.Contains($test.Expected)) { throw "$name did not report PASS" }
+            Remove-Item "Env:\$name"
+          }
+      - name: Logs se houver erro
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem "$env:RUNNER_TEMP\MOO_IO_*-*.log" -ErrorAction SilentlyContinue |
+            ForEach-Object {
+              Write-Host "--- $($_.Name) ---"
+              Get-Content $_.FullName -Tail 60 -ErrorAction SilentlyContinue
+            }
