@@ -121,6 +121,58 @@ jobs:
             if($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
             Move-Item $hidden $modules
           }
+      - name: Testar criar sala pelo script Windows sem node_modules
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = Join-Path $env:GITHUB_WORKSPACE 'windows\dist\Moo-IO-Windows'
+          $modules = Join-Path $dist 'server\node_modules'
+          $hidden = Join-Path $dist 'server\node_modules.test-hidden'
+          if (Test-Path $hidden) { throw 'Pasta temporaria de modulos ja existe' }
+          Move-Item $modules $hidden
+          $env:MOO_IO_BIND_IP = '127.0.0.1'
+          $env:MOO_IO_ROOM_CODE = 'roomofflinetest1234'
+          $env:MOO_IO_BOT_COUNT = '2'
+          $env:MOO_IO_GUI_HOST = '1'
+          $env:MOO_IO_NETWORK_MODE = 'lan'
+          $ps = $null
+          $stdout = Join-Path $env:RUNNER_TEMP 'launcher-out.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'launcher-err.log'
+          try {
+            $script = Join-Path $dist 'scripts\start-server.ps1'
+            $ps = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',('"' + $script + '"')) -WorkingDirectory $dist -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            $ready = $false
+            for($i = 0; $i -lt 100; $i++) {
+              if($ps.HasExited) { break }
+              try {
+                $status = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/mooio/status' -TimeoutSec 2
+                if($status.project -eq 'Moo-IO' -and $status.bots -eq 2) { $ready=$true; break }
+              } catch {}
+              Start-Sleep -Milliseconds 200
+            }
+            $log = Join-Path $dist 'server\data\mooio-host.log'
+            if (-not (Test-Path $log)) { throw 'Script nao gravou mooio-host.log' }
+            $raw = [IO.File]::ReadAllText($log, [Text.Encoding]::UTF8)
+            if ($raw.IndexOf([char]0) -ge 0) { throw 'Log misturou UTF-8 e UTF-16' }
+            if (-not $raw.Contains('MOOIO_PHASE_STARTING')) { throw "Startup nao chegou a fase STARTING: $raw" }
+            if (-not $ready) {
+              Write-Host $raw
+              Get-Content (Join-Path $dist 'server\data\mooio-server-err.log') -ErrorAction SilentlyContinue | Select-Object -Last 30
+              throw 'Criacao de sala pelo script falhou sem node_modules'
+            }
+            Write-Host 'MOO IO WINDOWS LAUNCHER PASS: sala real, offline.mjs, log UTF-8, sem node_modules'
+          } finally {
+            try {
+              Invoke-WebRequest -Uri 'http://127.0.0.1:8081/shutdown' -Method POST -Headers @{'X-MooIO-Code'='roomofflinetest1234'} -TimeoutSec 2 -UseBasicParsing | Out-Null
+            } catch {}
+            if($ps -and -not $ps.HasExited) {
+              if (-not $ps.WaitForExit(5000)) { Stop-Process -Id $ps.Id -Force -ErrorAction SilentlyContinue }
+            }
+            Move-Item $hidden $modules
+            $data = Join-Path $dist 'server\data'
+            if (Test-Path $data) { Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue }
+            New-Item -ItemType Directory -Path $data -Force | Out-Null
+          }
       - name: Publicar servidor local pronto no codigo-fonte do Windows
         shell: pwsh
         run: |
