@@ -9,10 +9,10 @@ local function font(n)
   return F[n]
 end
 local rects={
-  resume={410,246,460,58},
-  settings={410,316,460,58},
-  leave={410,448,460,58},
-  rootInvite={410,379,460,58},
+  resume={410,239,460,53},
+  settings={410,301,460,53},
+  leave={410,425,460,53},
+  rootInvite={410,363,460,53},
   grid={410,246,460,58},
   fullscreen={410,316,460,58},
   back={410,386,460,58},
