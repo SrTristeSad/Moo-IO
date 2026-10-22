@@ -120,6 +120,7 @@ function love.load()
         function() return client end)
     end)
     if not ok then print("MOO IO ROOM CHOICE FAIL: "..tostring(err)) end
+    allowQuit=true -- mocked owner must not block an automated test exit
     love.event.quit(ok and 0 or 1)
     return
   end
@@ -141,6 +142,7 @@ function love.load()
         homeAction)
     end)
     if not ok then print("MOO IO PAUSE FAIL: "..tostring(err)) end
+    allowQuit=true -- test already verified the window-close confirmation
     love.event.quit(ok and 0 or 1)
     return
   end
