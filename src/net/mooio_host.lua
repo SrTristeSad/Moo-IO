@@ -2,6 +2,7 @@
 -- Hidden Windows Node host, driven from the native LÖVE client.
 local SecureRandom=require("src.net.secure_random")
 local Network=require("src.net.mooio_network")
+local Paths=require("src.net.mooio_paths")
 local Host={}
 Host.__index=Host
 local ffiOK,ffi=pcall(require,"ffi")
@@ -77,19 +78,17 @@ end
 function Host.new()
   return setmetatable({
     state="idle",code="",address="",port=8080,hostIP="",mode="lan",
-    elapsed=0,check=0,process=nil,error=nil,progress="",lastLog=""
+    elapsed=0,check=0,process=nil,error=nil,progress="",lastLog="",root=nil
   },Host)
 end
 function Host:start(mode,requestedIP)
   if self.state=="starting" or self.state=="ready" then return false,"Sala ja iniciada" end
   if not win then return false,"Hospedagem automatica disponivel inicialmente no Windows." end
   if ping(self.port) then return false,"Ja existe uma sala Moo IO nesta porta." end
-  local root=love.filesystem.getSourceBaseDirectory()
-  if type(root)~="string" or root=="" then return false,"Diretorio do jogo nao encontrado" end
-  local script=root.."/scripts/start-server.ps1"
-  local f=io.open(script,"rb")
-  if not f then return false,"Arquivo scripts/start-server.ps1 ausente" end
-  f:close()
+  local root,reason=Paths.find(love.filesystem)
+  if not root then return false,reason end
+  local script=Paths.script(root)
+  self.root=root
   mode=mode=="vpn" and "vpn" or "lan"
   local ip=mode=="vpn" and requestedIP or localAddress()
   if not Network.accept(ip,mode) then
@@ -133,7 +132,7 @@ function Host:update(dt)
   if self.check>=0.6 then
     self.check=0
     if ping(self.port) then self.state="ready";self.progress="Sala pronta.";return end
-    local path=love.filesystem.getSourceBaseDirectory().."/server/data/mooio-host.log"
+    local path=Paths.log(self.root or "")
     local log=io.open(path,"rb")
     if log then
       local len=log:seek("end") or 0
