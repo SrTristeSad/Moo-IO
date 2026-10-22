@@ -79,7 +79,7 @@ function Home.new()
   return setmetatable({
     screen="home",nickname="Jogador",invite="",focus=nil,
     status="",error=false,hosting=false,starting=false,
-    hostAddress="",hostCode="",connectionState="idle",
+    hostAddress="",hostCode="",connectionState="idle",serverLog="",
     showGrid=true,fullscreen=false,sessionTitle=""
   },Home)
 end
@@ -217,11 +217,19 @@ function Home:draw(connectionState,connectionDetail)
       label("Hospede um mundo no seu computador",550,207,20,palette.fg)
       if not self.hosting and not self.starting then
         button("CRIAR SALA LAN",550,247,627,62,true)
-        label("O servidor sera iniciado sem abrir o terminal.",550,347,18,palette.subdued)
-        label("Outros jogadores entram usando um convite.",550,380,18,palette.subdued)
+        label("O servidor sera iniciado sem abrir o terminal.",550,337,17,palette.subdued)
+        label("Outros jogadores entram usando um convite.",550,365,17,palette.subdued)
+        if self.serverLog~="" then
+          label("ULTIMO REGISTRO DO SERVIDOR",550,415,14,palette.accent)
+          label(self.serverLog,550,438,12,palette.subdued,627,"left")
+        end
       elseif self.starting and not self.hosting then
         label("Preparando o servidor e instalando dependencias...",550,291,19,palette.accent)
         label("O andamento aparece aqui. Nao feche o jogo.",550,332,18,palette.subdued)
+        if self.serverLog~="" then
+          label("LOG DE INICIALIZACAO",550,393,14,palette.accent)
+          label(self.serverLog,550,421,12,palette.subdued,620,"left")
+        end
       else
         label("SALA ATIVA NA REDE LOCAL",550,260,18,palette.accent)
         rectangle(550,307,627,80,palette.panel2,10)
