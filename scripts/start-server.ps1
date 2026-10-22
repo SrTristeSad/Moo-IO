@@ -3,8 +3,10 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
-$env:HOST = '0.0.0.0'
+# Bind only to the chosen LAN/VPN adapter, never 0.0.0.0.
 $env:PORT = '8080'
+if (-not $env:MOO_IO_BIND_IP) { throw 'Endereco do adaptador nao informado.' }
+$env:HOST = $env:MOO_IO_BIND_IP
 $dataDir = Join-Path $root 'server\data'
 New-Item -ItemType Directory -Force $dataDir | Out-Null
 $log = Join-Path $dataDir 'mooio-host.log'
@@ -15,6 +17,12 @@ try {
   if (-not $env:MOO_IO_ROOM_CODE) {
     throw 'MOO_IO_ROOM_CODE ausente. Inicie a sala pelo cliente Moo IO.'
   }
+  $assigned = @(Get-NetIPAddress -AddressFamily IPv4 -IPAddress $env:HOST -ErrorAction SilentlyContinue |
+    Where-Object { $_.AddressState -eq 'Preferred' })
+  if ($assigned.Count -eq 0) {
+    throw "O IP $($env:HOST) nao esta atribuido a um adaptador de rede ativo. Abra sua VPN e use o IP que ela mostra."
+  }
+
   if (-not (Test-Path (Join-Path $root 'server\node_modules\ws\package.json'))) {
     "MOOIO_PHASE_INSTALLING" | Out-File $log
     & npm.cmd install --prefix (Join-Path $root 'server') --no-audit --no-fund *>> $log
