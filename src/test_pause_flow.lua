@@ -20,7 +20,7 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
   assert(pause:isOpen() and pause.page=="root","ESC must open in-game options")
   assert(getClient()~=nil and getPhase()=="playing",
     "ESC must not disconnect the current guest")
-  assert(sends>=2,"Opening pause must stop movement/attack")
+  assert(sends>=3,"Opening pause must stop movement, gather and attack")
   love.draw() -- Paused menu renders on top of the world, without crashing.
   love.mousepressed(620,347,1)
   assert(pause.page=="settings","Settings button must be clickable")

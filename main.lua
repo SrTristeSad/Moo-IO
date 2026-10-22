@@ -723,6 +723,9 @@ local function stopPlayerControls()
   mouseAttack=false;spaceAttack=false
   chatOpen=false;chatDraft=""
   if client and client.state=="spawn_confirmed" then
+    -- Stop server-authoritative movement as well as gathering/attacking.
+    -- Otherwise the last key direction may keep moving the avatar on ESC.
+    client:send("9",{Pack.null})
     client:send("e",{})
     client:send("F",{0,Pack.null})
   end

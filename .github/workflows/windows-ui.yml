@@ -31,6 +31,30 @@ jobs:
           if (-not $exe) { throw 'lovec.exe not found in official archive' }
           "MOOIO_WIN_LOVE=$($exe.FullName)" >> $env:GITHUB_ENV
           & $exe.FullName --version
+      - name: Habilitar OpenGL via Mesa software no Windows virtual
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # This is CI only; the player does not need Mesa on a real PC.
+          $url = 'https://github.com/pal1000/mesa-dist-win/releases/download/26.2.4/mesa3d-26.2.4-release-msvc.7z'
+          $archive = Join-Path $env:RUNNER_TEMP 'mesa3d-26.2.4.7z'
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $hash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '351fc8c8b695878ffb3eaa044b3ead08672a48b1a045e3c3e3975811df0f6695') {
+            throw 'Mesa download checksum mismatch'
+          }
+          $mesa = Join-Path $env:RUNNER_TEMP 'mesa'
+          New-Item $mesa -ItemType Directory -Force | Out-Null
+          & 7z x $archive "-o$mesa" -y | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot unpack software OpenGL' }
+          $dll = Get-ChildItem $mesa -Recurse -Filter 'opengl32.dll' |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]' } |
+            Select-Object -First 1
+          if (-not $dll) { throw 'Mesa x64 opengl32.dll missing' }
+          $dest = Split-Path -Parent $env:MOOIO_WIN_LOVE
+          Copy-Item (Join-Path $dll.DirectoryName '*.dll') $dest -Force
+          "GALLIUM_DRIVER=llvmpipe" >> $env:GITHUB_ENV
+          Write-Host "Mesa llvmpipe deployed to $dest"
       - name: Rodar testes de menu e encerramento no Windows
         shell: pwsh
         run: |
@@ -49,7 +73,7 @@ jobs:
             $err = Join-Path $env:RUNNER_TEMP "$name-err.log"
             Write-Host "Running $name..."
             $proc = Start-Process -FilePath $env:MOOIO_WIN_LOVE -ArgumentList @($env:GITHUB_WORKSPACE) -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
-            if (-not $proc.WaitForExit(70000)) {
+            if (-not $proc.WaitForExit(50000)) {
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
               throw "$name timed out"
             }
