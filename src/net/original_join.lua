@@ -1,8 +1,7 @@
 -- Request a genuine single-use guest join ticket from the reconstructed original
 -- Node.js API. No alternative transport and no changes to the Node server.
--- Scoped to loopback because the original local /api/join has a CAPTCHA stand-in:
--- it checks the presence of a 'captcha' value, not an external CAPTCHA service.
--- This is only appropriate for the local test server.
+-- Moo IO permits trusted LAN sessions guarded by a room invite code.
+-- The inherited boolean CAPTCHA is ONLY a local test stub; do not expose to internet.
 local Join={}
 -- Moo IO modification: hosts may be reached from other machines on LAN.
 local function validHost(host)
