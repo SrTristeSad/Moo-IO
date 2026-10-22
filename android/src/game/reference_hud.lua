@@ -57,6 +57,7 @@ local function resource(name,icon,value,x,y,left,gain)
   end
 end
 local function minimap(world,w,h)
+  if love.system and love.system.getOS and love.system.getOS()=="Android" then return end
   -- client/src/index.js renderMinimap: 130x130, bottom 20, left 20.
   local x,y=20,h-150
   local size=130
