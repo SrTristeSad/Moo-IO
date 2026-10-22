@@ -18,10 +18,18 @@ Convite de exemplo (apenas ilustrativo): `192.168.1.10:8080/a1b2c3d4e5f6a7b8`.
 
 **Nao e necessario abrir PowerShell, CMD ou o painel do servidor para hospedar ou entrar.** O Node pode ser instalado como dependencia do jogo em versoes futuras, mas nesta etapa o usuario precisa ter Node.js instalado. A primeira instalacao pode baixar pacotes com npm sem mostrar terminal.
 
+## Jogar pela VPN com amigos fora da sua casa
+
+A VPN precisa estar instalada e conectada **nos dois computadores**. No jogo, abra **Servidor → VPN privada**, informe o IPv4 virtual do anfitriao mostrado pelo Tailscale, ZeroTier, Radmin VPN ou similar e clique em **Criar sala na VPN**. O Moo IO escuta apenas nesse endereco e mostra um convite `IP:8080/CODIGO`. O amigo abre **Jogar** e cola o convite.
+
+O modo VPN aceita apenas faixas de enderecos privados ou de redes virtuais conhecidas, nunca IPs publicos arbitrarios. O controle do servidor fica apenas no computador anfitriao. **Nao abra a porta no roteador nem publique a sala na internet**: o backend herdado ainda usa autenticacao de testes.
+
+Guia completo: [docs/VPN-PRIVADA.md](docs/VPN-PRIVADA.md).
+
 ## Funcionalidades do novo menu
 
 - **Jogar:** definir apelido, colar convite, entrar automaticamente na partida e tentar novamente quando houver erro.
-- **Servidor:** hospedar sala na LAN, ver o status do servidor, copiar convite, entrar na propria sala e encerra-la.
+- **Servidor:** escolher LAN ou VPN privada, hospedar sala na interface de rede selecionada, copiar convite, entrar na propria sala e encerra-la.
 - **Configuracoes:** grade do mapa e tela cheia.
 - **Dentro da partida:** WASD, mouse, barra de itens, ataque, coleta, loja e demais recursos do cliente Lua herdado. Esc permite retornar ao menu sem desligar a sala hospedada.
 
@@ -29,7 +37,7 @@ As artes proprietarias do jogo original NAO estao no pacote. Para renderizacao c
 
 ## Erros e limitacoes
 
-- O modo de convite desta fase funciona por **IP privado em LAN**. Ainda nao ha Steam Networking, NAT traversal ou convites pela internet. Nao exponha a porta 8080 publicamente.
+- O convite permite **LAN ou VPN privada** por IP virtual, inclusive entre amigos em cidades diferentes na mesma VPN. Ainda nao ha Steam Networking, instalacao automatica de VPN nem servidor publico seguro; nao exponha a porta 8080 publicamente.
 - Se o computador estiver em Wi-Fi com isolamento de clientes ou firewall bloqueando TCP 8080, o convite nao conseguira conectar.
 - Se o Node nao iniciar, a interface apresenta um erro; consulte `server/data/mooio-host.log` para diagnostico tecnico quando necessario. Esse arquivo nao precisa ser aberto por jogadores comuns.
 - A conexao convidada da base reconstruida possui login/CAPTCHA de desenvolvimento e nao esta pronta para servidores na internet. Consulte SECURITY.md.
