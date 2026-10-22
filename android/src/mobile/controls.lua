@@ -55,7 +55,14 @@ function Mobile:pressed(id,x,y,w,h,mapScale)
     return "map_close"
   end
   if distance(x,y,l.pause)<=l.pause.r then return "pause" end
-  if inside(x,y,l.minimap) then self.mapOpen=true;return "map_open" end
+  if inside(x,y,l.minimap) then
+    self.mapOpen=true
+    -- Opening the map never leaves movement or auto-fire running.
+    self.auto=false;self.fireId=nil
+    self.moveId=nil;self.moveOrigin=nil;self.moveX=0;self.moveY=0
+    self.aimId=nil;self.aimOrigin=nil
+    return "map_open"
+  end
   if distance(x,y,l.auto)<=l.auto.r then
     self.auto=not self.auto
     return "attack"
