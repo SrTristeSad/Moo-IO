@@ -1,0 +1,122 @@
+name: Moo IO - Windows pronto sem downloads
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/package-windows.yml
+      - scripts/build-windows.ps1
+      - scripts/start-server.ps1
+      - scripts/moo-io.ps1
+      - MOO-IO.vbs
+      - src/net/mooio_host.lua
+      - server/**
+      - assets/**
+permissions:
+  contents: read
+jobs:
+  offline-windows:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar dependencias SO NA BUILD
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          npm install --prefix server --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar dependencias' }
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar validador' }
+          node tools/verify-bundled-art.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'PNG invalido ou ausente' }
+      - name: Obter LÖVE e Node oficiais para o pacote
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $loveUrl = 'https://github.com/love2d/love/releases/download/11.5/love-11.5-win64.zip'
+          $loveZip = Join-Path $env:RUNNER_TEMP 'love-11.5.zip'
+          Invoke-WebRequest -Uri $loveUrl -OutFile $loveZip
+          $loveRoot = Join-Path $env:RUNNER_TEMP 'love-dist'
+          Expand-Archive -Path $loveZip -DestinationPath $loveRoot
+          $love = Get-ChildItem $loveRoot -Recurse -Filter 'love.exe' | Select-Object -First 1
+          if (-not $love) { throw 'Executavel LÖVE 11.5 ausente' }
+          "MOOIO_BUILD_LOVE=$($love.DirectoryName)" >> $env:GITHUB_ENV
+          $nodeVersion = 'v22.16.0'
+          $nodeZipName = "node-$nodeVersion-win-x64.zip"
+          $nodeBase = "https://nodejs.org/dist/$nodeVersion"
+          $nodeZip = Join-Path $env:RUNNER_TEMP $nodeZipName
+          $sums = Join-Path $env:RUNNER_TEMP 'node-shasums.txt'
+          Invoke-WebRequest -Uri "$nodeBase/$nodeZipName" -OutFile $nodeZip
+          Invoke-WebRequest -Uri "$nodeBase/SHASUMS256.txt" -OutFile $sums
+          $entry = Get-Content $sums | Where-Object { $_ -match ("\s" + [regex]::Escape($nodeZipName) + "$") } | Select-Object -First 1
+          if (-not $entry) { throw 'SHA256 do Node nao consta na fonte oficial' }
+          $expected = ($entry -split '\s+')[0].ToLowerInvariant()
+          $actual = (Get-FileHash $nodeZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw 'Node ZIP hash inconsistente com SHASUMS256 oficial' }
+          $nodeRoot = Join-Path $env:RUNNER_TEMP 'node-dist'
+          Expand-Archive -Path $nodeZip -DestinationPath $nodeRoot
+          $nodeExe = Get-ChildItem $nodeRoot -Recurse -Filter node.exe | Select-Object -First 1
+          if (-not $nodeExe) { throw 'Node x64 ausente do pacote oficial' }
+          "MOOIO_BUILD_NODE=$($nodeExe.FullName)" >> $env:GITHUB_ENV
+      - name: Montar distribuicao offline
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./scripts/build-windows.ps1 -LoveDir $env:MOOIO_BUILD_LOVE -NodeExe $env:MOOIO_BUILD_NODE
+          if ($LASTEXITCODE -ne 0) { throw 'Build interrompida' }
+      - name: Testar servidor empacotado com bots SEM ACESSAR A INTERNET
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:GITHUB_WORKSPACE 'dist\Moo-IO-Windows'
+          $node = Join-Path $dir 'runtime\node\node.exe'
+          if (-not (Test-Path (Join-Path $dir 'love.exe'))) { throw 'Faltou o LÖVE' }
+          if (-not (Test-Path (Join-Path $dir 'server\node_modules\ws\package.json'))) {
+            throw 'Faltaram as dependencias embarcadas'
+          }
+          if (Select-String -Path (Join-Path $dir 'scripts\start-server.ps1') -SimpleMatch 'npm.cmd install') {
+            throw 'Download npm proibido na inicializacao'
+          }
+          $env:NPM_CONFIG_OFFLINE = 'true'
+          $env:HOST = '127.0.0.1'
+          $env:PORT = '28173'
+          $env:MOO_IO_ROOM_CODE = 'offlinepack1234'
+          $env:MOO_IO_BOT_COUNT = '3'
+          $env:DATA_DIR = (Join-Path $env:RUNNER_TEMP 'offline-world')
+          $env:PROTOCOL_BUILD_FILE = (Join-Path $env:DATA_DIR 'protocol-build.json')
+          $logOut = Join-Path $env:RUNNER_TEMP 'offline-server-out.txt'
+          $logErr = Join-Path $env:RUNNER_TEMP 'offline-server-err.txt'
+          $process = Start-Process -FilePath $node -WorkingDirectory $dir -ArgumentList @('server/src/index.js') -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+          try {
+            $ready = $false
+            for($i=0; $i -lt 70; $i++) {
+              if($process.HasExited) { break }
+              try {
+                $status = Invoke-RestMethod -Uri 'http://127.0.0.1:28173/mooio/status' -TimeoutSec 2
+                if($status.project -eq 'Moo-IO' -and $status.bots -eq 3) { $ready=$true; break }
+              } catch {}
+              Start-Sleep -Milliseconds 250
+            }
+            if(-not $ready) {
+              Get-Content $logOut -ErrorAction SilentlyContinue | Select-Object -Last 60
+              Get-Content $logErr -ErrorAction SilentlyContinue | Select-Object -Last 60
+              throw 'Servidor empacotado nao iniciou corretamente com 3 bots'
+            }
+            Write-Host 'MOO IO OFFLINE WINDOWS PASS: Node embarcado, dependencies, 3 bots, sem npm'
+          } finally {
+            if(-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+      - name: Gerar ZIP pronto
+        shell: pwsh
+        run: |
+          Compress-Archive -Path (Join-Path $env:GITHUB_WORKSPACE 'dist\Moo-IO-Windows') -DestinationPath (Join-Path $env:GITHUB_WORKSPACE 'dist\Moo-IO-Windows-Pronto.zip') -CompressionLevel Optimal -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moo-IO-Windows-Pronto
+          path: dist/Moo-IO-Windows-Pronto.zip
+          if-no-files-found: error
+          retention-days: 30

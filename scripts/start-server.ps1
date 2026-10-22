@@ -11,8 +11,17 @@ $dataDir = Join-Path $root 'server\data'
 New-Item -ItemType Directory -Force $dataDir | Out-Null
 $log = Join-Path $dataDir 'mooio-host.log'
 try {
-  if (-not (Get-Command node.exe -ErrorAction SilentlyContinue)) {
-    throw 'Node.js nao esta instalado ou nao consta no PATH.'
+  # Offline portable release ships the official Node runtime beside the game.
+  # Source checkout may use an already installed Node; neither path downloads.
+  $bundledNode = Join-Path $root 'runtime\node\node.exe'
+  if (Test-Path $bundledNode -PathType Leaf) {
+    $nodeExe = $bundledNode
+  } else {
+    $installed = Get-Command node.exe -ErrorAction SilentlyContinue
+    if (-not $installed) {
+      throw 'Node ausente. Use o pacote Moo-IO-Windows pronto ou prepare o projeto durante a build.'
+    }
+    $nodeExe = $installed.Source
   }
   if (-not $env:MOO_IO_ROOM_CODE) {
     throw 'MOO_IO_ROOM_CODE ausente. Inicie a sala pelo cliente Moo IO.'
@@ -24,12 +33,10 @@ try {
   }
 
   if (-not (Test-Path (Join-Path $root 'server\node_modules\ws\package.json'))) {
-    "MOOIO_PHASE_INSTALLING" | Out-File $log
-    & npm.cmd install --prefix (Join-Path $root 'server') --no-audit --no-fund *>> $log
-    if ($LASTEXITCODE -ne 0) { throw 'Falha ao instalar dependencias do servidor.' }
+    throw 'Dependencias locais ausentes. Distribua o ZIP Windows ja preparado pela build; nao ha download durante o jogo.'
   }
   "MOOIO_PHASE_STARTING" | Out-File $log -Append
-  & node.exe (Join-Path $root 'server\src\index.js') *>> $log
+  & $nodeExe (Join-Path $root 'server\src\index.js') *>> $log
   if ($LASTEXITCODE -ne 0) { throw "Servidor encerrou com erro $LASTEXITCODE." }
 } catch {
   ("MOOIO_PHASE_ERROR " + $_.ToString()) | Out-File $log -Append

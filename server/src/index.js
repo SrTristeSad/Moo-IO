@@ -260,7 +260,7 @@ app.post("/mooio/shutdown", (req, res) => {
 });
 app.get("/mooio/status", (_req, res) => {
     res.set("Cache-Control", "no-store");
-    res.json({ project: "Moo-IO", mode: NETWORK_MODE, build: build.BUILD_ID });
+    res.json({ project: "Moo-IO", mode: NETWORK_MODE, build: build.BUILD_ID, bots: BOT_COUNT });
 });
 
 app.use(express.static(PUBLIC_DIR));

@@ -35,9 +35,35 @@ servidor nem entra em partida sozinho.
 | **Servidores** | Área própria para os futuros servidores dedicados **V2 Lite** e o catálogo de salas/contas via **Firebase**. Essas integrações ainda não estão conectadas a serviços externos. |
 | **Configurações** | Grade do mapa e tela cheia; os convites ficam na tela de Jogar e no menu de Esc. |
 
+### Pacote Windows pronto, sem baixar componentes ao abrir
+
+O **Moo-IO-Windows-Pronto.zip** e produzido pelo GitHub Actions
+**Moo IO - Windows pronto sem downloads** (aba Actions deste projeto).
+Ele inclui `love.exe`, DLLs do LÖVE 11.5, `runtime/node/node.exe`,
+as bibliotecas de `server/node_modules`, o servidor local Node.js e
+os **176 PNGs** do pacote. Para jogar, basta extrair o ZIP **inteiro**
+e executar `MOO-IO.vbs`: nao roda `npm install`, nao baixa sprites
+e nao instala Node ou LÖVE no PC. Ao clicar em **Criar minha sala**,
+o servidor privado inicia em segundo plano; por padrao ele fica desligado.
+
+**Importante:** o ZIP de **Codigo-fonte** comum do GitHub nao inclui
+binarios nem `node_modules` e e destinado a desenvolvedores. Ele pode
+ser preparado antes da build com `npm install --prefix server` e uma
+instalacao existente de LÖVE. Isso nao acontece em tempo de execucao.
+Para gerar a distribuicao novamente, abra **Actions > Moo IO - Windows
+pronto sem downloads > Run workflow**. O download de dependencias so
+acontece **no computador de build/CI**, nao ao iniciar o jogo.
+
+O arquivo `scripts/build-windows.ps1` tambem permite montar um
+pacote local com runtimes Windows oficiais ja preparados. Nao ha
+dependencia de servidores externos para rodar uma partida **LAN**,
+mas convidar amigos fora da rede local ainda requer VPN ou rede
+compativel. Verifique os direitos de redistribuicao das artes antes
+de divulgar uma versao publica.
+
 ### Jogar sozinho e convidar amigos
 
-1. Instale **Node.js 20+** e **LÖVE 2D 11.5** com LuaSocket. Baixe o ZIP completo do GitHub, **extraia todos os arquivos** e execute **MOO-IO.vbs** de dentro da pasta extraída (não execute direto de dentro do ZIP).
+1. Para jogar sem instalar nada, use o **Moo-IO-Windows-Pronto.zip** produzido em **Actions**; extraia a pasta completa e execute **MOO-IO.vbs**. Nao abra o jogo de dentro do ZIP. O ZIP comum de codigo-fonte e apenas para desenvolvimento e build.
 2. Clique em **Jogar**, depois em **Criar minha sala**. Apos criar, clique em **Jogar agora** para entrar; a sala nao e criada ou acessada automaticamente.
 3. Dentro da partida, abra **Esc > Convidar amigos > Copiar convite** e envie aos amigos. O antigo atalho F2 e o aviso permanente foram removidos.
 4. Amigos abrem **Jogar**, digitam o IP/porta e o código de acesso separadamente **ou colam um convite completo**, e clicam em **Entrar na sala**.

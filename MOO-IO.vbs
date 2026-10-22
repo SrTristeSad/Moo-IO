@@ -32,7 +32,7 @@ If loveExe = "" Then
   MsgBox "Moo IO precisa do LÖVE 2D 11.5." & vbCrLf & "Instale em love2d.org e abra este launcher novamente.", 16, "Moo IO"
   WScript.Quit 1
 End If
-' All 180 PNGs are shipped in assets/custom/img. Never download at launch.
+' The user-provided PNGs are included in every distributable. No runtime download.
 If Not fso.FileExists(base & "\assets\custom\img\weapons\hammer_1.png") Then
   MsgBox "Pacote de imagens incompleto. Baixe o ZIP atualizado do Moo-IO que ja inclui os PNGs reais.", 16, "Moo IO"
   WScript.Quit 1
