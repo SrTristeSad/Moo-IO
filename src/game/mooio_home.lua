@@ -40,7 +40,7 @@ local boxes={
   roomStop={392,485,225,55},
   joinIP={704,287,421,51},joinCode={704,359,421,51},
   join={704,430,421,54},joinRetry={704,506,421,49},
-  serverLite={145,258,459,218},serverFirebase={637,258,459,218},
+  serverLite={159,274,433,58},serverFirebase={661,274,433,58},
   serverToPlay={381,526,518,54},
   grid={355,280,570,57},fullscreen={355,364,570,57},
   overlayCopy={478,395,322,55},overlayClose={880,177,55,43}
@@ -223,7 +223,6 @@ function Home:draw(state,detail)
     button("back","< VOLTAR",false)
     if self.screen=="play" then
       printText("Jogar",135,152,34,C.white)
-      printText("Sua sala particular",145,208,21,C.green)
       panel(130,194,505,402,C.panel,17)
       panel(672,194,477,402,C.panel,17)
       printText("MINHA SALA",155,207,19,C.green)
@@ -267,16 +266,12 @@ function Home:draw(state,detail)
       button("serverLite","SERVIDOR V2 LITE",self.provider=="lite")
       button("serverFirebase","FIREBASE",self.provider=="firebase")
       if self.provider=="lite" then
-        printText("V2 Lite",158,311,24,C.white)
         printText("Servidor dedicado comunitario.",158,355,18,C.muted)
         printText("A integracao com o protocolo V2 Lite",158,389,16,C.muted)
         printText("ainda depende da API compativel.",158,413,16,C.amber)
-        printText("Firebase",661,311,24,C.white)
         printText("Contas, amigos e lista de salas.",661,355,18,C.muted)
       else
-        printText("V2 Lite",158,311,24,C.white)
         printText("Servidor dedicado comunitario.",158,355,18,C.muted)
-        printText("Firebase",661,311,24,C.white)
         printText("Identidade, amigos e catalogo de salas.",661,355,17,C.muted)
         printText("Exige configurar um projeto Firebase.",661,390,16,C.amber)
         printText("Nao hospeda o motor do jogo.",661,414,16,C.muted)
