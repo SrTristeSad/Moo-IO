@@ -56,6 +56,7 @@ local boxes={
   serverLite={159,274,433,58},serverFirebase={661,274,433,58},
   serverToPlay={381,526,518,54},
   grid={355,280,570,57},fullscreen={355,364,570,57},
+  settingsInvite={355,448,570,57},
   overlayCopy={478,395,322,55},overlayClose={880,177,55,43}
 }
 local function button(id,text,primary)
@@ -161,6 +162,7 @@ function Home:click(sx,sy)
   elseif self.screen=="settings" then
     if inside(x,y,boxes.grid) then self.showGrid=not self.showGrid;return "grid" end
     if inside(x,y,boxes.fullscreen) then self.fullscreen=not self.fullscreen;return "fullscreen" end
+    if inside(x,y,boxes.settingsInvite) then return "open_invite" end
   end
   return nil
 end
@@ -188,7 +190,6 @@ function Home:keypressed(key)
     if key=="2" then self.screen="server";return "server_tab" end
     if key=="3" then self.screen="settings";return "settings_tab" end
   end
-  if self.screen=="play" and key=="f2" then return "copy" end
   return nil
 end
 function Home:textinput(chars)
@@ -342,8 +343,9 @@ function Home:draw(state,detail,showWorld)
       printText("CONFIGURACOES",336,190,31,C.white)
       button("grid","GRADE DO MAPA     "..(self.showGrid and "LIGADA" or "DESLIGADA"),false)
       button("fullscreen","TELA CHEIA       "..(self.fullscreen and "LIGADA" or "DESLIGADA"),false)
-      printText("WASD: mover  |  Mouse: mirar  |  Enter: chat",360,469,16,C.muted)
-      printText("F2 na partida: copiar convite e chamar amigos.",360,503,16,C.muted)
+      button("settingsInvite",self.hosting and "CONVIDAR AMIGOS" or
+        "CONVIDAR AMIGOS - CRIE UMA SALA",self.hosting)
+      printText("ESC na partida: menu e configuracoes.",360,535,16,C.muted)
     end
   end
   panel(83,614,1111,57,{0.13,0.17,0.15},0)
@@ -378,7 +380,7 @@ function Home:drawRoomOverlay()
   printText("COPIAR CONVITE",478,409,20,C.greenDark,322,"center")
   panel(880,177,55,43,C.raised,10)
   printText("X",897,185,21,C.white)
-  printText("F2 ou ESC para fechar",386,505,15,C.muted)
+  printText("ESC para fechar",386,505,15,C.muted)
   love.graphics.pop()
 end
 function Home:overlayClick(sx,sy)

@@ -12,9 +12,12 @@ local rects={
   resume={410,246,460,58},
   settings={410,316,460,58},
   leave={410,386,460,58},
-  grid={410,246,460,58},
-  fullscreen={410,316,460,58},
-  back={410,386,460,58},
+  grid={410,236,460,52},
+  fullscreen={410,299,460,52},
+  invite={410,362,460,52},
+  back={410,425,460,52},
+  copyInvite={410,359,460,58},
+  inviteBack={410,431,460,52},
   confirm={410,404,216,56},
   cancel={644,404,226,56}
 }
@@ -73,7 +76,10 @@ end
 function Pause:keypressed(key)
   if not self.page then return nil end
   if key=="escape" then
-    if self.page=="confirm" or self.page=="settings" then
+    if self.page=="invite" then
+      self.page="settings"
+      return "back"
+    elseif self.page=="confirm" or self.page=="settings" then
       self.page="root"
       self.confirmQuit=false
     else
@@ -98,7 +104,14 @@ function Pause:click(screenX,screenY)
   elseif self.page=="settings" then
     if which("grid") then return "toggle_grid" end
     if which("fullscreen") then return "toggle_fullscreen" end
+    if which("invite") and self.owner then
+      self.page="invite"
+      return "show_invite"
+    end
     if which("back") then self.page="root";return "back" end
+  elseif self.page=="invite" then
+    if which("copyInvite") then return "copy_invite" end
+    if which("inviteBack") then self.page="settings";return "back" end
   elseif self.page=="confirm" then
     if which("confirm") then
       local quit=self.confirmQuit
@@ -109,7 +122,7 @@ function Pause:click(screenX,screenY)
   end
   return nil
 end
-function Pause:draw(grid,fullscreen)
+function Pause:draw(grid,fullscreen,inviteText)
   if not self.page then return end
   local w,h=love.graphics.getDimensions()
   love.graphics.push("all")
@@ -140,7 +153,23 @@ function Pause:draw(grid,fullscreen)
       {0.77,0.82,0.75})
     button("GRADE DO MAPA: "..(grid and "LIGADA" or "DESLIGADA"),"grid")
     button("TELA CHEIA: "..(fullscreen and "LIGADA" or "DESLIGADA"),"fullscreen")
+    if self.owner and inviteText and inviteText~="" then
+      button("CONVIDAR AMIGOS","invite",true)
+    else
+      button("CONVIDAR AMIGOS - SO ANFITRIAO","invite")
+    end
     button("VOLTAR","back")
+  elseif self.page=="invite" then
+    label("CONVIDAR AMIGOS",395,146,490,58,31)
+    label("Envie este convite para seus amigos.",405,217,470,31,16,
+      {0.82,0.88,0.79})
+    local code=tostring(inviteText or "")
+    love.graphics.setColor(0.12,0.19,0.14,0.97)
+    love.graphics.rectangle("fill",389,284,502,57,4,4)
+    label(code~="" and code or "Convite indisponivel",399,292,482,38,
+      code:len()>40 and 14 or 17)
+    button("COPIAR CONVITE","copyInvite",true)
+    button("VOLTAR","inviteBack")
   else
     label("ENCERRAR SUA SALA?",393,146,494,58,30)
     label("Isso desconecta todos os jogadores do mapa.",395,240,490,32,17,

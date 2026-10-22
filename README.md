@@ -14,7 +14,7 @@ o jogador para de enviar comandos de movimento e ataque enquanto o menu
 esta aberto, mas nao pausa os demais participantes. Na interface:
 
 - **Voltar ao jogo**: fecha o menu, sem desconectar.
-- **Configuracoes**: liga/desliga a grade do mapa e a tela cheia.
+- **Configuracoes**: liga/desliga a grade do mapa e a tela cheia. Se voce for o anfitriao, inclui **Convidar amigos** para ver e copiar o convite da sala.
 - **Sair da partida (convidado)**: desconecta somente este usuario.
 - **Sair e encerrar sala (anfitriao)**: pergunta antes de desligar
   o servidor e desconectar todos. Cancelar mantem a sala funcionando.
@@ -24,19 +24,21 @@ o fechamento da janela no Windows quando o usuario hospeda uma sala.
 O botao **Jogar** do menu principal apenas abre as escolhas, nao inicia
 servidor nem entra em partida sozinho.
 
+**Interface em partida:** o antigo botao **Clan** foi retirado do HUD, sem alterar as funcionalidades independentes de **Shop** e **Tribe**.
+
 ## Menu principal
 
 | Tela | Para que serve |
 | --- | --- |
-| **Jogar** | Cria uma sala particular ao ser selecionado. O jogo inicia o servidor interno e entra automaticamente na partida; amigos podem ser convidados. Também permite entrar em outra sala pelo IP e código. |
+| **Jogar** | Abre as opcoes para criar uma sala particular manualmente ou entrar em outra pelo IP e codigo. Criar nao inicia a partida automaticamente. |
 | **Servidores** | Área própria para os futuros servidores dedicados **V2 Lite** e o catálogo de salas/contas via **Firebase**. Essas integrações ainda não estão conectadas a serviços externos. |
-| **Configurações** | Grade do mapa e tela cheia. |
+| **Configurações** | Grade do mapa, tela cheia e convite da sala quando o usuario e anfitriao. |
 
 ### Jogar sozinho e convidar amigos
 
 1. Instale **Node.js 20+** e **LÖVE 2D 11.5** com LuaSocket. Baixe o ZIP completo do GitHub, **extraia todos os arquivos** e execute **MOO-IO.vbs** de dentro da pasta extraída (não execute direto de dentro do ZIP).
-2. Clique em **Jogar**. O cliente começa a criar sua sala particular sem abrir um terminal e tenta entrar nela assim que estiver pronta.
-3. Dentro da partida, pressione **F2** para abrir o convite da sala. Use **Copiar convite** e envie aos amigos.
+2. Clique em **Jogar**, depois em **Criar minha sala**. Apos criar, clique em **Jogar agora** para entrar; a sala nao e criada ou acessada automaticamente.
+3. Dentro da partida, abra **Esc > Configuracoes > Convidar amigos > Copiar convite** e envie aos amigos. O antigo atalho F2 e o aviso permanente foram removidos.
 4. Amigos abrem **Jogar**, digitam o IP/porta e o código de acesso separadamente **ou colam um convite completo**, e clicam em **Entrar na sala**.
 
 Exemplo de convite: `192.168.1.10:8080/abcd1234567890ef`. O código de acesso é necessário para obter o ticket de entrada no servidor reconstruído. Quando alguém entra, o servidor Node é responsável por movimentação, animais, construções, recursos e combate. Não são criados jogadores ou entidades fictícios no cliente.
@@ -73,7 +75,7 @@ npm test
 
 O GitHub Actions verifica conexões/tickets, navegação do menu e um cliente Lua/LÖVE recebendo confirmação real de partida e renderizando HUD a partir do Node. Verifique os resultados em [Actions](https://github.com/SrTristeSad/Moo-IO/actions).
 
-O anfitrião Windows e a conexão entre PCs reais ainda exigem teste prático; os testes em CI não confirmam funcionamento em todos os adaptadores de rede ou instalações locais.
+O anfitriao Windows e a conexao entre PCs reais ainda exigem teste pratico; os testes automatizados nao confirmam funcionamento em todos os adaptadores de rede ou instalacoes locais.
 
 ## Segurança, artes e código aberto
 

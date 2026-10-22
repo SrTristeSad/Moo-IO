@@ -22,7 +22,7 @@ jobs:
           npm install --prefix server --no-audit --no-fund
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq love lua-socket xvfb
-      - name: Navegacao do menu Jogar, IP, F2 e Servidores
+      - name: Navegacao do menu Jogar, IP, Convites e Servidores
         env:
           MOO_IO_MENU_TEST: '1'
           SDL_AUDIODRIVER: dummy

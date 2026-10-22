@@ -411,7 +411,8 @@ function love.draw()
     love.graphics.draw(menuPreview,0,0)
     local state=client and client.state or "idle"
     home:draw(state,client and (client.error or client.status) or "",true)
-    if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen) end
+    if home.roomOverlay then home:drawRoomOverlay() end
+    if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite()) end
     return
   end
   if client and client.state=="spawn_confirmed" and not died
@@ -424,31 +425,18 @@ function love.draw()
     Hud.draw(world,chatOpen,chatDraft,
       chatOpen or panels:isOpen() or clans:isOpen() or profile:isOpen())
     panels:draw(world)
-    clans:draw(true)
+    -- Keep permanent clans internal; no separate Clan button in gameplay HUD.
+    clans:draw(false)
     Notices.draw(world,w,h)
     profile:draw(world)
-    if hosted.state=="ready" and not pause:isOpen() then
-      home:drawRoomOverlay()
-      if not home.roomOverlay then
-        -- Invite hint no longer obscures the bottom-right resource HUD.
-        love.graphics.push("all")
-        local hint="F2  CONVIDAR AMIGOS"
-        local font=love.graphics.getFont()
-        local hintW=font:getWidth(hint)+24
-        love.graphics.setColor(0.08,0.13,0.10,0.88)
-        love.graphics.rectangle("fill",16,16,hintW,34,7,7)
-        love.graphics.setColor(0.86,1,0.82)
-        love.graphics.print(hint,28,24)
-        love.graphics.pop()
-      end
-    end
+    -- Invite controls are in ESC > CONFIGURACOES, not on the HUD.
     if uiSmoke and uiSmokeClicked and not uiSmokeDrawn then
       uiSmokeDrawn=true
       print("MOO IO E2E PASS: convite -> handshake -> C/D -> mundo e HUD renderizados")
       love.event.quit(0)
     end
     if pause:isOpen() then
-      pause:draw(home.showGrid,home.fullscreen)
+      pause:draw(home.showGrid,home.fullscreen,home:roomInvite())
       return
     end
     -- Only show missing PNG diagnostics on explicit developer opt-in.
@@ -477,7 +465,7 @@ function love.draw()
   love.graphics.printf("Carregando mundo e jogadores...",0,h/2-20,w,"center")
   love.graphics.setColor(0.68,0.75,0.73)
   love.graphics.printf(client and client.status or "Aguardando servidor...",40,h/2+26,w-80,"center")
-  if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen) end
+  if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite()) end
 end
 
 local menuAction
@@ -664,6 +652,12 @@ homeAction=function(action)
   elseif action=="fullscreen" then
     local ok,err=love.window.setFullscreen(home.fullscreen)
     if not ok then home:setStatus(tostring(err),true) end
+  elseif action=="open_invite" then
+    if hosted.state=="ready" and home:roomInvite()~="" then
+      home.roomOverlay=true
+    else
+      home:setStatus("Convites disponiveis depois de criar sua sala.",true)
+    end
   end
 end
 
@@ -739,6 +733,12 @@ local function pauseAction(action)
     home.fullscreen=not home.fullscreen
     local ok,err=love.window.setFullscreen(home.fullscreen)
     if not ok then home.fullscreen=not home.fullscreen;home:setStatus(tostring(err),true) end
+  elseif action=="copy_invite" then
+    local invite=home:roomInvite()
+    if pause.owner and hosted.state=="ready" and invite~="" then
+      love.system.setClipboardText(invite)
+      home:setStatus("Convite copiado para enviar aos amigos.")
+    end
   elseif action=="leave_guest" then
     stopGameplay(false)
   elseif action=="leave_owner" or action=="quit_owner" then
@@ -754,21 +754,11 @@ function love.keypressed(key)
     pauseAction(pause:keypressed(key))
     return
   end
-  if phase=="playing" and home.roomOverlay then
-    if key=="escape" or key=="f2" then home.roomOverlay=false end
+  if home.roomOverlay then
+    if key=="escape" then home.roomOverlay=false end
     return
   end
-  if phase=="playing" and hosted.state=="ready" and key=="f2"
-    and not chatOpen and not panels:isOpen() and not clans:isOpen() then
-    home.roomOverlay=true
-    input.keys={};lastMove=false
-    if client and client.state=="spawn_confirmed" then
-      client:send("e",{})
-      client:send("F",{0,Pack.null})
-    end
-    mouseAttack=false;spaceAttack=false
-    return
-  end
+
   if phase=="playing" and key=="escape" then
     stopPlayerControls()
     panels:close();clans:close()
@@ -943,7 +933,7 @@ function love.mousepressed(x,y,button)
       if closed then client:send("V",{-1}) end
       if consumed then return end
     end
-    if clans:click(x,y,w,h,true,client and client.authToken) then
+    if clans:click(x,y,w,h,false,client and client.authToken) then
       if clans:isOpen() and panels:isOpen() then panels:close() end
       -- Keep the permanent Clan window exclusive with Shop and Tribe,
       -- matching how the original client hides competing overlays.

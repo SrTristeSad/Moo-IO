@@ -38,7 +38,7 @@ return function()
   assert(direct.host=="192.168.0.12")
   assert(Home.parseInvite("8.8.8.8:8080/abcdefgh")==nil,"public IP not authorized")
   home.roomOverlay=true
-  assert(home:overlayClick(600,412)=="copy","F2 overlay must copy")
+  assert(home:overlayClick(600,412)=="copy","Invite overlay must copy")
   assert(home:overlayClick(902,191)=="close_overlay","overlay must close")
   assert(home:click(1121,110)=="back")
   assert(home:click(110,386)=="server_tab")
@@ -53,6 +53,10 @@ return function()
   assert(home:click(453,300)=="grid")
   assert(home.showGrid==false)
   assert(home:click(445,390)=="fullscreen")
+  assert(home:click(450,480)=="open_invite",
+    "Invite action must be accessible from main Settings")
+  assert(home:keypressed("f2")==nil,
+    "F2 is no longer a shortcut to copy invitation")
   -- Render each page to an offscreen canvas to catch graphical/layout crashes.
   local canvas=love.graphics.newCanvas(1280,720)
   love.graphics.setCanvas(canvas)
@@ -67,5 +71,5 @@ return function()
   home.roomOverlay=false
   love.graphics.setCanvas()
   canvas:release()
-  print("MOO IO MENU PASS: pessoal/IP/convite/F2/servidores Lite-Firebase/configuracoes")
+  print("MOO IO MENU PASS: sala/IP/convite em configuracoes, sem F2 nem Clan")
 end

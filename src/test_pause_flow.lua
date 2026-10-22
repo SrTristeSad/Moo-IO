@@ -16,6 +16,9 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
   setClient(client())
   setPhase()
   setOwner(false)
+  love.keypressed("f2")
+  assert(not pause:isOpen() and not home.roomOverlay,
+    "F2 must not open an invitation HUD or shortcut")
   love.keypressed("escape")
   assert(pause:isOpen() and pause.page=="root","ESC must open in-game options")
   assert(getClient()~=nil and getPhase()=="playing",
@@ -43,6 +46,8 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
     self.state="idle"
   end
   home.hosting=true
+  home.hostAddress="192.168.1.20:8080"
+  home.hostCode="myroom998"
   homeAction("stop") -- Exit from main menu while owning a room.
   assert(pause.page=="confirm" and stops==0,
     "Owner's main menu stop must require confirmation")
@@ -53,9 +58,25 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
   setClient(client())
   setOwner(true)
   setPhase()
+  love.keypressed("f2")
+  assert(not pause:isOpen() and not home.roomOverlay,
+    "Owner F2 must not display the old invitation overlay")
   love.keypressed("escape")
   assert(getOwner() and pause.owner and pause.page=="root",
     "Host ESC must open the owner's pause controls")
+  love.mousepressed(630,343,1)
+  assert(pause.page=="settings","Host settings must open inside ESC menu")
+  love.mousepressed(630,385,1)
+  assert(pause.page=="invite","Invite button must be in ESC settings")
+  assert(home:roomInvite()=="192.168.1.20:8080/myroom998",
+    "Invite page must show the real current room")
+  -- Do not depend on OS clipboard availability in CI. The real button
+  -- must dispatch the copy action even on systems without clipboard support.
+  assert(pause:click(630,389)=="copy_invite")
+  love.keypressed("escape")
+  assert(pause.page=="settings","ESC from invitation returns to settings")
+  love.mousepressed(630,448,1)
+  assert(pause.page=="root","Back from settings returns to pause root")
   love.mousepressed(620,409,1)
   assert(pause.page=="confirm" and stops==0,
     "Host leaving needs confirmation, must not stop automatically")
@@ -79,5 +100,5 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
   pause:close()
   hosted.state="idle"
   setClient(nil)
-  print("MOO IO PAUSE PASS: ESC options, live menu, guest exit, host confirmation")
+  print("MOO IO PAUSE PASS: ESC config/invite, F2 removed, guest exit, owner confirmation")
 end
