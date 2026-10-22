@@ -76,7 +76,7 @@ end
 function Host.new()
   return setmetatable({
     state="idle",code="",address="",port=8080,
-    elapsed=0,check=0,process=nil,error=nil,progress=""
+    elapsed=0,check=0,process=nil,error=nil,progress="",lastLog=""
   },Host)
 end
 function Host:start()
@@ -95,6 +95,7 @@ function Host:start()
   self.address=ip..":"..self.port
   self.elapsed=0;self.check=0;self.error=nil
   self.progress="Preparando sala..."
+  self.lastLog=""
   local keys={"MOO_IO_ROOM_CODE","MOO_IO_GUI_HOST"}
   local originals={}
   for _,key in ipairs(keys) do originals[key]=getenv(key) end
@@ -130,6 +131,15 @@ function Host:update(dt)
       log:seek("set",math.max(0,len-1800))
       local content=log:read("*a") or ""
       log:close()
+      content=content:gsub("\r",""):gsub("\27%[[%d;]*m","")
+      local lines={}
+      for line in content:gmatch("[^\n]+") do
+        if #line>110 then line=line:sub(1,107).."..." end
+        lines[#lines+1]=line
+      end
+      local selected={}
+      for i=math.max(1,#lines-4),#lines do selected[#selected+1]=lines[i] end
+      self.lastLog=table.concat(selected,"\n")
       if content:find("MOOIO_PHASE_INSTALLING",1,true) then
         self.progress="Instalando componentes do servidor (primeira execucao)..."
       end
