@@ -1,0 +1,47 @@
+name: Moo IO - incorporar ZIP enviado
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/import-uploaded-art.mjs
+      - .github/workflows/import-uploaded-art.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-exact-upload:
+    if: github.repository == 'SrTristeSad/Moo-IO'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependencias do conversor apenas no CI
+        run: npm install --no-audit --no-fund
+      - name: Obter fonte congelada para verificar contra o ZIP recebido
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --silent --show-error \
+            'https://codeload.github.com/al007ex/moomoo-clone/zip/06f7c1ca965a7628671676c8d9a7efd3997bb5e7' -o /tmp/original.zip
+          unzip -q /tmp/original.zip -d /tmp
+      - name: Verificar checksum do upload e converter somente 8 WebPs
+        run: |
+          node tools/import-uploaded-art.mjs \
+            /tmp/moomoo-clone-06f7c1ca965a7628671676c8d9a7efd3997bb5e7/client/public/img
+          node tools/verify-bundled-art.mjs
+      - name: Gravar os PNGs definitivos diretamente no GitHub
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A assets/custom/img/
+          git diff --cached --stat
+          if git diff --cached --quiet; then
+            echo 'Arquivos já atualizados.'
+          else
+            git commit -m 'assets: replace Kenney placeholders with exact supplied moomoo-io ZIP graphics'
+            git push origin HEAD:main
+          fi

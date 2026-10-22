@@ -62,23 +62,33 @@ As artes definitivas ficam para depois. Este repositório não redistribui image
 Servidor reconstruído baseado em [al007ex/moomoo-clone](https://github.com/al007ex/moomoo-clone), commit `06f7c1ca965a7628671676c8d9a7efd3997bb5e7` (Apache-2.0). Cliente Lua importado do snapshot autorizado anterior ao V2 do Moo-Quest. Contribuições novas Moo IO e cliente distribuídas sob AGPL-3.0-only, respeitando as atribuições anteriores. Veja [NOTICE.md](NOTICE.md) e [LICENSE](LICENSE).
 
 
-## Artes incluídas no GitHub — sem preparação ao jogar
+## Artes incluídas do arquivo moomoo-io.zip
 
-O repositório distribui os 180 arquivos gráficos requeridos pelo
-cliente diretamente em `assets/custom/img/`, separados em `animals/`,
-`weapons/`, `hats/`, `accessories/`, `resources/` e `icons/`.
+O projeto usa as imagens do ZIP fornecido pelo usuário em 22/10/2026.
+**Não usa os placeholders Kenney**. O pacote contém exatamente 176
+imagens: 168 PNGs e 8 WebPs que estavam apenas renomeados como .png.
+As 8 imagens são convertidas para PNG legítimo, mantendo as mesmas
+dimensões, pixels e transparência.
 
-Nenhum sprite é baixado, convertido ou gerado no computador do jogador.
-`MOO-IO.vbs` abre o jogo com as imagens já presentes; o servidor não
-executa nenhuma instalação de imagens. Se estiver faltando o martelo,
-o lançador informa que o pacote baixado está incompleto.
+As imagens são versionadas em `assets/custom/img/`; ao jogar
+**não acontece download de imagens nem conversão**. O arquivo inicial
+`assets/custom/img/weapons/hammer_1.png` é PNG verdadeiro.
 
-**Arte diferente do original:** a distribuição usa assets CC0 da
-Kenney, não os sprites originais da FRVR/MooMoo.io. O conjunto fornece
-imagens reais, mas certas armas, roupas e animais são alternativas
-visuais e precisarão de artes personalizadas para reproduzir o estilo
-que você deseja. Os nomes exigidos pelo código são preservados.
+O ZIP enviado não inclui seis nomes de sprites previstos pelo cliente:
+`animals/boar_1.png`, `animals/crab_1.png`, `animals/yeti_1.png`,
+`hats/hat_59.png`, `hats/hat_60.png` e `hats/hat_61.png`.
+Eles não foram inventados nem substituídos por outras imagens.
+O arquivo `support/reference-image-manifest.json` lista todos os
+180 nomes esperados. Nenhum processo de recuperação é executado no
+computador do jogador.
 
-A relação de imagens, licença, fonte e mudanças está em
-`assets/custom/CC0-PROVENANCE.md`. `npm run assets:check` é destinado
-aos desenvolvedores e aos testes, e não precisa ser executado para jogar.
+O código de importação em `tools/import-uploaded-art.mjs` verifica
+o hash agregado dos 176 arquivos originais antes de publicar. Esse
+checksum vem do ZIP enviado pelo usuário e impede aceitar arquivos
+diferentes de um espelho congelado. A conversão e a publicação ocorrem
+apenas uma vez no GitHub Actions.
+
+**Direitos autorais:** fornecer o ZIP não comprova autorização para
+redistribuição pública de arte pertencente a terceiros. É necessário
+verificar os direitos desses arquivos antes de qualquer lançamento
+comercial ou distribuição pública do jogo.

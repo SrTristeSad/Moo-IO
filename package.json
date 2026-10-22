@@ -10,8 +10,7 @@
     "install:server": "npm install --prefix server --no-audit --no-fund",
     "start:server": "node server/src/index.js",
     "test": "node --test tests/*.test.mjs",
-    "assets:check": "node tools/verify-bundled-art.mjs",
-    "assets:bundle": "node tools/build-bundled-art.mjs"
+    "assets:check": "node tools/verify-bundled-art.mjs"
   },
   "dependencies": {
     "sharp": "^0.34.3"

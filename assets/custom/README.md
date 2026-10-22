@@ -1,13 +1,21 @@
-# Artes personalizadas do Moo-IO
+# Artes do ZIP fornecido pelo usuário
 
-Coloque **somente artes que voce possui o direito de publicar** nas
-subpastas `img/animals/`, `img/weapons/`, `img/hats/`,
-`img/accessories/`, `img/resources/` e `img/icons/`.
+As imagens em `assets/custom/img/` correspondem ao `moomoo-io.zip`
+recebido em 22/10/2026. São 176 imagens: 168 PNG de origem e 8
+WebP que foram convertidos para PNG verdadeiro sem modificar os pixels.
+Os arquivos não vêm da coleção CC0 Kenney anteriormente introduzida.
 
-O cliente procura estas imagens antes das de referencia.
-Cada `.png` deve conter bytes PNG validos (nao WebP renomeado).
-Os nomes aceitos estao em `support/reference-image-manifest.json`.
-Nenhum sprite de MooMoo.io/FRVR e distribuido nesta pasta.
+O cliente lê esses arquivos diretamente do Git. Não faz download nem
+converte arquivos quando inicia.
 
-Apos preparar imagens, execute `npm run assets:check` para auditar
-os PNGs locais de referencia.
+Faltam seis imagens no ZIP original: `animals/boar_1.png`,
+`animals/crab_1.png`, `animals/yeti_1.png`, `hats/hat_59.png`,
+`hats/hat_60.png` e `hats/hat_61.png`.
+Esses arquivos permanecem ausentes até recebermos a arte correta.
+
+A origem do arquivo enviado coincide com os bytes encontrados no
+repositório de referência congelado; a importação só prossegue quando
+o SHA-256 agregado de todos os 176 arquivos coincide exatamente.
+
+**Nota jurídica:** a procedência e os direitos de redistribuição
+dos sprites precisam ser confirmados antes do lançamento público.
