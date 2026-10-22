@@ -5,27 +5,35 @@ local cache={}
 local missing={}
 local allowed={animals=true,weapons=true,hats=true,accessories=true,
   resources=true,icons=true}
+-- Give original user artwork precedence. If a local custom file cannot
+-- decode, the reference PNG remains available as a fallback.
+local function candidatePaths(category,filename)
+  local rel=category.."/"..filename
+  return {"assets/custom/img/"..rel,"assets/reference/img/"..rel}
+end
 function A.get(category,filename)
   if not allowed[category] then return nil end
   if type(filename)~="string" or not filename:match("^[%w_%-]+%.png$") then
     return nil
   end
-  local path="assets/reference/img/"..category.."/"..filename
-  if cache[path]~=nil then return cache[path] or nil end
-  if not love.filesystem.getInfo(path,"file") then
-    missing[path]="arquivo nao encontrado"
-    cache[path]=false
-    return nil
+  local id=category.."/"..filename
+  if cache[id]~=nil then return cache[id] or nil end
+  local failed={}
+  for _,path in ipairs(candidatePaths(category,filename)) do
+    if love.filesystem.getInfo(path,"file") then
+      local ok,result=pcall(love.graphics.newImage,path)
+      if ok and result then
+        result:setFilter("linear","linear")
+        cache[id]=result
+        missing[id]=nil
+        return result
+      end
+      failed[#failed+1]=path.." nao pode ser aberto ("..tostring(result)..")"
+    end
   end
-  local ok,result=pcall(love.graphics.newImage,path)
-  if not ok then
-    missing[path]="PNG invalido: "..tostring(result)
-    cache[path]=false
-    return nil
-  end
-  result:setFilter("linear","linear")
-  cache[path]=result
-  return result
+  missing[id]=#failed>0 and table.concat(failed,"; ") or "arquivo nao encontrado"
+  cache[id]=false
+  return nil
 end
 -- The pinned source is missing bow_1_d.png (diamond bow), despite
 -- containing all the other 16 x 5 weapon variants. Never synthesize
@@ -42,8 +50,10 @@ function A.weaponFilename(source,suffix,exists)
   local desired=source..suffix..".png"
   if suffix=="" then return desired,false end
   local check=exists or function(file)
-    return love.filesystem.getInfo(
-      "assets/reference/img/weapons/"..file,"file")~=nil
+    for _,path in ipairs(candidatePaths("weapons",file)) do
+      if love.filesystem.getInfo(path,"file") then return true end
+    end
+    return false
   end
   if check(desired) then return desired,false end
   return source..".png",true
@@ -68,8 +78,7 @@ function A.missingSummary(limit)
   local list=A.missing()
   local lines={}
   for i=1,math.min(limit or 3,#list) do
-    local file=list[i].path:gsub("^assets/reference/img/","")
-    lines[#lines+1]=file.." ("..list[i].reason..")"
+    lines[#lines+1]=list[i].path.." ("..list[i].reason..")"
   end
   return lines,#list
 end

@@ -5,6 +5,9 @@ dist/
 *.log
 *.zip
 assets/reference/
-assets/custom/
 client-official/
 client/public/img/
+
+# Locally generated art audit and unpinned npm lock
+ARTES-PENDENTES.txt
+/package-lock.json

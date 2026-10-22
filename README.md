@@ -60,3 +60,42 @@ Esta versão é para LAN ou VPN **privada confiável**. A API herdada tem mecani
 As artes definitivas ficam para depois. Este repositório não redistribui imagens nem scripts proprietários do jogo oficial; recursos próprios com licença apropriada podem ficar em `assets/custom/img/`.
 
 Servidor reconstruído baseado em [al007ex/moomoo-clone](https://github.com/al007ex/moomoo-clone), commit `06f7c1ca965a7628671676c8d9a7efd3997bb5e7` (Apache-2.0). Cliente Lua importado do snapshot autorizado anterior ao V2 do Moo-Quest. Contribuições novas Moo IO e cliente distribuídas sob AGPL-3.0-only, respeitando as atribuições anteriores. Veja [NOTICE.md](NOTICE.md) e [LICENSE](LICENSE).
+
+
+## Imagens: PNG verdadeiro e arte personalizada
+
+O cliente espera 180 nomes de sprites nas categorias animais, armas,
+chapeus, acessorios, recursos e icones. A origem congelada contem seis
+imagens **WebP lossless com extensao .png**; elas sao imagens validas no
+formato WebP, nao PNGs genuinos. A preparacao local converte o conteudo
+para PNG verdadeiro preservando os pixels e a transparencia.
+
+**Sem terminal no Windows:** instale Node.js 20+, LOVE 2D 11.5 e LuaSocket,
+extraia o ZIP completo, execute `MOO-IO.vbs` e clique `Jogar`.
+A primeira sala prepara as imagens locais antes de iniciar o servidor.
+Se ainda nao tiver os sprites, o processo baixa a referencia congelada
+do GitHub, convertendo os WebPs automaticamente. A faixa de status mostra
+o andamento e eventuais erros. A inicializacao inicial exige internet
+se nao houver a pasta de imagens antiga.
+
+Preparacao manual opcional: `npm install`, `npm run assets:sync`
+e `npm run assets:check` para verificar os PNGs resultantes.
+O relatorio `ARTES-PENDENTES.txt` separa arquivos ausentes dos
+arquivos com formato invalido.
+
+O cliente carrega primeiro `assets/custom/img/<categoria>/<arquivo>.png`,
+depois `assets/reference/img/<categoria>/<arquivo>.png`.
+A pasta `assets/custom/img` pode conter seus sprites originais,
+com nomes do `support/reference-image-manifest.json`.
+O arco de diamante `weapons/bow_1_d.png` nao existe no pacote original:
+sem arte propria, o cliente usa a imagem-base do arco, nao uma imagem falsa.
+
+Para aproveitar uma instalacao antiga, indique a pasta que ja contem as
+subpastas `animals`, `weapons` etc. em `MOO_IO_ART_SOURCE_DIR`
+ou coloque-as em `assets/custom/img`. O script tambem verifica uma
+pasta Moo-Quest irma.
+
+**Direitos:** os arquivos originais de MooMoo.io/FRVR pertencem a terceiros,
+por isso sao preparados para uso local e nao foram adicionados ao
+repositorio. Voce pode versionar imagens suas em `assets/custom/img`
+se possuir os direitos para distribui-las publicamente.

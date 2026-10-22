@@ -148,6 +148,12 @@ function Host:update(dt)
       local selected={}
       for i=math.max(1,#lines-4),#lines do selected[#selected+1]=lines[i] end
       self.lastLog=table.concat(selected,"\n")
+      if content:find("MOOIO_PHASE_ASSET_DEPENDENCIES",1,true) then
+        self.progress="Instalando conversor de imagens (primeira execucao)..."
+      end
+      if content:find("MOOIO_PHASE_ASSETS",1,true) then
+        self.progress="Preparando 180 imagens e convertendo WebP para PNG..."
+      end
       if content:find("MOOIO_PHASE_INSTALLING",1,true) then
         self.progress="Instalando componentes do servidor (primeira execucao)..."
       end
@@ -166,9 +172,9 @@ function Host:update(dt)
       return
     end
   end
-  if self.elapsed>90 then
+  if self.elapsed>240 then
     self.state="failed"
-    self.error="Servidor nao iniciou. Verifique Node.js, internet e o arquivo server/data/mooio-host.log"
+    self.error="Servidor nao iniciou. Confira Node.js, internet e server/data/mooio-host.log"
     if self.process then kernel.TerminateProcess(self.process,1);kernel.CloseHandle(self.process);self.process=nil end
   end
 end

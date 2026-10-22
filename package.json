@@ -9,6 +9,12 @@
   "scripts": {
     "install:server": "npm install --prefix server --no-audit --no-fund",
     "start:server": "node server/src/index.js",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "assets:sync": "node tools/sync-reference-art.mjs",
+    "assets:check": "node tools/inspect-reference-png.mjs assets/reference/img"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "sharp": "^0.34.3"
   }
 }
