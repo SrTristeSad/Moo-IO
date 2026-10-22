@@ -104,7 +104,7 @@ function Home.new()
     status="",error=false,hosting=false,starting=false,
     hostAddress="",hostCode="",connectionState="idle",serverLog="",
     showGrid=true,fullscreen=false,sessionTitle="",
-    roomOverlay=false,autoJoin=false
+    roomOverlay=false
   },Home)
 end
 function Home:scale(x,y)
@@ -260,7 +260,7 @@ function Home:draw(state,detail)
     button("homeSettings","CONFIGURACOES",false)
     panel(583,202,575,340,C.panel,0)
     printText("SEU MUNDO, SUAS REGRAS",608,255,25,C.white)
-    printText("Crie uma sala particular.",612,325,20,C.green)
+    printText("Crie sua sala somente se quiser.",612,325,20,C.green)
     printText("Entre sozinho ou chame amigos.",612,363,18,C.muted)
     printText("Sem configurar um terminal.",612,406,17,C.muted)
   else
@@ -281,7 +281,7 @@ function Home:draw(state,detail)
         button("roomStop","ENCERRAR",false)
       elseif self.starting then
         printText("Preparando sua sala...",155,331,18,C.green)
-        printText("O jogo inicia o servidor automaticamente.",155,383,16,C.muted)
+        printText("Voce escolheu criar esta sala.",155,383,16,C.muted)
         printText("Ninguem precisa abrir um terminal.",155,417,16,C.muted)
         printText("Sem bots nesta versao.",155,482,15,C.muted)
       else
@@ -338,7 +338,7 @@ function Home:draw(state,detail)
     (state=="joining" and "Entrando na partida..." or
      state=="keyed_transport" and "Servidor conectado. Carregando mundo..." or
      state=="failed" and tostring(detail) or
-     "Escolha Jogar para criar sua sala ou entrar pelo IP.")
+     "Jogar abre as opcoes. Criar sala e uma escolha.")
   if #message>135 then message=message:sub(1,132).."..." end
   love.graphics.setColor(self.error and C.red or C.green)
   love.graphics.rectangle("fill",92,625,5,35)

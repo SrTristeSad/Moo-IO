@@ -36,6 +36,7 @@ local home=Home.new()
 local hosted=Host.new()
 local joinRequested=false
 local connectRoom
+local homeAction
 local panels=Panels.new()
 local profile=Profile.new()
 local clans=Clans.new()
@@ -106,6 +107,15 @@ function love.load()
     end
     return
   end
+  if os.getenv("MOO_IO_ROOM_CHOICE_TEST")=="1" then
+    local ok,err=pcall(function()
+      require("src.test_room_choice")(homeAction,home,hosted,
+        function() return client end)
+    end)
+    if not ok then print("MOO IO ROOM CHOICE FAIL: "..tostring(err)) end
+    love.event.quit(ok and 0 or 1)
+    return
+  end
   if os.getenv("MOO_IO_MENU_TEST")=="1" then
     local ok,err=pcall(function() require("src.test_mooio_menu")() end)
     if not ok then print("MOO IO MENU FAIL: "..tostring(err)) end
@@ -164,12 +174,8 @@ function love.update(dt)
     home.starting=false;home.hosting=true
     home.hostAddress=hosted.address;home.hostCode=hosted.code
     home:setStatus("Sala particular criada. Convide amigos pelo F2.")
-    if home.autoJoin then
-      home.autoJoin=false
-      connectRoom(hosted.hostIP,hosted.port,hosted.code)
-    end
   elseif home.starting and hosted.state=="failed" then
-    home.starting=false;home.hosting=false;home.autoJoin=false
+    home.starting=false;home.hosting=false
     home:setStatus(hosted.error or "Nao foi possivel iniciar o servidor.",true)
   end
   if not client then return end
@@ -520,30 +526,30 @@ connectRoom=function(ip,port,inviteCode)
   return connected
 end
 
-local function homeAction(action)
+homeAction=function(action)
   if action=="play_tab" then
+    -- Navigating to JOGAR cannot launch a server or join a room.
+    -- Both operations require their own explicit button.
     home.screen="play"
     if hosted.state=="ready" then
-      home.autoJoin=false
-      connectRoom(hosted.hostIP,hosted.port,hosted.code)
+      home:setStatus("Sala pronta. Clique JOGAR AGORA se quiser entrar.")
     elseif hosted.state=="starting" then
-      home.autoJoin=true
-      home:setStatus("Criando sua sala particular...")
+      home:setStatus("Preparando a sala que voce escolheu criar...")
     else
-      home.autoJoin=true
-      homeAction("create")
+      home:setStatus("Escolha CRIAR MINHA SALA ou ENTRAR EM OUTRA SALA.")
     end
   elseif action=="server_to_play" then
     home.screen="play"
-    home.autoJoin=false
     home:setStatus("Entre usando IP, porta e codigo fornecidos pelo anfitriao.")
   elseif action=="provider_lite" then
     home:setStatus("V2 Lite: requer um servidor dedicado e compatibilidade de protocolo.")
   elseif action=="provider_firebase" then
     home:setStatus("Firebase: login e busca de salas dependem da configuracao do projeto.")
   elseif action=="back" then
-    home.autoJoin=false
+    home:setStatus("")
   elseif action=="create" then
+    -- The only path that can create a private server is an explicit click.
+    if home.screen~="play" or home.starting or home.hosting then return end
     if client then client:close();client=nil end
     home:setStatus("Iniciando servidor local sem terminal...")
     local ok,err=hosted:start(home.serverMode,home.vpnIP)
@@ -551,7 +557,7 @@ local function homeAction(action)
       home.starting=true;home.hosting=false
       home.hostCode="";home.hostAddress=""
     else
-      home.starting=false;home.autoJoin=false
+      home.starting=false
       home:setStatus(tostring(err),true)
     end
   elseif action=="mode_lan" or action=="mode_vpn" then
@@ -559,7 +565,6 @@ local function homeAction(action)
       and "Abra sua VPN com os amigos e informe o IP virtual deste computador."
       or "Modo LAN: amigos conectados ao mesmo roteador.")
   elseif action=="join" then
-    home.autoJoin=false
     local target,why=Home.parseInvite(home.invite,home.joinCode)
     if not target then home:setStatus(why,true);return end
     connectRoom(target.host,target.port,target.code)
@@ -571,7 +576,7 @@ local function homeAction(action)
     if client then client:close();client=nil end
     hosted:stop()
     home.hosting=false;home.starting=false
-    home.hostAddress="";home.hostCode="";home.autoJoin=false
+    home.hostAddress="";home.hostCode=""
     home:setStatus("Sala encerrada.")
   elseif action=="retry" then
     if hosted.state=="ready" and (home.invite=="" or home.invite==home:roomInvite()) then
