@@ -22,6 +22,15 @@ jobs:
           npm install --prefix server --no-audit --no-fund
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq love lua-socket xvfb
+      - name: Navegacao do menu Jogar, IP, F2 e Servidores
+        env:
+          MOO_IO_MENU_TEST: '1'
+          SDL_AUDIODRIVER: dummy
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -o pipefail
+          timeout 25s xvfb-run -a love . 2>&1 | tee "$RUNNER_TEMP/mooio-menu.log"
+          grep -F 'MOO IO MENU PASS:' "$RUNNER_TEMP/mooio-menu.log"
       - name: Iniciar servidor da partida
         shell: bash
         run: |
