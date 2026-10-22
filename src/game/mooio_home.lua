@@ -152,7 +152,7 @@ function Home:click(sx,sy)
       if inside(x,y,boxes.roomStop) then self.focus=nil;return "stop" end
     end
     if inside(x,y,boxes.join) then self.focus=nil;return "join" end
-    if inside(x,y,boxes.joinRetry) then self.focus=nil;return "retry" end
+    if self.error and inside(x,y,boxes.joinRetry) then self.focus=nil;return "retry" end
     self.focus=nil
   elseif self.screen=="server" then
     if inside(x,y,boxes.serverLite) then self.provider="lite";return "provider_lite" end
@@ -293,7 +293,7 @@ function Home:draw(state,detail)
         else
           button("createLan","CRIAR MINHA SALA",true)
         end
-        printText("Criacao privada - sem bots nesta versao.",155,516,15,C.muted)
+        printText("Privado: somente amigos com convite.",155,516,15,C.muted)
       end
       printText("02  ENTRAR EM OUTRA SALA",704,214,19,C.green)
       printText("IP, porta ou convite completo",704,256,15,C.muted)
@@ -301,7 +301,11 @@ function Home:draw(state,detail)
       printText("Codigo de acesso (separado ou no convite)",704,340,14,C.muted)
       field("joinCode",self.joinCode,"Codigo da sala",self.focus=="joinCode")
       button("join","ENTRAR NA SALA",true)
-      button("joinRetry","TENTAR NOVAMENTE",false)
+      if self.error then
+        button("joinRetry","TENTAR NOVAMENTE",false)
+      else
+        printText("Entre pelo IP da rede local ou VPN privada.",706,517,15,C.muted)
+      end
     elseif self.screen=="server" then
       printText("SERVIDORES",140,165,31,C.white)
       printText("Servidores dedicados e descoberta de partidas.",145,220,16,C.muted)
