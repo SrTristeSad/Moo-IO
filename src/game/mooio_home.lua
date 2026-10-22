@@ -5,12 +5,13 @@ local Network=require("src.net.mooio_network")
 local Home={}
 Home.__index=Home
 
+-- Stone, soil and grass: block-game-inspired original interface. No copied textures.
 local C={
-  bg={0.052,0.083,0.095}, panel={0.088,0.139,0.151},
-  raised={0.119,0.185,0.196}, border={0.20,0.29,0.30},
-  green={0.42,0.88,0.57}, greenDark={0.052,0.14,0.11},
-  white={0.94,0.97,0.97}, muted={0.65,0.75,0.76},
-  amber={1.0,0.77,0.46}, red={1.0,0.53,0.49}
+  bg={0.15,0.19,0.18}, panel={0.23,0.255,0.25},
+  raised={0.32,0.345,0.33}, border={0.095,0.12,0.11},
+  green={0.43,0.72,0.26}, greenDark={0.10,0.19,0.095},
+  white={0.96,0.955,0.89}, muted={0.79,0.81,0.76},
+  amber={1.0,0.80,0.39}, red={0.99,0.52,0.43}
 }
 local fonts={}
 local function f(n)
@@ -18,8 +19,20 @@ local function f(n)
   love.graphics.setFont(fonts[n])
 end
 local function panel(x,y,w,h,color,r)
-  love.graphics.setColor(color or C.panel)
-  love.graphics.rectangle("fill",x,y,w,h,r or 15,r or 15)
+  -- Dark stepped border and top-left light edge give the UI a carved-block feel.
+  color=color or C.panel
+  love.graphics.setColor(0.055,0.068,0.062,0.9)
+  love.graphics.rectangle("fill",x+5,y+6,w,h,0,0)
+  love.graphics.setColor(C.border)
+  love.graphics.rectangle("fill",x-2,y-2,w+4,h+4,0,0)
+  love.graphics.setColor(color)
+  love.graphics.rectangle("fill",x,y,w,h,0,0)
+  love.graphics.setColor(1,1,1,0.11)
+  love.graphics.rectangle("fill",x+2,y+2,w-4,3)
+  love.graphics.rectangle("fill",x+2,y+2,3,h-4)
+  love.graphics.setColor(0,0,0,0.25)
+  love.graphics.rectangle("fill",x+2,y+h-5,w-4,4)
+  love.graphics.rectangle("fill",x+w-5,y+2,4,h-4)
 end
 local function printText(t,x,y,size,color,w,align)
   f(size or 17); love.graphics.setColor(color or C.white)
@@ -30,7 +43,7 @@ local function inside(x,y,b)
   return x>=b[1] and y>=b[2] and x<b[1]+b[3] and y<b[2]+b[4]
 end
 local boxes={
-  back={55,56,156,44},
+  back={1041,93,171,45},
   homePlay={95,278,400,68},homeServers={95,362,400,68},
   homeSettings={95,446,400,68},
   nickname={155,236,462,52},modeLan={155,312,223,46},
@@ -52,19 +65,23 @@ local function button(id,text,primary)
   local z=math.min(w/1280,h/720)
   mx=(mx-(w-1280*z)/2)/z;my=(my-(h-720*z)/2)/z
   local hover=inside(mx,my,b)
-  local bg=primary and (hover and {0.51,0.96,0.65} or C.green)
-     or (hover and {0.16,0.245,0.25} or C.raised)
-  panel(b[1],b[2],b[3],b[4],bg,12)
-  printText(text,b[1]+10,b[2]+math.floor((b[4]-21)/2),19,
-     primary and C.greenDark or C.white,b[3]-20,"center")
+  local bg=primary and (hover and {0.55,0.82,0.34} or C.green)
+     or (hover and {0.39,0.43,0.40} or C.raised)
+  panel(b[1],b[2],b[3],b[4],bg,0)
+  if primary then
+    love.graphics.setColor(0.71,0.92,0.50,0.38)
+    love.graphics.rectangle("fill",b[1]+5,b[2]+4,b[3]-10,4)
+  end
+  printText(text,b[1]+10,b[2]+math.floor((b[4]-21)/2)-1,19,
+    primary and C.greenDark or C.white,b[3]-20,"center")
 end
 local function field(id,value,placeholder,focused)
   local b=boxes[id]
-  panel(b[1],b[2],b[3],b[4],C.raised,10)
+  panel(b[1],b[2],b[3],b[4],{0.17,0.21,0.19},0)
   if focused then
     love.graphics.setColor(C.green)
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line",b[1]+1,b[2]+1,b[3]-2,b[4]-2,10,10)
+    love.graphics.rectangle("line",b[1]+1,b[2]+1,b[3]-2,b[4]-2)
   end
   local show=value~="" and value or placeholder
   if #show>51 then show="..."..show:sub(-48) end
@@ -191,41 +208,68 @@ function Home:textinput(chars)
   end
 end
 local function decorate()
-  love.graphics.setColor(0.075,0.14,0.145)
-  love.graphics.circle("fill",1200,15,235)
-  love.graphics.setColor(0.067,0.117,0.125)
-  love.graphics.circle("fill",1230,700,350)
-  panel(32,32,1216,656,{0.067,0.108,0.115},24)
+  -- Procedural block pattern replaces placeholder gradient circles.
+  for iy=0,18 do
+    for ix=0,32 do
+      local x,y=ix*40,iy*40
+      local v=(ix*13+iy*7)%6
+      local g=0.18+v*0.008
+      love.graphics.setColor(g,g+0.025,g+0.006,0.33)
+      love.graphics.rectangle("fill",x+1,y+1,39,39)
+      love.graphics.setColor(0.07,0.09,0.075,0.12)
+      love.graphics.rectangle("fill",x+1,y+36,39,3)
+    end
+  end
+  panel(30,34,1220,657,{0.21,0.24,0.22},0)
+  love.graphics.setColor(0.31,0.48,0.23)
+  love.graphics.rectangle("fill",36,40,1208,13)
+  love.graphics.setColor(0.49,0.70,0.31)
+  love.graphics.rectangle("fill",36,40,1208,5)
+  -- Pixel foliage remains decorative, never a game sprite.
+  local trees={{1130,120,1},{1220,191,0.65},{1060,455,0.7}}
+  for _,t in ipairs(trees) do
+    love.graphics.setColor(0.30,0.20,0.13,0.55)
+    love.graphics.rectangle("fill",t[1]+15*t[3],t[2]+32*t[3],20*t[3],72*t[3])
+    love.graphics.setColor(0.24,0.43,0.21,0.62)
+    love.graphics.rectangle("fill",t[1],t[2],62*t[3],56*t[3])
+    love.graphics.setColor(0.42,0.66,0.28,0.51)
+    love.graphics.rectangle("fill",t[1]+10*t[3],t[2]+9*t[3],43*t[3],27*t[3])
+  end
 end
 function Home:draw(state,detail)
   self.connectionState=state or self.connectionState
   love.graphics.push("all")
-  local w,h=love.graphics.getDimensions(),love.graphics.getHeight()
+  local w,h=love.graphics.getDimensions()
   local z=math.min(w/1280,h/720)
   love.graphics.translate((w-1280*z)/2,(h-720*z)/2)
   love.graphics.scale(z)
   love.graphics.clear(C.bg)
   decorate()
-  printText("MOO",84,66,47,C.white)
-  printText("IO",221,68,44,C.green)
-  printText("JOGUE COM SEUS AMIGOS",86,122,13,C.muted)
+  -- Fixed header: the back button lives at the upper right, never over logo.
+  love.graphics.setColor(0.09,0.12,0.095)
+  love.graphics.rectangle("fill",58,72,325,83)
+  love.graphics.setColor(0.20,0.29,0.19)
+  love.graphics.rectangle("fill",63,77,315,73)
+  printText("MOO",88,78,44,C.white)
+  printText("IO",222,78,44,C.green)
+  printText("MULTIPLAYER",91,127,13,C.muted)
   if self.screen=="home" then
-    printText("Sua aventura comeca aqui.",94,215,29,C.white)
+    printText("ESCOLHA COMO JOGAR",96,213,29,C.white)
     button("homePlay","JOGAR",true)
     button("homeServers","SERVIDORES",false)
     button("homeSettings","CONFIGURACOES",false)
-    panel(583,202,575,340,C.panel,19)
-    printText("JOGAR DO SEU JEITO",626,255,26,C.white)
-    printText("Uma sala particular so sua.",628,325,20,C.green)
-    printText("Jogue sozinho ou convide amigos.",628,361,18,C.muted)
-    printText("Servidor interno, sem terminal.",628,403,17,C.muted)
+    panel(583,202,575,340,C.panel,0)
+    printText("SEU MUNDO, SUAS REGRAS",608,255,25,C.white)
+    printText("Crie uma sala particular.",612,325,20,C.green)
+    printText("Entre sozinho ou chame amigos.",612,363,18,C.muted)
+    printText("Sem configurar um terminal.",612,406,17,C.muted)
   else
     button("back","< VOLTAR",false)
     if self.screen=="play" then
-      printText("Jogar",135,152,34,C.white)
-      panel(130,194,505,402,C.panel,17)
-      panel(672,194,477,402,C.panel,17)
-      printText("MINHA SALA",155,207,19,C.green)
+      printText("JOGAR",132,158,31,C.white)
+      panel(130,194,505,402,C.panel,0)
+      panel(672,194,477,402,C.panel,0)
+      printText("01  CRIAR MINHA SALA",155,204,19,C.green)
       field("nickname",self.nickname,"Seu apelido",self.focus=="nickname")
       if self.hosting then
         printText("Sala criada - amigos podem entrar.",155,316,17,C.green)
@@ -249,9 +293,9 @@ function Home:draw(state,detail)
         else
           button("createLan","CRIAR MINHA SALA",true)
         end
-        printText("Bots: recurso previsto, ainda nao incluido.",155,513,14,C.muted)
+        printText("Criacao privada - sem bots nesta versao.",155,516,15,C.muted)
       end
-      printText("ENTRAR POR IP OU CONVITE",704,222,19,C.green)
+      printText("02  ENTRAR EM OUTRA SALA",704,214,19,C.green)
       printText("IP, porta ou convite completo",704,256,15,C.muted)
       field("joinIP",self.invite,"192.168.1.5:8080",self.focus=="invite")
       printText("Codigo de acesso (separado ou no convite)",704,340,14,C.muted)
@@ -259,10 +303,10 @@ function Home:draw(state,detail)
       button("join","ENTRAR NA SALA",true)
       button("joinRetry","TENTAR NOVAMENTE",false)
     elseif self.screen=="server" then
-      printText("Servidores",140,169,34,C.white)
+      printText("SERVIDORES",140,165,31,C.white)
       printText("Servidores dedicados e descoberta de partidas.",145,220,16,C.muted)
-      panel(130,239,491,265,self.provider=="lite" and C.raised or C.panel,17)
-      panel(633,239,492,265,self.provider=="firebase" and C.raised or C.panel,17)
+      panel(130,239,491,265,self.provider=="lite" and C.raised or C.panel,0)
+      panel(633,239,492,265,self.provider=="firebase" and C.raised or C.panel,0)
       button("serverLite","SERVIDOR V2 LITE",self.provider=="lite")
       button("serverFirebase","FIREBASE",self.provider=="firebase")
       if self.provider=="lite" then
@@ -278,21 +322,25 @@ function Home:draw(state,detail)
       end
       button("serverToPlay","ENTRAR COM IP NO JOGAR",false)
     else
-      printText("Configuracoes",336,197,32,C.white)
+      printText("CONFIGURACOES",336,190,31,C.white)
       button("grid","GRADE DO MAPA     "..(self.showGrid and "LIGADA" or "DESLIGADA"),false)
       button("fullscreen","TELA CHEIA       "..(self.fullscreen and "LIGADA" or "DESLIGADA"),false)
       printText("WASD: mover  |  Mouse: mirar  |  Enter: chat",360,469,16,C.muted)
       printText("F2 na partida: copiar convite e chamar amigos.",360,503,16,C.muted)
     end
   end
-  panel(84,620,1110,50,C.panel,10)
+  panel(83,614,1111,57,{0.13,0.17,0.15},0)
   local message=self.status~="" and self.status or
     (state=="joining" and "Entrando na partida..." or
      state=="keyed_transport" and "Servidor conectado. Carregando mundo..." or
      state=="failed" and tostring(detail) or
      "Escolha Jogar para criar sua sala ou entrar pelo IP.")
   if #message>135 then message=message:sub(1,132).."..." end
-  printText(message,105,636,15,self.error and C.red or C.muted,1070)
+  love.graphics.setColor(self.error and C.red or C.green)
+  love.graphics.rectangle("fill",92,625,5,35)
+  printText(self.error and "ATENCAO" or "STATUS",111,627,13,
+    self.error and C.red or C.green)
+  printText(message,212,631,16,self.error and {1,0.85,0.77} or C.white,950)
   love.graphics.pop()
 end
 function Home:drawRoomOverlay()
@@ -304,7 +352,7 @@ function Home:drawRoomOverlay()
   local z=math.min(w/1280,h/720)
   love.graphics.translate((w-1280*z)/2,(h-720*z)/2)
   love.graphics.scale(z)
-  panel(337,166,606,388,C.panel,20)
+  panel(337,166,606,388,C.panel,0)
   printText("CONVIDAR AMIGOS",383,214,27,C.white)
   printText("Compartilhe o codigo desta sala privada.",386,275,17,C.muted)
   panel(388,318,503,54,C.raised,11)
