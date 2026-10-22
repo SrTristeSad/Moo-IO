@@ -28,6 +28,8 @@ import { ModerationStore } from "./anticheat/index.js";
 import { createConnectionHandler } from "./network/connection.js";
 import { AdminConsole } from "./admin/console.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
+// Moo IO modification: invitation-gated community LAN rooms.
+import { validRoomCode, publicProtocol, requireRoomInvite } from "./mooio/invite.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "../..");
@@ -37,6 +39,8 @@ const PUBLIC_DIR = path.join(ROOT, "client/public");
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "server/data");
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? "127.0.0.1";
+const ROOM_CODE = process.env.MOO_IO_ROOM_CODE || "";
+if (!validRoomCode(ROOM_CODE)) throw new Error("MOO_IO_ROOM_CODE must be 8-64 letters, digits or dashes");
 
 // Game servers shown in the client's server picker (region "local" = this host).
 const GAME_SERVERS = [
@@ -202,6 +206,8 @@ app.get(/^\/assets\/index-[\w-]+\.js$/, (req, res, next) => {
     res.type("application/javascript").send(current.bytes);
 });
 app.use("/assets", express.static(path.join(OFFICIAL_DIR, "assets"), { fallthrough: false }));
+// Guard ticket issuance: a client without a room invitation cannot join the world.
+app.use("/api/join", (req, res, next) => requireRoomInvite(ROOM_CODE, req, res, next));
 app.use("/api", createApiRouter({ store: accounts, moderation, servers, game: gameApi, social, stream, chat }));
 
 // Links from "Copy link" on profiles and clans open the game with that card.
@@ -222,16 +228,20 @@ app.get("/ping", (_req, res) => {
     });
 });
 
-// Moo-Quest-added local identity. Avoid accidentally connecting the native
-// client to a still-running legacy sandbox server on port 8080.
-app.get("/mooquest/status", (_req, res) => {
+// Moo IO modification: public packet table parameters, not server secrets.
+// Native Lua clients on another PC cannot read this host's protocol-build.json.
+app.get("/mooio/protocol", (_req, res) => {
+    try {
+        const params = publicProtocol(JSON.parse(fs.readFileSync(pinFile, "utf8")));
+        res.set("Cache-Control", "no-store");
+        res.json(params);
+    } catch {
+        res.status(503).json({ error: "protocol_unavailable" });
+    }
+});
+app.get("/mooio/status", (_req, res) => {
     res.set("Cache-Control", "no-store");
-    res.json({
-        project: "Moo-Quest",
-        server: "vendored-node",
-        economy: config.unlimitedResources ? "unlimited" : "gather",
-        build: build.BUILD_ID
-    });
+    res.json({ project: "Moo-IO", mode: "lan", build: build.BUILD_ID });
 });
 
 app.use(express.static(PUBLIC_DIR));
@@ -254,7 +264,7 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(PORT, HOST, () => {
-    log(`MooMoo.io private server on http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
+    log(`Moo IO LAN room on http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
     log(`protocol build ${build.BUILD_ID} (${build.publicPath}), servers: ${GAME_SERVERS.map(s => s.key + (s.membersOnly ? " (members)" : "")).join(", ")}`);
     if (!fs.existsSync(indexFile)) log("official client is not built yet - run `npm run build`");
 });
