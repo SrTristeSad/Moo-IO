@@ -136,6 +136,10 @@ function love.update(dt)
   if integration then integration:update(dt);return end
   if diagnostic then return end
   hosted:update(dt)
+  if home.starting and hosted.state=="starting"
+    and hosted.progress~="" and home.status~=hosted.progress then
+    home:setStatus(hosted.progress)
+  end
   if home.starting and hosted.state=="ready" then
     home.starting=false;home.hosting=true
     home.hostAddress=hosted.address;home.hostCode=hosted.code
