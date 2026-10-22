@@ -1,0 +1,50 @@
+name: Moo IO - partida real Lua/Node
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  game-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar Node e LOVE para teste grafico
+        run: |
+          npm install --prefix server --no-audit --no-fund
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq love lua-socket xvfb
+      - name: Iniciar servidor da partida
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/mooio-data"
+          MOO_IO_ROOM_CODE=lanroom98765 HOST=127.0.0.1 PORT=8080 \
+            DATA_DIR="$RUNNER_TEMP/mooio-data" \
+            PROTOCOL_BUILD_FILE="$RUNNER_TEMP/mooio-data/protocol-build.json" \
+            node server/src/index.js >"$RUNNER_TEMP/mooio-server.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/mooio-pid"
+          for n in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:8080/mooio/status > /dev/null; then exit 0; fi
+            sleep .2
+          done
+          cat "$RUNNER_TEMP/mooio-server.log"
+          exit 1
+      - name: Cliente Lua - confirmar C, D e renderizar mundo
+        env:
+          MOO_IO_E2E: '1'
+          MOO_IO_HOST: '127.0.0.1'
+          MOO_IO_PORT: '8080'
+          MOO_IO_ROOM_CODE: 'lanroom98765'
+          SDL_AUDIODRIVER: dummy
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          timeout 55s xvfb-run -a love .
+      - name: Logs em caso de falha
+        if: failure()
+        run: |
+          cat "$RUNNER_TEMP/mooio-server.log" || true
