@@ -1,142 +1,159 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
--- Moo IO native home menu. No terminal, external HTML or original-client menu.
+-- Moo IO: personal play rooms are separate from dedicated server providers.
+-- Gameplay authority remains in the existing Node process; no bots or fake world.
+local Network=require("src.net.mooio_network")
 local Home={}
 Home.__index=Home
-local Network=require("src.net.mooio_network")
 
-local palette={
-  base={0.055,0.095,0.10}, panel={0.10,0.16,0.17},
-  panel2={0.14,0.22,0.22}, accent={0.37,0.81,0.50},
-  fg={0.94,0.97,0.94}, subdued={0.65,0.74,0.72},
-  error={1.00,0.63,0.58}
+local C={
+  bg={0.052,0.083,0.095}, panel={0.088,0.139,0.151},
+  raised={0.119,0.185,0.196}, border={0.20,0.29,0.30},
+  green={0.42,0.88,0.57}, greenDark={0.052,0.14,0.11},
+  white={0.94,0.97,0.97}, muted={0.65,0.75,0.76},
+  amber={1.0,0.77,0.46}, red={1.0,0.53,0.49}
 }
 local fonts={}
-local function font(size)
-  if not fonts[size] then fonts[size]=love.graphics.newFont(size) end
-  love.graphics.setFont(fonts[size])
+local function f(n)
+  if not fonts[n] then fonts[n]=love.graphics.newFont(n) end
+  love.graphics.setFont(fonts[n])
 end
-local function rectangle(x,y,w,h,color,radius)
-  love.graphics.setColor(color)
-  love.graphics.rectangle("fill",x,y,w,h,radius or 10,radius or 10)
+local function panel(x,y,w,h,color,r)
+  love.graphics.setColor(color or C.panel)
+  love.graphics.rectangle("fill",x,y,w,h,r or 15,r or 15)
 end
-local function label(s,x,y,size,color,width,align)
-  font(size)
-  love.graphics.setColor(color or palette.fg)
-  if width then love.graphics.printf(tostring(s),x,y,width,align or "left")
-  else love.graphics.print(tostring(s),x,y) end
+local function printText(t,x,y,size,color,w,align)
+  f(size or 17); love.graphics.setColor(color or C.white)
+  if w then love.graphics.printf(tostring(t),x,y,w,align or "left")
+  else love.graphics.print(tostring(t),x,y) end
 end
-local function within(px,py,x,y,w,h)
-  return px>=x and py>=y and px<x+w and py<y+h
+local function inside(x,y,b)
+  return x>=b[1] and y>=b[2] and x<b[1]+b[3] and y<b[2]+b[4]
 end
-local function button(text,x,y,w,h,primary)
+local boxes={
+  back={55,56,156,44},
+  homePlay={95,278,400,68},homeServers={95,362,400,68},
+  homeSettings={95,446,400,68},
+  nickname={155,236,462,52},modeLan={155,312,223,46},
+  modeVpn={393,312,224,46},vpnIP={155,368,462,46},
+  createLan={155,386,462,60},createVpn={155,429,462,60},
+  roomCopy={155,419,462,55},roomEnter={155,485,226,55},
+  roomStop={392,485,225,55},
+  joinIP={704,294,421,55},join={704,372,421,56},
+  joinRetry={704,452,421,54},
+  serverLite={145,258,459,218},serverFirebase={637,258,459,218},
+  serverToPlay={381,526,518,54},
+  grid={355,280,570,57},fullscreen={355,364,570,57},
+  overlayCopy={478,395,322,55},overlayClose={880,177,55,43}
+}
+local function button(id,text,primary)
+  local b=boxes[id]
   local mx,my=love.mouse.getPosition()
-  local dw,dh=love.graphics.getDimensions()
-  local scale=math.min(dw/1280,dh/720)
-  mx=(mx-(dw-1280*scale)/2)/scale
-  my=(my-(dh-720*scale)/2)/scale
-  local hovered=within(mx,my,x,y,w,h)
-  local color=primary and (hovered and {0.46,0.92,0.57} or palette.accent)
-    or (hovered and {0.20,0.30,0.30} or palette.panel2)
-  rectangle(x,y,w,h,color,12)
-  label(text,x,y+math.floor((h-20)/2)-1,20,primary and palette.base or palette.fg,w,"center")
+  local w,h=love.graphics.getDimensions()
+  local z=math.min(w/1280,h/720)
+  mx=(mx-(w-1280*z)/2)/z;my=(my-(h-720*z)/2)/z
+  local hover=inside(mx,my,b)
+  local bg=primary and (hover and {0.51,0.96,0.65} or C.green)
+     or (hover and {0.16,0.245,0.25} or C.raised)
+  panel(b[1],b[2],b[3],b[4],bg,12)
+  printText(text,b[1]+10,b[2]+math.floor((b[4]-21)/2),19,
+     primary and C.greenDark or C.white,b[3]-20,"center")
 end
-local function input(value,placeholder,x,y,w,h,active)
-  rectangle(x,y,w,h,active and {0.16,0.30,0.28} or palette.panel2,9)
-  if active then
-    love.graphics.setColor(palette.accent)
-    love.graphics.rectangle("line",x+1,y+1,w-2,h-2,9,9)
+local function field(id,value,placeholder,focused)
+  local b=boxes[id]
+  panel(b[1],b[2],b[3],b[4],C.raised,10)
+  if focused then
+    love.graphics.setColor(C.green)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line",b[1]+1,b[2]+1,b[3]-2,b[4]-2,10,10)
   end
-  local content=(value~="" and value or placeholder)
-  if #content>60 then content="..."..content:sub(-57) end
-  label(content..(active and "|" or ""),x+14,y+math.floor((h-18)/2),18,
-    value~="" and palette.fg or palette.subdued,w-26,"left")
+  local show=value~="" and value or placeholder
+  if #show>51 then show="..."..show:sub(-48) end
+  printText(show..(focused and "|" or ""),b[1]+14,b[2]+15,17,
+    value=="" and C.muted or C.white,b[3]-28)
 end
-local function copy(value)
-  if value and value~="" then love.system.setClipboardText(value) return true end
-  return false
-end
-function Home.parseInvite(value)
-  return Network.invite(value)
-end
-
+function Home.parseInvite(value) return Network.invite(value) end
 function Home.new()
   return setmetatable({
-    screen="home",nickname="Jogador",invite="",vpnIP="",serverMode="lan",focus=nil,
+    screen="home",nickname="Jogador",invite="",vpnIP="",
+    serverMode="lan",provider="lite",focus=nil,
     status="",error=false,hosting=false,starting=false,
     hostAddress="",hostCode="",connectionState="idle",serverLog="",
-    showGrid=true,fullscreen=false,sessionTitle=""
+    showGrid=true,fullscreen=false,sessionTitle="",
+    roomOverlay=false,autoJoin=false
   },Home)
 end
 function Home:scale(x,y)
   local w,h=love.graphics.getDimensions()
-  local scale=math.min(w/1280,h/720)
-  return (x-(w-1280*scale)/2)/scale,(y-(h-720*scale)/2)/scale
+  local z=math.min(w/1280,h/720)
+  return (x-(w-1280*z)/2)/z,(y-(h-720*z)/2)/z
 end
 function Home:roomInvite()
   if self.hostAddress=="" or self.hostCode=="" then return "" end
   return self.hostAddress.."/"..self.hostCode
 end
-function Home:setStatus(message,isError)
-  self.status=tostring(message or "")
-  self.error=isError==true
+function Home:setStatus(t,err)
+  self.status=tostring(t or "")
+  self.error=err==true
 end
 function Home:click(sx,sy)
   local x,y=self:scale(sx,sy)
-  if within(x,y,64,56,115,44) and self.screen~="home" then
+  if self.screen~="home" and inside(x,y,boxes.back) then
     self.screen="home";self.focus=nil;return "back"
   end
   if self.screen=="home" then
-    if within(x,y,84,279,348,66) then self.screen="play";return "play_tab" end
-    if within(x,y,84,359,348,66) then self.screen="server";return "server_tab" end
-    if within(x,y,84,439,348,66) then self.screen="settings";return "settings_tab" end
+    if inside(x,y,boxes.homePlay) then
+      self.screen="play";self.focus=nil;return "play_tab"
+    elseif inside(x,y,boxes.homeServers) then
+      self.screen="server";self.focus=nil;return "server_tab"
+    elseif inside(x,y,boxes.homeSettings) then
+      self.screen="settings";self.focus=nil;return "settings_tab"
+    end
   elseif self.screen=="play" then
-    if within(x,y,550,230,627,53) then self.focus="nickname";return "focus" end
-    if within(x,y,550,353,627,53) then self.focus="invite";return "focus" end
-    self.focus=nil
-    if within(x,y,550,430,300,58) then return "join" end
-    if within(x,y,866,430,310,58) then self.screen="server";return "server_tab" end
-    if within(x,y,550,503,627,54) then return "retry" end
-  elseif self.screen=="server" then
-    self.focus=nil
+    if inside(x,y,boxes.nickname) then self.focus="nickname";return "focus" end
+    if inside(x,y,boxes.joinIP) then self.focus="invite";return "focus" end
     if not self.hosting and not self.starting then
-      if within(x,y,550,238,302,52) then self.serverMode="lan";return "mode_lan" end
-      if within(x,y,868,238,309,52) then self.serverMode="vpn";return "mode_vpn" end
-      if self.serverMode=="vpn" and within(x,y,550,326,627,49) then self.focus="vpnIP";return "focus" end
-      if within(x,y,550,self.serverMode=="vpn" and 401 or 332,627,58) then return "create" end
+      if inside(x,y,boxes.modeLan) then self.serverMode="lan";self.focus=nil;return "mode_lan" end
+      if inside(x,y,boxes.modeVpn) then self.serverMode="vpn";self.focus=nil;return "mode_vpn" end
+      if self.serverMode=="vpn" and inside(x,y,boxes.vpnIP) then
+        self.focus="vpnIP";return "focus"
+      end
+      if inside(x,y,boxes[self.serverMode=="vpn" and "createVpn" or "createLan"]) then
+        self.focus=nil;return "create"
+      end
     elseif self.hosting then
-      if within(x,y,550,412,627,58) then return "copy" end
-      if within(x,y,550,486,300,58) then return "play_local" end
-      if within(x,y,866,486,311,58) then return "stop" end
+      if inside(x,y,boxes.roomCopy) then self.focus=nil;return "copy" end
+      if inside(x,y,boxes.roomEnter) then self.focus=nil;return "play_local" end
+      if inside(x,y,boxes.roomStop) then self.focus=nil;return "stop" end
     end
+    if inside(x,y,boxes.join) then self.focus=nil;return "join" end
+    if inside(x,y,boxes.joinRetry) then self.focus=nil;return "retry" end
+    self.focus=nil
+  elseif self.screen=="server" then
+    if inside(x,y,boxes.serverLite) then self.provider="lite";return "provider_lite" end
+    if inside(x,y,boxes.serverFirebase) then self.provider="firebase";return "provider_firebase" end
+    if inside(x,y,boxes.serverToPlay) then self.screen="play";return "server_to_play" end
   elseif self.screen=="settings" then
-    if within(x,y,550,242,627,58) then
-      self.showGrid=not self.showGrid;return "grid"
-    end
-    if within(x,y,550,322,627,58) then
-      self.fullscreen=not self.fullscreen;return "fullscreen"
-    end
+    if inside(x,y,boxes.grid) then self.showGrid=not self.showGrid;return "grid" end
+    if inside(x,y,boxes.fullscreen) then self.fullscreen=not self.fullscreen;return "fullscreen" end
   end
   return nil
 end
-local function backspace(s)
-  local n=#s
-  while n>1 and s:byte(n)>=128 and s:byte(n)<192 do n=n-1 end
-  return s:sub(1,n-1)
+local function removeLast(s)
+  local i=#s
+  while i>1 and s:byte(i)>=128 and s:byte(i)<192 do i=i-1 end
+  return s:sub(1,i-1)
 end
 function Home:keypressed(key)
-  if key=="escape" then
-    self.screen="home";self.focus=nil;return "back"
-  end
+  if key=="escape" then self.screen="home";self.focus=nil;return "back" end
   if self.focus then
-    if key=="backspace" then self[self.focus]=backspace(self[self.focus]);return nil end
+    if key=="backspace" then self[self.focus]=removeLast(self[self.focus]) end
     if key=="v" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then
-      local pasted=love.system.getClipboardText()
-      self:textinput(pasted)
-      return nil
+      self:textinput(love.system.getClipboardText())
     end
     if key=="return" or key=="kpenter" then
+      local from=self.focus
       self.focus=nil
-      if self.screen=="play" then return "join" end
+      if from=="invite" then return "join" end
     end
     return nil
   end
@@ -145,119 +162,159 @@ function Home:keypressed(key)
     if key=="2" then self.screen="server";return "server_tab" end
     if key=="3" then self.screen="settings";return "settings_tab" end
   end
+  if self.screen=="play" and key=="f2" then return "copy" end
   return nil
 end
-function Home:textinput(s)
-  if not self.focus or type(s)~="string" then return end
+function Home:textinput(chars)
+  if not self.focus or type(chars)~="string" then return end
   if self.focus=="nickname" then
-    s=s:gsub("[%c]","")
-    self.nickname=(self.nickname..s):sub(1,15)
+    chars=chars:gsub("[%c]","")
+    self.nickname=(self.nickname..chars):sub(1,15)
   elseif self.focus=="invite" then
-    s=s:gsub("[%c%s]","")
-    self.invite=(self.invite..s):sub(1,128)
+    chars=chars:gsub("[%c%s]","")
+    self.invite=(self.invite..chars):sub(1,128)
   elseif self.focus=="vpnIP" then
-    s=s:gsub("[^%d%.]","")
-    self.vpnIP=(self.vpnIP..s):sub(1,15)
+    chars=chars:gsub("[^%d%.]","")
+    self.vpnIP=(self.vpnIP..chars):sub(1,15)
   end
 end
-function Home:draw(connectionState,connectionDetail)
-  self.connectionState=connectionState or self.connectionState
+local function decorate()
+  love.graphics.setColor(0.075,0.14,0.145)
+  love.graphics.circle("fill",1200,15,235)
+  love.graphics.setColor(0.067,0.117,0.125)
+  love.graphics.circle("fill",1230,700,350)
+  panel(32,32,1216,656,{0.067,0.108,0.115},24)
+end
+function Home:draw(state,detail)
+  self.connectionState=state or self.connectionState
   love.graphics.push("all")
-  local w,h=love.graphics.getDimensions()
-  local scale=math.min(w/1280,h/720)
-  love.graphics.translate((w-1280*scale)/2,(h-720*scale)/2)
-  love.graphics.scale(scale)
-  rectangle(0,0,1280,720,palette.base,0)
-  -- Original compact branding, with simple vector landscape decoration.
-  love.graphics.setColor(0.10,0.18,0.18)
-  love.graphics.circle("fill",1120,90,270)
-  love.graphics.setColor(0.08,0.14,0.14)
-  love.graphics.circle("fill",1210,650,380)
-  love.graphics.setColor(0.17,0.29,0.25)
-  love.graphics.polygon("fill",0,680,420,535,780,720)
-  love.graphics.polygon("fill",600,720,1080,510,1280,595,1280,720)
-  label("MOO",69,55,49,palette.fg)
-  label("IO",205,60,43,palette.accent)
-  label("MULTIPLAYER COMUNITARIO",72,119,14,palette.subdued)
+  local w,h=love.graphics.getDimensions(),love.graphics.getHeight()
+  local z=math.min(w/1280,h/720)
+  love.graphics.translate((w-1280*z)/2,(h-720*z)/2)
+  love.graphics.scale(z)
+  love.graphics.clear(C.bg)
+  decorate()
+  printText("MOO",84,66,47,C.white)
+  printText("IO",221,68,44,C.green)
+  printText("JOGUE COM SEUS AMIGOS",86,122,13,C.muted)
   if self.screen=="home" then
-    label("Seu mundo. Seus amigos.",84,210,31,palette.fg)
-    button("JOGAR",84,279,348,66,true)
-    button("SERVIDOR",84,359,348,66,false)
-    button("CONFIGURACOES",84,439,348,66,false)
-    rectangle(563,192,610,360,{0.10,0.17,0.17,0.85},20)
-    label("CRIAR OU ENTRAR EM SALAS",598,240,28,palette.fg)
-    label("Um jogador hospeda a partida e convida",598,303,19,palette.subdued)
-    label("os amigos pela LAN ou VPN privada.",598,337,19,palette.subdued)
-    label("Servidor Node.js + cliente Lua/LÖVE",598,432,17,palette.accent)
+    printText("Sua aventura comeca aqui.",94,215,29,C.white)
+    button("homePlay","JOGAR",true)
+    button("homeServers","SERVIDORES",false)
+    button("homeSettings","CONFIGURACOES",false)
+    panel(583,202,575,340,C.panel,19)
+    printText("JOGAR DO SEU JEITO",626,255,26,C.white)
+    printText("Uma sala particular so sua.",628,325,20,C.green)
+    printText("Jogue sozinho ou convide amigos.",628,361,18,C.muted)
+    printText("Servidor interno, sem terminal.",628,403,17,C.muted)
   else
-    button("< VOLTAR",64,56,115,44,false)
-    local heading=self.screen=="play" and "JOGAR" or
-      self.screen=="server" and "SERVIDOR" or "CONFIGURACOES"
-    label(heading,535,121,32,palette.fg)
-    rectangle(520,193,686,415,{0.08,0.14,0.15,0.96},20)
+    button("back","< VOLTAR",false)
     if self.screen=="play" then
-      label("Seu nome",550,203,17,palette.subdued)
-      input(self.nickname,"Jogador",550,230,627,53,self.focus=="nickname")
-      label("Cole o convite recebido de um amigo",550,320,17,palette.subdued)
-      input(self.invite,"100.80.12.34:8080/codigo",550,353,627,53,self.focus=="invite")
-      button("ENTRAR NA PARTIDA",550,430,300,58,true)
-      button("CRIAR SALA",866,430,310,58,false)
-      button("TENTAR NOVAMENTE",550,503,627,54,false)
-    elseif self.screen=="server" then
-      label("Hospede um mundo no seu computador",550,207,20,palette.fg)
-      if not self.hosting and not self.starting then
-        button(self.serverMode=="lan" and "LAN SELECIONADA" or "REDE LOCAL",
-          550,238,302,52,self.serverMode=="lan")
-        button(self.serverMode=="vpn" and "VPN SELECIONADA" or "VPN PRIVADA",
-          868,238,309,52,self.serverMode=="vpn")
-        if self.serverMode=="vpn" then
-          label("IP mostrado na sua VPN (Tailscale, ZeroTier, Radmin)",550,300,15,palette.subdued)
-          input(self.vpnIP,"100.80.12.34",550,326,627,49,self.focus=="vpnIP")
-          button("CRIAR SALA NA VPN",550,401,627,58,true)
-          label("Os dois PCs devem estar na mesma VPN privada.",550,484,15,palette.subdued)
-        else
-          button("CRIAR SALA LAN",550,332,627,58,true)
-          label("Amigos conectados ao mesmo roteador.",550,426,17,palette.subdued)
-          label("Para jogar longe, selecione VPN PRIVADA.",550,463,15,palette.accent)
-        end
-        if self.serverLog~="" then
-          label("LOG DO SERVIDOR",550,536,12,palette.accent)
-          label(self.serverLog:sub(-110),550,553,11,palette.subdued,627,"left")
-        end
-      elseif self.starting and not self.hosting then
-        label("Preparando o servidor e instalando dependencias...",550,291,19,palette.accent)
-        label("O andamento aparece aqui. Nao feche o jogo.",550,332,18,palette.subdued)
-        if self.serverLog~="" then
-          label("LOG DE INICIALIZACAO",550,393,14,palette.accent)
-          label(self.serverLog,550,421,12,palette.subdued,620,"left")
-        end
+      printText("Jogar",135,152,34,C.white)
+      printText("Sua sala particular",145,208,21,C.green)
+      panel(130,194,505,402,C.panel,17)
+      panel(672,194,477,402,C.panel,17)
+      printText("MINHA SALA",155,207,19,C.green)
+      field("nickname",self.nickname,"Seu apelido",self.focus=="nickname")
+      if self.hosting then
+        printText("Sala criada - amigos podem entrar.",155,316,17,C.green)
+        panel(155,351,462,51,C.raised,9)
+        local invite=self:roomInvite()
+        printText(invite,170,365,16,C.white,432,"center")
+        button("roomCopy","COPIAR CONVITE",false)
+        button("roomEnter","JOGAR AGORA",true)
+        button("roomStop","ENCERRAR",false)
+      elseif self.starting then
+        printText("Preparando sua sala...",155,331,18,C.green)
+        printText("O jogo inicia o servidor automaticamente.",155,383,16,C.muted)
+        printText("Ninguem precisa abrir um terminal.",155,417,16,C.muted)
+        printText("Sem bots nesta versao.",155,482,15,C.muted)
       else
-        label(self.serverMode=="vpn" and "SALA ATIVA NA VPN" or "SALA ATIVA NA LAN",550,260,18,palette.accent)
-        rectangle(550,307,627,80,palette.panel2,10)
-        label(self:roomInvite(),565,329,19,palette.fg,597,"center")
-        button("COPIAR CONVITE",550,412,627,58,false)
-        button("JOGAR AGORA",550,486,300,58,true)
-        button("ENCERRAR SALA",866,486,311,58,false)
+        button("modeLan",self.serverMode=="lan" and "LAN ATIVA" or "LAN",self.serverMode=="lan")
+        button("modeVpn",self.serverMode=="vpn" and "VPN ATIVA" or "VPN",self.serverMode=="vpn")
+        if self.serverMode=="vpn" then
+          field("vpnIP",self.vpnIP,"IP deste PC na VPN",self.focus=="vpnIP")
+          button("createVpn","CRIAR MINHA SALA",true)
+        else
+          button("createLan","CRIAR MINHA SALA",true)
+        end
+        printText("Bots: recurso previsto, ainda nao incluido.",155,513,14,C.muted)
       end
+      printText("ENTRAR POR IP OU CONVITE",704,222,19,C.green)
+      printText("Digite o convite ou endereco da sala.",704,261,15,C.muted)
+      field("joinIP",self.invite,"192.168.1.5:8080/codigo",self.focus=="invite")
+      button("join","ENTRAR NA SALA",true)
+      button("joinRetry","TENTAR NOVAMENTE",false)
+      printText("LAN ou VPN privada. Conexao direta.",704,540,14,C.muted)
+    elseif self.screen=="server" then
+      printText("Servidores",140,169,34,C.white)
+      printText("Servidores dedicados e descoberta de partidas.",145,220,16,C.muted)
+      panel(130,239,491,265,self.provider=="lite" and C.raised or C.panel,17)
+      panel(633,239,492,265,self.provider=="firebase" and C.raised or C.panel,17)
+      button("serverLite","SERVIDOR V2 LITE",self.provider=="lite")
+      button("serverFirebase","FIREBASE",self.provider=="firebase")
+      if self.provider=="lite" then
+        printText("V2 Lite",158,311,24,C.white)
+        printText("Servidor dedicado comunitario.",158,355,18,C.muted)
+        printText("A integracao com o protocolo V2 Lite",158,389,16,C.muted)
+        printText("ainda depende da API compativel.",158,413,16,C.amber)
+        printText("Firebase",661,311,24,C.white)
+        printText("Contas, amigos e lista de salas.",661,355,18,C.muted)
+      else
+        printText("V2 Lite",158,311,24,C.white)
+        printText("Servidor dedicado comunitario.",158,355,18,C.muted)
+        printText("Firebase",661,311,24,C.white)
+        printText("Identidade, amigos e catalogo de salas.",661,355,17,C.muted)
+        printText("Exige configurar um projeto Firebase.",661,390,16,C.amber)
+        printText("Nao hospeda o motor do jogo.",661,414,16,C.muted)
+      end
+      button("serverToPlay","ENTRAR COM IP NO JOGAR",false)
     else
-      label("Preferencias de jogo",550,207,19,palette.fg)
-      button("GRADE DO MAPA     "..(self.showGrid and "LIGADA" or "DESLIGADA"),
-        550,242,627,58,false)
-      button("TELA CHEIA       "..(self.fullscreen and "LIGADA" or "DESLIGADA"),
-        550,322,627,58,false)
-      label("Movimento: WASD     Ataque: clique ou Espaco",550,415,17,palette.subdued)
-      label("Chat: Enter       Voltar ao menu: Esc",550,454,17,palette.subdued)
+      printText("Configuracoes",336,197,32,C.white)
+      button("grid","GRADE DO MAPA     "..(self.showGrid and "LIGADA" or "DESLIGADA"),false)
+      button("fullscreen","TELA CHEIA       "..(self.fullscreen and "LIGADA" or "DESLIGADA"),false)
+      printText("WASD: mover  |  Mouse: mirar  |  Enter: chat",360,469,16,C.muted)
+      printText("F2 na partida: copiar convite e chamar amigos.",360,503,16,C.muted)
     end
   end
-  rectangle(70,634,1140,58,{0.10,0.16,0.16,0.96},12)
-  local state=connectionState or ""
-  local notice=self.status~="" and self.status or
+  panel(84,620,1110,50,C.panel,10)
+  local message=self.status~="" and self.status or
     (state=="joining" and "Entrando na partida..." or
-     state=="keyed_transport" and "Conectado. Entrando no mundo..." or
-     state=="failed" and tostring(connectionDetail) or
-     "Pronto para criar uma sala ou entrar com um convite.")
-  local color=self.error and palette.error or palette.subdued
-  label(notice,90,652,15,color,1090,"left")
+     state=="keyed_transport" and "Servidor conectado. Carregando mundo..." or
+     state=="failed" and tostring(detail) or
+     "Escolha Jogar para criar sua sala ou entrar pelo IP.")
+  if #message>135 then message=message:sub(1,132).."..." end
+  printText(message,105,636,15,self.error and C.red or C.muted,1070)
   love.graphics.pop()
+end
+function Home:drawRoomOverlay()
+  if not self.roomOverlay then return end
+  local w,h=love.graphics.getDimensions()
+  love.graphics.push("all")
+  love.graphics.setColor(0,0,0,0.72)
+  love.graphics.rectangle("fill",0,0,w,h)
+  local z=math.min(w/1280,h/720)
+  love.graphics.translate((w-1280*z)/2,(h-720*z)/2)
+  love.graphics.scale(z)
+  panel(337,166,606,388,C.panel,20)
+  printText("CONVIDAR AMIGOS",383,214,27,C.white)
+  printText("Compartilhe o codigo desta sala privada.",386,275,17,C.muted)
+  panel(388,318,503,54,C.raised,11)
+  printText(self:roomInvite(),400,334,17,C.white,478,"center")
+  panel(478,395,322,55,C.green,12)
+  printText("COPIAR CONVITE",478,409,20,C.greenDark,322,"center")
+  panel(880,177,55,43,C.raised,10)
+  printText("X",897,185,21,C.white)
+  printText("F2 ou ESC para fechar",386,505,15,C.muted)
+  love.graphics.pop()
+end
+function Home:overlayClick(sx,sy)
+  if not self.roomOverlay then return nil end
+  local x,y=self:scale(sx,sy)
+  if inside(x,y,boxes.overlayCopy) then return "copy" end
+  if inside(x,y,boxes.overlayClose) or not inside(x,y,{337,166,606,388}) then
+    self.roomOverlay=false;return "close_overlay"
+  end
+  return "overlay"
 end
 return Home
