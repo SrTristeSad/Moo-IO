@@ -10,6 +10,9 @@ $env:HOST = $env:MOO_IO_BIND_IP
 $dataDir = Join-Path $root 'server\data'
 New-Item -ItemType Directory -Force $dataDir | Out-Null
 $log = Join-Path $dataDir 'mooio-host.log'
+# Every launch starts with a clean status log. Stale MOOIO_PHASE_ERROR
+# records from a previous failed session must never be treated as new.
+"MOOIO_PHASE_PREPARING" | Set-Content -Path $log -Encoding UTF8
 try {
   # Offline portable release ships the official Node runtime beside the game.
   # Source checkout may use an already installed Node; neither path downloads.

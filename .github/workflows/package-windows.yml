@@ -7,7 +7,7 @@ on:
       - .github/workflows/package-windows.yml
       - windows/**
 permissions:
-  contents: read
+  contents: write
 jobs:
   offline-windows:
     runs-on: windows-2022
@@ -28,6 +28,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar dependencias' }
           npm install --no-audit --no-fund
           if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar validador' }
+          npm run bundle:server
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar servidor local offline' }
           node tools/verify-bundled-art.mjs
           if ($LASTEXITCODE -ne 0) { throw 'PNG invalido ou ausente' }
       - name: Obter LÖVE e Node oficiais para o pacote
@@ -87,7 +89,18 @@ jobs:
           $env:PROTOCOL_BUILD_FILE = (Join-Path $env:DATA_DIR 'protocol-build.json')
           $logOut = Join-Path $env:RUNNER_TEMP 'offline-server-out.txt'
           $logErr = Join-Path $env:RUNNER_TEMP 'offline-server-err.txt'
-          $process = Start-Process -FilePath $node -WorkingDirectory $dir -ArgumentList @('server/src/index.js') -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+          # Remove npm dependencies temporarily to prove the bundled offline
+          # server works even when the user downloads plain GitHub source.
+          $modules = Join-Path $dir 'server\node_modules'
+          $hidden = Join-Path $dir 'server\node_modules.offline-test'
+          Move-Item $modules $hidden
+          $process = $null
+          try {
+            $process = Start-Process -FilePath $node -WorkingDirectory $dir -ArgumentList @('server/src/offline.mjs') -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+          } catch {
+            Move-Item $hidden $modules
+            throw
+          }
           try {
             $ready = $false
             for($i=0; $i -lt 70; $i++) {
@@ -105,7 +118,23 @@ jobs:
             }
             Write-Host 'MOO IO OFFLINE WINDOWS PASS: Node embarcado, dependencies, 3 bots, sem npm'
           } finally {
-            if(-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            if($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            Move-Item $hidden $modules
+          }
+      - name: Publicar servidor local pronto no codigo-fonte do Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f server/src/offline.mjs
+          if (git diff --cached --quiet) {
+            Write-Host 'Servidor offline ja atualizado no repositorio.'
+          } else {
+            git commit -m 'build(windows): keep local server bundle ready in source checkout'
+            if ($LASTEXITCODE -ne 0) { throw 'Nao foi possivel registrar servidor local offline' }
+            git push origin HEAD:main
+            if ($LASTEXITCODE -ne 0) { throw 'Nao foi possivel publicar servidor offline no GitHub' }
           }
       - name: Gerar ZIP pronto
         shell: pwsh
