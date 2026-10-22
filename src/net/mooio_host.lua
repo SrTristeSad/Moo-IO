@@ -1,0 +1,155 @@
+-- SPDX-License-Identifier: AGPL-3.0-only
+-- Hidden Windows Node host, driven from the native LÖVE client.
+local SecureRandom=require("src.net.secure_random")
+local Host={}
+Host.__index=Host
+local ffiOK,ffi=pcall(require,"ffi")
+local win=(ffiOK and ffi.os=="Windows")
+local kernel
+if win then
+  ffi.cdef[[
+  typedef void *HANDLE;
+  typedef unsigned long DWORD;
+  typedef int BOOL;
+  typedef unsigned short WORD;
+  typedef struct {
+    DWORD cb;
+    char* lpReserved;
+    char* lpDesktop;
+    char* lpTitle;
+    DWORD dwX, dwY, dwXSize, dwYSize, dwXCountChars, dwYCountChars;
+    DWORD dwFillAttribute, dwFlags;
+    WORD wShowWindow, cbReserved2;
+    unsigned char* lpReserved2;
+    HANDLE hStdInput, hStdOutput, hStdError;
+  } STARTUPINFOA;
+  typedef struct {
+    HANDLE hProcess, hThread;
+    DWORD dwProcessId, dwThreadId;
+  } PROCESS_INFORMATION;
+  BOOL CreateProcessA(const char*,char*,void*,void*,BOOL,DWORD,void*,const char*,STARTUPINFOA*,PROCESS_INFORMATION*);
+  BOOL SetEnvironmentVariableA(const char*,const char*);
+  DWORD GetEnvironmentVariableA(const char*,char*,DWORD);
+  BOOL CloseHandle(HANDLE);
+  BOOL TerminateProcess(HANDLE,unsigned int);
+  DWORD GetLastError(void);
+  ]]
+  kernel=ffi.load("kernel32")
+end
+local function hex(data)
+  return (data:gsub(".",function(ch) return string.format("%02x",ch:byte()) end))
+end
+local function getenv(key)
+  local buf=ffi.new("char[4096]")
+  local n=kernel.GetEnvironmentVariableA(key,buf,4096)
+  return n>0 and n<4096 and ffi.string(buf,n) or nil
+end
+local function setenv(key,value)
+  kernel.SetEnvironmentVariableA(key,value)
+end
+local function localAddress()
+  local ok,socket=pcall(require,"socket")
+  if not ok then return nil end
+  local udp=socket.udp()
+  if not udp then return nil end
+  udp:settimeout(0)
+  udp:setpeername("192.0.2.1",9) -- route lookup only; no packet is sent
+  local ip=udp:getsockname()
+  udp:close()
+  if type(ip)=="string" and ip~="0.0.0.0" and ip~="127.0.0.1" then return ip end
+  local hostname=socket.dns.gethostname()
+  local resolved=hostname and socket.dns.toip(hostname)
+  if resolved and resolved~="127.0.0.1" then return resolved end
+  return nil
+end
+local function ping(port)
+  local ok,http=pcall(require,"socket.http")
+  if not ok then return false end
+  local old=http.TIMEOUT
+  http.TIMEOUT=0.35
+  local good,body,code=pcall(http.request,"http://127.0.0.1:"..port.."/mooio/status")
+  http.TIMEOUT=old
+  return good and tonumber(code)==200 and type(body)=="string"
+    and body:find('"project"%s*:%s*"Moo%-IO"')~=nil
+end
+function Host.new()
+  return setmetatable({
+    state="idle",code="",address="",port=8080,
+    elapsed=0,check=0,process=nil,error=nil
+  },Host)
+end
+function Host:start()
+  if self.state=="starting" or self.state=="ready" then return false,"Sala ja iniciada" end
+  if not win then return false,"Hospedagem automatica disponivel inicialmente no Windows." end
+  if ping(self.port) then return false,"Ja existe uma sala Moo IO nesta porta." end
+  local root=love.filesystem.getSourceBaseDirectory()
+  if type(root)~="string" or root=="" then return false,"Diretorio do jogo nao encontrado" end
+  local script=root.."/scripts/start-server.ps1"
+  local f=io.open(script,"rb")
+  if not f then return false,"Arquivo scripts/start-server.ps1 ausente" end
+  f:close()
+  local ip=localAddress()
+  if not ip then return false,"Endereco da rede local nao identificado. Conecte-se ao Wi-Fi ou cabo." end
+  self.code=hex(SecureRandom.bytes(8))
+  self.address=ip..":"..self.port
+  self.elapsed=0;self.check=0;self.error=nil
+  local keys={"MOO_IO_ROOM_CODE","MOO_IO_GUI_HOST"}
+  local originals={}
+  for _,key in ipairs(keys) do originals[key]=getenv(key) end
+  setenv(keys[1],self.code)
+  setenv(keys[2],"1")
+  local command='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'..script..'"'
+  local cmd=ffi.new("char[?]",#command+1,command)
+  local startup=ffi.new("STARTUPINFOA")
+  startup.cb=ffi.sizeof(startup)
+  startup.dwFlags=1 -- STARTF_USESHOWWINDOW
+  startup.wShowWindow=0 -- SW_HIDE
+  local info=ffi.new("PROCESS_INFORMATION")
+  local launched=kernel.CreateProcessA(nil,cmd,nil,nil,0,0x08000000,nil,root,startup,info)
+  local lastError=launched==0 and tonumber(kernel.GetLastError()) or 0
+  for _,key in ipairs(keys) do setenv(key,originals[key]) end
+  if launched==0 then return false,"Nao foi possivel iniciar o Node (Windows "..lastError..")" end
+  kernel.CloseHandle(info.hThread)
+  self.process=info.hProcess
+  self.state="starting"
+  return true
+end
+function Host:update(dt)
+  if self.state~="starting" then return end
+  self.elapsed=self.elapsed+dt
+  self.check=self.check+dt
+  if self.check>=0.6 then
+    self.check=0
+    if ping(self.port) then self.state="ready";return end
+  end
+  if self.elapsed>90 then
+    self.state="failed"
+    self.error="Servidor nao iniciou. Verifique Node.js, internet e o arquivo server/data/mooio-host.log"
+    if self.process then kernel.TerminateProcess(self.process,1);kernel.CloseHandle(self.process);self.process=nil end
+  end
+end
+function Host:stop()
+  local wasReady=self.state=="ready"
+  if wasReady then
+    local ok,http=pcall(require,"socket.http")
+    local okLTN,ltn12=pcall(require,"ltn12")
+    if ok and okLTN then
+      local old=http.TIMEOUT
+      http.TIMEOUT=1
+      pcall(http.request,{
+        url="http://127.0.0.1:"..self.port.."/mooio/shutdown",
+        method="POST",
+        headers={["X-MooIO-Code"]=self.code,["Content-Length"]="0"},
+        source=ltn12.source.empty(),sink=ltn12.sink.null()
+      })
+      http.TIMEOUT=old
+    end
+  end
+  if self.process then
+    if not wasReady then kernel.TerminateProcess(self.process,1) end
+    kernel.CloseHandle(self.process)
+    self.process=nil
+  end
+  self.state="idle";self.code="";self.address=""
+end
+return Host
