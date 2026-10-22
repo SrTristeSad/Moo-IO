@@ -41,6 +41,6 @@ function N.invite(value)
   if not port or port<1 or port>65535 or #code<8 or #code>64 then
     return nil,"Porta ou codigo do convite invalido."
   end
-  return {host=host,port=port,code=code,mode=kind=="tailscale" or kind=="vpn" and "vpn" or "lan"}
+  return {host=host,port=port,code=code,mode=(kind=="tailscale" or kind=="vpn") and "vpn" or "lan"}
 end
 return N
