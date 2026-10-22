@@ -156,13 +156,16 @@ function Host:update(dt)
       if content:find("MOOIO_PHASE_STARTING",1,true) then
         self.progress="Iniciando servidor Node.js..."
       end
-      if content:find("MOOIO_PHASE_ERROR",1,true) then
-        self.progress="O servidor encontrou um erro. Verifique a instalacao do Node.js."
+      local reason=content:match("MOOIO_PHASE_ERROR%s+([^\n]+)")
+      if reason then
+        reason=reason:gsub("%z",""):gsub("%s+$","")
+        self.progress=reason~="" and reason
+          or "Falha ao iniciar o servidor local. Verifique o log."
       end
     end
     if self.process and kernel.WaitForSingleObject(self.process,0)==0 then
       self.state="failed"
-      self.error=self.progress.." Veja server/data/mooio-host.log."
+      self.error=self.progress.. " (server/data/mooio-host.log)"
       kernel.CloseHandle(self.process)
       self.process=nil
       return
