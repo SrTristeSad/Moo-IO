@@ -21,6 +21,11 @@ local Assets=require("src.game.reference_assets")
 local Camera=require("src.camera")
 local Input=require("src.input")
 local Pack=require("src.protocol.msgpack")
+local Mobile=require("src.mobile.controls")
+local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Android"
+local mobile=isAndroid and Mobile.new() or nil
+local mobileAttackSent=false
+local mobileForwardMouse=false
 local client=nil
 local integration=nil
 local uiSmokeMode=os.getenv("MOO_IO_E2E") or os.getenv("MOOQUEST_UI_E2E")
@@ -69,6 +74,7 @@ local spaceAttack=false
 local lockDir=false
 local angle
 local function currentAttackDir()
+  if mobile then return mobile:aimAngle() end
   local w,h=love.graphics.getDimensions()
   local mx,my=love.mouse.getPosition()
   return angle(my-h/2,mx-w/2)
@@ -289,6 +295,7 @@ function love.update(dt)
         died=true
         phase="death"
         death:start()
+        if mobile then mobile:reset();mobileAttackSent=false end
         menu.status=""
         latestEvent="YOU DIED: morte confirmada pelo Node."
       elseif packet.name=="B" then
@@ -322,6 +329,7 @@ function love.update(dt)
   if client.state=="spawn_confirmed" and not died and not pause:isOpen() then
     if panels:isOpen() or clans:isOpen() then input.keys={} end
     input:update(dt)
+    if mobile then input.dx,input.dy=mobile:movement() end
     movementClock=movementClock+dt
     if movementClock>=0.07 then
       movementClock=0
@@ -425,6 +433,10 @@ function love.draw()
     Hud.draw(world,chatOpen,chatDraft,
       chatOpen or panels:isOpen() or clans:isOpen() or profile:isOpen())
     panels:draw(world)
+    if mobile and not pause:isOpen() and not panels:isOpen()
+      and not clans:isOpen() and not profile:isOpen() and not chatOpen then
+      mobile:draw(world,Config.mapScale)
+    end
     -- Keep permanent clans internal; no separate Clan button in gameplay HUD.
     clans:draw(false)
     Notices.draw(world,w,h)
@@ -699,6 +711,7 @@ local function stopGameplay(owned)
   end
   input.keys={};lastMove=false
   mouseAttack=false;spaceAttack=false
+  if mobile then mobile:reset();mobileAttackSent=false end
   chatOpen=false;chatDraft=""
   panels:reset();clans:close();profile:close()
   phase="menu";died=false
@@ -707,6 +720,7 @@ local function stopGameplay(owned)
     or "Voce saiu da partida. A sala do anfitriao continua online.")
 end
 local function stopPlayerControls()
+  if mobile then mobile:reset();mobileAttackSent=false end
   input.keys={}
   lastMove=false
   mouseAttack=false;spaceAttack=false
@@ -903,6 +917,7 @@ function love.focus(focused)
   end
 end
 function love.mousepressed(x,y,button)
+  if isAndroid and not mobileForwardMouse then return end
   if pause:isOpen() then
     if button==1 then pauseAction(pause:click(x,y)) end
     return
@@ -1012,6 +1027,58 @@ function love.mousereleased(_,_,button)
     mouseAttack=false
     if not spaceAttack then client:send("F",{0,Pack.null}) end
   end
+end
+local function mobileAction(action,payload)
+  if action=="pause" then love.keypressed("escape");return end
+  if action=="attack" and client and client.state=="spawn_confirmed" then
+    local active=mobile:attacking()
+    if active~=mobileAttackSent then
+      local ok=client:send("F",{active and 1 or 0,
+        active and currentAttackDir() or Pack.null})
+      if ok then mobileAttackSent=active end
+    end
+  elseif action=="ping" and client and client.state=="spawn_confirmed" then
+    local ok,err=client:send("U",{payload.x,payload.y})
+    if ok then
+      world.mapMarker={x=payload.x,y=payload.y}
+      latestEvent="Marcacao solicitada para o time."
+    else
+      latestEvent="Marcacao indisponivel: "..tostring(err)
+    end
+  end
+end
+local function mobileMouse(x,y)
+  mobileForwardMouse=true
+  love.mousepressed(x,y,1)
+  mobileForwardMouse=false
+  if isAndroid and love.keyboard and love.keyboard.setTextInput then
+    love.keyboard.setTextInput(phase=="menu" and home.focus~=nil)
+  end
+end
+function love.touchpressed(id,x,y)
+  if not mobile then return end
+  if phase~="playing" or pause:isOpen() or home.roomOverlay
+    or panels:isOpen() or clans:isOpen() or profile:isOpen() or chatOpen then
+    mobileMouse(x,y)
+    return
+  end
+  local w,h=love.graphics.getDimensions()
+  if Hud.hitTest(world,w,h,x,y) or Upgrades.hitTest(world,w,x,y) then
+    mobileMouse(x,y)
+    return
+  end
+  local action,payload=mobile:pressed(id,x,y,w,h,Config.mapScale)
+  if action then mobileAction(action,payload) end
+end
+function love.touchmoved(id,x,y)
+  if not mobile or phase~="playing" or pause:isOpen() then return end
+  local w,h=love.graphics.getDimensions()
+  mobile:moved(id,x,y,w,h)
+end
+function love.touchreleased(id)
+  if not mobile then return end
+  local action=mobile:released(id)
+  if action then mobileAction(action) end
 end
 function love.quit()
   if not allowQuit and (hosted.state=="ready" or hosted.state=="starting") then
