@@ -43,7 +43,7 @@ Os testes exercitam rejeicao de convites errados, emissao de tickets validos e d
 
 - Backend reconstruido a partir de [al007ex/moomoo-clone](https://github.com/al007ex/moomoo-clone), commit 06f7c1ca965a7628671676c8d9a7efd3997bb5e7, sob **Apache-2.0**. Configuracao anti-cheat local foi produzida separadamente, pois estava ausente da origem.
 - Cliente Lua importado do snapshot proprio Moo-Quest, commit 5ad8c32d1889dcb94e5645982acc2a0f2d570e09, anterior ao Server V2.
-- Codigo novo Moo IO sob **AGPL-3.0-only**. Consulte LICENSE, NOTICE.md e licenses/upstream-server-APACHE-2.0.txt.
+- Cliente Lua do Moo-Quest autorizado pelo proprietario para redistribuicao no Moo IO sob **AGPL-3.0-only**, assim como os novos componentes Moo IO. O codigo original do backend al007ex permanece com seus avisos e licenca Apache-2.0. Consulte LICENSE, NOTICE.md e licenses/upstream-server-APACHE-2.0.txt.
 - As obrigacoes de distribuicao do codigo-fonte seguem as licencas aplicaveis; nao e necessario publicar alteracoes especificamente neste repo se outra forma valida de acesso ao codigo for oferecida.
 - Sem bundle JS oficial nem arte/sons de FRVR neste repositorio.
 
