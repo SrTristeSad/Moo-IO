@@ -190,7 +190,13 @@ function Host:stop()
     end
   end
   if self.process then
-    if not wasReady then kernel.TerminateProcess(self.process,1) end
+    -- A graceful /shutdown request can fail (adapter/firewall/closed
+    -- control port). Never report "room closed" while keeping the
+    -- child Node server running in the background.
+    if not wasReady or kernel.WaitForSingleObject(self.process,1500)~=0 then
+      kernel.TerminateProcess(self.process,1)
+      kernel.WaitForSingleObject(self.process,500)
+    end
     kernel.CloseHandle(self.process)
     self.process=nil
   end
