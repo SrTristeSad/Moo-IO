@@ -222,6 +222,25 @@ export function handlePacket(ctx, player, name, args) {
             return;
         }
 
+        // MOO-IO extension: a point chosen on the Android tactical map.
+        // Authoritative server validates bounds and reuses standard ping cooldown.
+        case "U": {
+            if (!player.alive || player.pingCooldown > 0) return;
+            const [x, y] = args;
+            if (args.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y) ||
+                x < 0 || y < 0 || x > config.mapScale || y > config.mapScale) {
+                return invalid("map coordinates");
+            }
+            player.pingCooldown = config.mapPingTime;
+            const px = Math.round(x), py = Math.round(y);
+            for (const other of game.players) {
+                if (other === player || (player.team && other.team === player.team)) {
+                    other.send("9", px, py);
+                }
+            }
+            return;
+        }
+
         // PING
         case "0": {
             player.send("0");
