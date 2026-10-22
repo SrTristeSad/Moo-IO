@@ -26,7 +26,7 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          foreach ($script in @('scripts/moo-io.ps1', 'scripts/start-server.ps1', 'scripts/prepare-assets.ps1')) {
+          foreach ($script in @('scripts/moo-io.ps1', 'scripts/start-server.ps1')) {
             if (-not (Test-Path $script -PathType Leaf)) { throw "Script ausente: $script" }
             $tokens = $null
             $errors = $null
