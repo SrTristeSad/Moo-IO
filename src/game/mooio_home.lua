@@ -38,8 +38,8 @@ local boxes={
   createLan={155,386,462,60},createVpn={155,429,462,60},
   roomCopy={155,419,462,55},roomEnter={155,485,226,55},
   roomStop={392,485,225,55},
-  joinIP={704,294,421,55},join={704,372,421,56},
-  joinRetry={704,452,421,54},
+  joinIP={704,287,421,51},joinCode={704,359,421,51},
+  join={704,430,421,54},joinRetry={704,506,421,49},
   serverLite={145,258,459,218},serverFirebase={637,258,459,218},
   serverToPlay={381,526,518,54},
   grid={355,280,570,57},fullscreen={355,364,570,57},
@@ -71,10 +71,18 @@ local function field(id,value,placeholder,focused)
   printText(show..(focused and "|" or ""),b[1]+14,b[2]+15,17,
     value=="" and C.muted or C.white,b[3]-28)
 end
-function Home.parseInvite(value) return Network.invite(value) end
+function Home.parseInvite(value,code)
+  if type(value)=="string" and type(code)=="string" and #code>0
+    and not value:find("/",1,true) then
+    local host=value:match("^%s*(.-)%s*$")
+    if host and not host:find(":",1,true) then host=host..":8080" end
+    return Network.invite(host.."/"..code)
+  end
+  return Network.invite(value)
+end
 function Home.new()
   return setmetatable({
-    screen="home",nickname="Jogador",invite="",vpnIP="",
+    screen="home",nickname="Jogador",invite="",joinCode="",vpnIP="",
     serverMode="lan",provider="lite",focus=nil,
     status="",error=false,hosting=false,starting=false,
     hostAddress="",hostCode="",connectionState="idle",serverLog="",
@@ -111,6 +119,7 @@ function Home:click(sx,sy)
   elseif self.screen=="play" then
     if inside(x,y,boxes.nickname) then self.focus="nickname";return "focus" end
     if inside(x,y,boxes.joinIP) then self.focus="invite";return "focus" end
+    if inside(x,y,boxes.joinCode) then self.focus="joinCode";return "focus" end
     if not self.hosting and not self.starting then
       if inside(x,y,boxes.modeLan) then self.serverMode="lan";self.focus=nil;return "mode_lan" end
       if inside(x,y,boxes.modeVpn) then self.serverMode="vpn";self.focus=nil;return "mode_vpn" end
@@ -173,6 +182,9 @@ function Home:textinput(chars)
   elseif self.focus=="invite" then
     chars=chars:gsub("[%c%s]","")
     self.invite=(self.invite..chars):sub(1,128)
+  elseif self.focus=="joinCode" then
+    chars=chars:gsub("[^%w%-]","")
+    self.joinCode=(self.joinCode..chars):sub(1,64)
   elseif self.focus=="vpnIP" then
     chars=chars:gsub("[^%d%.]","")
     self.vpnIP=(self.vpnIP..chars):sub(1,15)
@@ -241,11 +253,12 @@ function Home:draw(state,detail)
         printText("Bots: recurso previsto, ainda nao incluido.",155,513,14,C.muted)
       end
       printText("ENTRAR POR IP OU CONVITE",704,222,19,C.green)
-      printText("Digite o convite ou endereco da sala.",704,261,15,C.muted)
-      field("joinIP",self.invite,"192.168.1.5:8080/codigo",self.focus=="invite")
+      printText("IP, porta ou convite completo",704,256,15,C.muted)
+      field("joinIP",self.invite,"192.168.1.5:8080",self.focus=="invite")
+      printText("Codigo de acesso (separado ou no convite)",704,340,14,C.muted)
+      field("joinCode",self.joinCode,"Codigo da sala",self.focus=="joinCode")
       button("join","ENTRAR NA SALA",true)
       button("joinRetry","TENTAR NOVAMENTE",false)
-      printText("LAN ou VPN privada. Conexao direta.",704,540,14,C.muted)
     elseif self.screen=="server" then
       printText("Servidores",140,169,34,C.white)
       printText("Servidores dedicados e descoberta de partidas.",145,220,16,C.muted)
