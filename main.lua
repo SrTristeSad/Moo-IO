@@ -107,11 +107,7 @@ function love.load()
     return
   end
   if os.getenv("MOO_IO_MENU_TEST")=="1" then
-    local ok,err=pcall(require("src.test_mooio_menu"))
-    if ok then
-      local pass,why=pcall(err)
-      if not pass then ok=false;err=why end
-    end
+    local ok,err=pcall(function() require("src.test_mooio_menu")() end)
     if not ok then print("MOO IO MENU FAIL: "..tostring(err)) end
     love.event.quit(ok and 0 or 1)
     return
