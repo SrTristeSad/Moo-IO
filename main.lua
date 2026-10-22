@@ -5,6 +5,8 @@ local Original=require("src.net.original_client")
 local World=require("src.game.world_state")
 local View=require("src.game.reference_view")
 local Menu=require("src.game.reference_menu")
+local Home=require("src.game.mooio_home")
+local Host=require("src.net.mooio_host")
 local Auth=require("src.net.local_auth")
 local Config=require("src.game.config")
 local Hud=require("src.game.reference_hud")
@@ -30,6 +32,9 @@ local world=World.new()
 local camera=nil
 local menuCamera=nil
 local menu=Menu.new()
+local home=Home.new()
+local hosted=Host.new()
+local joinRequested=false
 local panels=Panels.new()
 local profile=Profile.new()
 local clans=Clans.new()
@@ -100,20 +105,21 @@ function love.load()
     end
     return
   end
-  -- Moo IO modification: join the host selected by the invitation launcher.
-  local ok,result=pcall(Original.new,{
-    host=os.getenv("MOO_IO_HOST") or "127.0.0.1",
-    port=tonumber(os.getenv("MOO_IO_PORT")) or 8080,
-    server="LC",autoSpawn=false,
-    inviteCode=os.getenv("MOO_IO_ROOM_CODE")
-  })
-  if not ok then
-    startupError="Falha ao inicializar cliente de rede: "..tostring(result)
-    return
+  -- Normal opening: stay on Moo IO home; no network or terminal is opened.
+  -- CI may inject an invitation to prove that the native Play flow reaches C.
+  if os.getenv("MOO_IO_E2E")=="1" then
+    local remoteHost=os.getenv("MOO_IO_HOST") or "127.0.0.1"
+    local remotePort=tonumber(os.getenv("MOO_IO_PORT")) or 8080
+    local inviteCode=os.getenv("MOO_IO_ROOM_CODE")
+    local ok,result=pcall(Original.new,{host=remoteHost,port=remotePort,
+      server="LC",autoSpawn=false,inviteCode=inviteCode})
+    if not ok then error("Moo IO test init: "..tostring(result)) end
+    client=result
+    joinRequested=true
+    home.screen="play"
+    local connected,err=client:connect()
+    if not connected then error("Moo IO test connect: "..tostring(err)) end
   end
-  client=result
-  local connected,err=client:connect()
-  if not connected then startupError=err end
 end
 
 angle=function(y,x)
@@ -128,7 +134,28 @@ end
 function love.update(dt)
   frameDelta=dt
   if integration then integration:update(dt);return end
-  if diagnostic or not client then return end
+  if diagnostic then return end
+  hosted:update(dt)
+  if home.starting and hosted.state=="ready" then
+    home.starting=false;home.hosting=true
+    home.hostAddress=hosted.address;home.hostCode=hosted.code
+    home:setStatus("Sala criada! Copie o convite ou clique em JOGAR AGORA.")
+  elseif home.starting and hosted.state=="failed" then
+    home.starting=false;home.hosting=false
+    home:setStatus(hosted.error or "Nao foi possivel iniciar o servidor.",true)
+  end
+  if not client then return end
+  if joinRequested and client.state=="keyed_transport" then
+    joinRequested=false
+    local ok,err=client:spawn({name=home.nickname,skin=menu.skin})
+    if ok then home:setStatus("Entrando no mundo; aguardando o servidor...")
+    else home:setStatus("Falha ao entrar: "..tostring(err),true) end
+  end
+  if (client.state=="failed" or client.state=="blocked" or client.state=="closed")
+    and not home.error then
+    joinRequested=false
+    home:setStatus(client.error or client.status or "Conexao encerrada.",true)
+  end
   if uiSmoke then
     uiSmokeTime=uiSmokeTime+dt
     if uiSmokeTime>22 then
@@ -155,6 +182,7 @@ function love.update(dt)
         clans:close()
         death:reset()
         phase="playing"
+        home:setStatus("Partida iniciada.")
         menu.status=""
         latestEvent="SPAWN CONFIRMADO pelo Node original. SID "..tostring(client.sid)
         movementClock=0
@@ -297,7 +325,7 @@ function love.draw()
     return
   end
   if diagnostic then
-    line(28,"MOO-QUEST | TESTES DO CLIENTE LUA")
+    line(28,"MOO IO | TESTES DO CLIENTE LUA")
     line(66,string.format("Aprovados: %d   Falhas: %d",diagnostic.passed,diagnostic.failed))
     for i,r in ipairs(diagnostic.rows) do
       line(92+i*27,(r.pass and "OK   " or "ERRO ")..r.path,
@@ -323,19 +351,8 @@ function love.draw()
     return
   end
   if phase=="menu" then
-    View.draw(menu.world,menuCamera,frameDelta,{showGrid=menu.grid})
-    local state=client and client.state
-    -- A transport failure must take precedence over the last menu hint.
-    local status
-    if state=="blocked" or state=="failed" or state=="closed" then
-      status=client.error or client.status or startupError
-    else
-      status=menu.status~="" and menu.status or
-        (client and (client.error or client.status)) or startupError
-    end
-    menu:draw(state,status)
-    clans:draw(false)
-    Notices.draw(world,w,h)
+    local state=client and client.state or "idle"
+    home:draw(state,client and (client.error or client.status) or "")
     return
   end
   if client and client.state=="spawn_confirmed" and not died
@@ -356,7 +373,7 @@ function love.draw()
       print("UI E2E PASS: Play click -> original C/D -> graphical View + HUD rendered")
       love.event.quit(0)
     end
-    -- When a reference PNG is absent, report the missing local source.
+    -- Missing reference sprites remain optional; original third-party art is not shipped.
     -- Never substitute a generated image or fabricated gameplay entity.
     local absent,total=Assets.missingSummary(3)
     if total>0 then
@@ -367,47 +384,19 @@ function love.draw()
       for i,file in ipairs(absent) do
         love.graphics.print(file,20,20+i*18)
       end
-      love.graphics.print("Execute PREPARAR-SERVIDOR.bat",20,23+(#absent+1)*18)
+      love.graphics.print("Adicione apenas PNGs com licenca em assets/custom/img/",20,23+(#absent+1)*18)
     end
     return
   end
-  love.graphics.setColor(0.12,0.18,0.15)
-  love.graphics.rectangle("fill",18,18,w-36,h-36,10,10)
-  love.graphics.setColor(0.81,0.91,0.80)
-  love.graphics.print("MOO-QUEST | CLIENTE LUA / LOVE 2D",36,36,0,1.6)
-  love.graphics.setColor(0.28,0.40,0.33)
-  love.graphics.rectangle("fill",36,82,w-72,2)
-  line(107,"Servidor: motor Node original do al007ex/moomoo-clone (config local adicional)")
-  line(144,"Endereco: http://127.0.0.1:8080  |  Jogo: LC  |  Transporte: WebSocket original")
-  if startupError then
-    love.graphics.setColor(1,0.65,0.46)
-    love.graphics.printf(tostring(startupError),36,197,w-72)
-  elseif client then
-    love.graphics.setColor(0.88,0.90,0.72)
-    love.graphics.printf(client.status or "Conectando...",36,197,w-72)
-    if client.build then line(257,"Build do servidor: "..tostring(client.build)) end
-  end
-  line(310,latestEvent)
-  line(341,"Pacotes autenticados recebidos do Node: "..tostring(serverPackets))
-  if playerX and playerY then
-    line(372,("Posicao AUTORITATIVA no servidor: X %d   Y %d"):format(playerX,playerY))
-  end
-  love.graphics.setColor(1,0.78,0.54)
-  if client and client.sid then
-    love.graphics.printf("Conexao e spawn confirmados pelo Node. "..
-      "Aguardando os primeiros pacotes de posicao e entidades para desenhar a partida. "..
-      "O porte visual continua em validacao com o cliente original.",
-      36,410,w-72)
-  else
-    love.graphics.printf("O cliente solicita um ticket guest na API ORIGINAL "..
-      "(/api/join), abre o WebSocket e tenta um spawn autenticado. "..
-      "A partida ainda NAO foi confirmada: a janela aberta nao prova jogabilidade.",
-      36,410,w-72)
-  end
-  love.graphics.setColor(0.67,0.77,0.71)
-  love.graphics.printf("R: tentar novamente/renascer   |   WASD: movimento apos spawn   |   ESC: sair\n"..
-    "Motor Node.js original; sem servidor Lua, proxy ou modificacoes nas regras de jogo.",
-    36,h-115,w-72)
+  -- Awaiting first authoritative world state (no fake player/entities).
+  love.graphics.setColor(0.06,0.11,0.12)
+  love.graphics.rectangle("fill",0,0,w,h)
+  love.graphics.setColor(0.90,0.95,0.91)
+  love.graphics.printf("MOO IO",0,h/2-72,w,"center")
+  love.graphics.setColor(0.56,0.78,0.62)
+  love.graphics.printf("Carregando mundo e jogadores...",0,h/2-20,w,"center")
+  love.graphics.setColor(0.68,0.75,0.73)
+  love.graphics.printf(client and client.status or "Aguardando servidor...",40,h/2+26,w-80,"center")
 end
 
 local menuAction
@@ -495,6 +484,79 @@ menuAction=function(action)
   return false
 end
 
+-- Native menu actions. Only one authoritative Node session exists at a time.
+local function connectRoom(ip,port,inviteCode)
+  if client then client:close();client=nil end
+  world=World.new()
+  local ok,connection=pcall(Original.new,{
+    host=ip,port=port,server="LC",inviteCode=inviteCode,autoSpawn=false
+  })
+  if not ok then
+    home:setStatus("Cliente de rede: "..tostring(connection),true)
+    return false
+  end
+  client=connection
+  menu.name=home.nickname
+  joinRequested=true
+  home.screen="play"
+  home:setStatus("Conectando a "..ip..":"..port.."...")
+  local connected,err=client:connect()
+  if not connected then
+    joinRequested=false
+    home:setStatus("Falha de conexao: "..tostring(err),true)
+  end
+  return connected
+end
+
+local function homeAction(action)
+  if action=="create" then
+    if client then client:close();client=nil end
+    home:setStatus("Iniciando servidor local sem terminal...")
+    local ok,err=hosted:start()
+    if ok then
+      home.starting=true;home.hosting=false
+      home.hostCode="";home.hostAddress=""
+    else
+      home.starting=false
+      home:setStatus(tostring(err),true)
+    end
+  elseif action=="join" then
+    local target,why=Home.parseInvite(home.invite)
+    if not target then home:setStatus(why,true);return end
+    connectRoom(target.host,target.port,target.code)
+  elseif action=="play_local" then
+    if hosted.state=="ready" then
+      connectRoom("127.0.0.1",hosted.port,hosted.code)
+    else home:setStatus("A sala ainda nao esta pronta.",true) end
+  elseif action=="stop" then
+    if client then client:close();client=nil end
+    hosted:stop()
+    home.hosting=false;home.starting=false
+    home.hostAddress="";home.hostCode=""
+    home:setStatus("Sala encerrada.")
+  elseif action=="retry" then
+    if hosted.state=="ready" and (home.invite=="" or home.invite==home:roomInvite()) then
+      connectRoom("127.0.0.1",hosted.port,hosted.code)
+    else
+      local target,why=Home.parseInvite(home.invite)
+      if target then connectRoom(target.host,target.port,target.code)
+      else home:setStatus(why,true) end
+    end
+  elseif action=="copy" then
+    local link=home:roomInvite()
+    if link~="" then
+      love.system.setClipboardText(link)
+      home:setStatus("Convite copiado para a area de transferencia.")
+    end
+  elseif action=="grid" then
+    menu.grid=home.showGrid
+    home:setStatus(home.showGrid and "Grade ativada." or "Grade desativada.")
+  elseif action=="fullscreen" then
+    local ok,err=love.window.setFullscreen(home.fullscreen)
+    if not ok then home:setStatus(tostring(err),true) end
+  end
+end
+
 -- The profile is read-only: both opening and closing use Node V packets.
 -- A local modal NEVER gives the client authority to create account stats.
 local function closeProfile()
@@ -537,33 +599,20 @@ function love.keypressed(key)
     panels:keypressed(key,world)
     return
   end
-  if key=="escape" then
-    if phase=="menu" and menu.authMode then
-      menuAction(menu:keypressed(key));return
-    end
-    if chatOpen then chatOpen=false;chatDraft="";return end
-    love.event.quit();return
-  end
   if diagnostic then return end
   if phase=="menu" then
-    if key=="r" and died and not menu:isEditingText() and client
-      and client.state=="spawn_confirmed" then
-      requestPlay()
-      return
-    end
-    if key=="r" and not menu:isEditingText() and client and
-      (client.state=="failed" or client.state=="closed"
-        or client.state=="blocked") then
-      world=World.new()
-      local ok,why=client:connect()
-      if not ok then menu.status=tostring(why) end
-      return
-    end
-    -- Input must see the live WebSocket state even before the next draw.
-    menu.connectionState=client and client.state or "failed"
-    local action=menu:keypressed(key)
-    menuAction(action)
+    homeAction(home:keypressed(key))
     return
+  end
+  if key=="escape" then
+    if chatOpen then chatOpen=false;chatDraft="";return end
+    if phase=="playing" then
+      if client then client:close();client=nil end
+      phase="menu"
+      home.screen="home"
+      home:setStatus("Voce saiu da partida. Seu servidor pode continuar ativo.")
+      return
+    end
   end
   if chatOpen then
     if key=="return" or key=="kpenter" then
@@ -658,7 +707,7 @@ end
 function love.textinput(text)
   if phase=="death" then return end
   if clans:isOpen() then clans:textinput(text);return end
-  if phase=="menu" then menu:textinput(text);return end
+  if phase=="menu" then home:textinput(text);return end
   if panels:isOpen() then panels:textinput(text);return end
   if chatOpen and type(text)=="string" then
     chatDraft=shortenChat(chatDraft..text)
@@ -686,13 +735,7 @@ end
 function love.mousepressed(x,y,button)
   if diagnostic or phase=="death" then return end
   if phase=="menu" then
-    if button==1 then
-      local width,height=love.graphics.getDimensions()
-      if clans:isOpen() and clans:click(x,y,width,height,false,client and client.authToken) then return end
-      menu.connectionState=client and client.state or "failed"
-      local action=menu:click(x,y,width,height)
-      menuAction(action)
-    end
+    if button==1 then homeAction(home:click(x,y)) end
     return
   end
   if not client or client.state~="spawn_confirmed" or died then return end
@@ -788,6 +831,7 @@ function love.mousereleased(_,_,button)
 end
 function love.quit()
   if client then client:close() end
+  if hosted then hosted:stop() end
 end
 
 function love.resize(w,h)
