@@ -180,7 +180,10 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -f server/src/offline.mjs
-          if (git diff --cached --quiet) {
+          git diff --cached --quiet
+          $hasChanges = ($LASTEXITCODE -eq 1)
+          if ($LASTEXITCODE -notin @(0,1)) { throw 'Falha ao comparar servidor offline' }
+          if (-not $hasChanges) {
             Write-Host 'Servidor offline ja atualizado no repositorio.'
           } else {
             git commit -m 'build(windows): keep local server bundle ready in source checkout'
