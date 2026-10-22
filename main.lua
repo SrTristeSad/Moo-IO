@@ -203,7 +203,7 @@ function love.update(dt)
   if home.starting and hosted.state=="ready" then
     home.starting=false;home.hosting=true
     home.hostAddress=hosted.address;home.hostCode=hosted.code
-    home:setStatus("Sala particular criada. Convide amigos pelo F2.")
+    home:setStatus("Sala criada. Convide amigos pelo menu ESC.")
   elseif home.starting and hosted.state=="failed" then
     home.starting=false;home.hosting=false
     home:setStatus(hosted.error or "Nao foi possivel iniciar o servidor.",true)
