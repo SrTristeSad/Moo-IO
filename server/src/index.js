@@ -301,8 +301,7 @@ if (process.env.MOO_IO_GUI_HOST === "1") {
     controller.listen(PORT + 1,"127.0.0.1");
     controller.on("error",error=>{
         log("Moo IO controller failed: "+error.message);
-        process.exitCode=1;
-        server.close();
+        process.exit(1);
     });
 }
 
