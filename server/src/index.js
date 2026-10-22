@@ -239,6 +239,18 @@ app.get("/mooio/protocol", (_req, res) => {
         res.status(503).json({ error: "protocol_unavailable" });
     }
 });
+// Host-only stop command. Never accept forwarded requests or remote peers.
+app.post("/mooio/shutdown", (req, res) => {
+    const remote=req.socket.remoteAddress;
+    const loopback=["127.0.0.1","::1","::ffff:127.0.0.1"].includes(remote);
+    const forwarded=["forwarded","x-forwarded-for","x-real-ip","x-forwarded-host"].some(h=>req.get(h));
+    if (!loopback || forwarded || !validRoomCode(req.get("x-mooio-code")) ||
+        req.get("x-mooio-code")!==ROOM_CODE) {
+        return res.status(403).json({error:"forbidden"});
+    }
+    res.json({ok:true});
+    setTimeout(()=>process.kill(process.pid,"SIGTERM"),50);
+});
 app.get("/mooio/status", (_req, res) => {
     res.set("Cache-Control", "no-store");
     res.json({ project: "Moo-IO", mode: "lan", build: build.BUILD_ID });
