@@ -3,6 +3,9 @@ on:
   push:
     branches: [main]
   pull_request:
+concurrency:
+  group: mooio-e2e-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -43,7 +46,9 @@ jobs:
           SDL_AUDIODRIVER: dummy
           LIBGL_ALWAYS_SOFTWARE: '1'
         run: |
-          timeout 55s xvfb-run -a love .
+          set -o pipefail
+          timeout 55s xvfb-run -a love . 2>&1 | tee "$RUNNER_TEMP/mooio-client.log"
+          grep -F 'MOO IO E2E PASS:' "$RUNNER_TEMP/mooio-client.log"
       - name: Logs em caso de falha
         if: failure()
         run: |
