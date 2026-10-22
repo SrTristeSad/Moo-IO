@@ -686,6 +686,7 @@ local function openProfile(sid)
     return false
   end
   profile:open(sid)
+  if mobile then mobile:reset();mobileAttackSent=false end
   panels:close()
   clans:close()
   chatOpen=false;chatDraft=""
@@ -817,6 +818,7 @@ function love.keypressed(key)
   if (key=="return" or key=="kpenter") and client
     and client.state=="spawn_confirmed" and not died then
     chatOpen=true;chatDraft=""
+    if mobile then mobile:reset();mobileAttackSent=false end
     input.keys={}
     lastMove=false
     -- A player can open chat while holding mouse/Space. Stop the ongoing
@@ -909,6 +911,7 @@ function love.keyreleased(key)
 end
 function love.focus(focused)
   if not focused and client and client.state=="spawn_confirmed" then
+    if mobile then mobile:reset();mobileAttackSent=false end
     client:send("e",{})
     client:send("F",{0,Pack.null})
     mouseAttack=false;spaceAttack=false
@@ -944,6 +947,7 @@ function love.mousepressed(x,y,button)
       if consumed then return end
     end
     if clans:click(x,y,w,h,false,client and client.authToken) then
+      if mobile then mobile:reset();mobileAttackSent=false end
       if clans:isOpen() and panels:isOpen() then panels:close() end
       -- Keep the permanent Clan window exclusive with Shop and Tribe,
       -- matching how the original client hides competing overlays.
@@ -971,6 +975,7 @@ function love.mousepressed(x,y,button)
         -- stop gathering while the menu takes keyboard/mouse focus.
         chatOpen=false;chatDraft=""
         if panels:isOpen() then
+          if mobile then mobile:reset();mobileAttackSent=false end
           input.keys={}
           lastMove=false
           mouseAttack=false;spaceAttack=false
@@ -1030,6 +1035,16 @@ function love.mousereleased(_,_,button)
 end
 local function mobileAction(action,payload)
   if action=="pause" then love.keypressed("escape");return end
+  if action=="map_open" then
+    -- Reset server input while using the tactical map.
+    if client and client.state=="spawn_confirmed" then
+      client:send("9",{Pack.null})
+      client:send("e",{})
+      client:send("F",{0,Pack.null})
+    end
+    lastMove=false;mobileAttackSent=false
+    return
+  end
   if action=="attack" and client and client.state=="spawn_confirmed" then
     local active=mobile:attacking()
     if active~=mobileAttackSent then
