@@ -100,7 +100,13 @@ function love.load()
     end
     return
   end
-  local ok,result=pcall(Original.new,{host="127.0.0.1",port=8080,server="LC",autoSpawn=false})
+  -- Moo IO modification: join the host selected by the invitation launcher.
+  local ok,result=pcall(Original.new,{
+    host=os.getenv("MOO_IO_HOST") or "127.0.0.1",
+    port=tonumber(os.getenv("MOO_IO_PORT")) or 8080,
+    server="LC",autoSpawn=false,
+    inviteCode=os.getenv("MOO_IO_ROOM_CODE")
+  })
   if not ok then
     startupError="Falha ao inicializar cliente de rede: "..tostring(result)
     return
