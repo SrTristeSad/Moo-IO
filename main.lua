@@ -337,7 +337,7 @@ function love.draw()
     profile:draw(world)
     if uiSmoke and uiSmokeClicked and not uiSmokeDrawn then
       uiSmokeDrawn=true
-      print("UI E2E PASS: Play click -> original C/D -> graphical View + HUD rendered")
+      print("MOO IO E2E PASS: convite -> handshake -> C/D -> mundo e HUD renderizados")
       love.event.quit(0)
     end
     -- Missing reference sprites remain optional; original third-party art is not shipped.
