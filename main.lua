@@ -484,7 +484,7 @@ local function homeAction(action)
   if action=="create" then
     if client then client:close();client=nil end
     home:setStatus("Iniciando servidor local sem terminal...")
-    local ok,err=hosted:start()
+    local ok,err=hosted:start(home.serverMode,home.vpnIP)
     if ok then
       home.starting=true;home.hosting=false
       home.hostCode="";home.hostAddress=""
@@ -492,13 +492,17 @@ local function homeAction(action)
       home.starting=false
       home:setStatus(tostring(err),true)
     end
+  elseif action=="mode_lan" or action=="mode_vpn" then
+    home:setStatus(home.serverMode=="vpn"
+      and "Abra sua VPN com os amigos e informe o IP virtual deste computador."
+      or "Modo LAN: amigos conectados ao mesmo roteador.")
   elseif action=="join" then
     local target,why=Home.parseInvite(home.invite)
     if not target then home:setStatus(why,true);return end
     connectRoom(target.host,target.port,target.code)
   elseif action=="play_local" then
     if hosted.state=="ready" then
-      connectRoom("127.0.0.1",hosted.port,hosted.code)
+      connectRoom(hosted.hostIP,hosted.port,hosted.code)
     else home:setStatus("A sala ainda nao esta pronta.",true) end
   elseif action=="stop" then
     if client then client:close();client=nil end
@@ -508,7 +512,7 @@ local function homeAction(action)
     home:setStatus("Sala encerrada.")
   elseif action=="retry" then
     if hosted.state=="ready" and (home.invite=="" or home.invite==home:roomInvite()) then
-      connectRoom("127.0.0.1",hosted.port,hosted.code)
+      connectRoom(hosted.hostIP,hosted.port,hosted.code)
     else
       local target,why=Home.parseInvite(home.invite)
       if target then connectRoom(target.host,target.port,target.code)
