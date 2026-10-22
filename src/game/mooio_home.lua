@@ -303,7 +303,9 @@ function Home:draw(state,detail,showWorld)
       printText("01  CRIAR MINHA SALA",155,204,19,C.green)
       field("nickname",self.nickname,"Seu apelido",self.focus=="nickname")
       if self.hosting then
-        printText("Sala criada - amigos podem entrar.",155,316,17,C.green)
+        printText(self.botsEnabled and self.botCount>0 and
+          ("Sala criada - "..self.botCount.." bots ativos.")
+          or "Sala criada - amigos podem entrar.",155,316,17,C.green)
         panel(155,351,462,51,C.raised,9)
         local invite=self:roomInvite()
         printText(invite,170,365,16,C.white,432,"center")
