@@ -81,7 +81,7 @@ function Host.new()
     elapsed=0,check=0,process=nil,error=nil,progress="",lastLog="",root=nil
   },Host)
 end
-function Host:start(mode,requestedIP)
+function Host:start(mode,requestedIP,requestedBots)
   if self.state=="starting" or self.state=="ready" then return false,"Sala ja iniciada" end
   if not win then return false,"Hospedagem automatica disponivel inicialmente no Windows." end
   if ping(self.port) then return false,"Ja existe uma sala Moo IO nesta porta." end
@@ -102,13 +102,18 @@ function Host:start(mode,requestedIP)
   self.elapsed=0;self.check=0;self.error=nil
   self.progress="Preparando sala..."
   self.lastLog=""
-  local keys={"MOO_IO_ROOM_CODE","MOO_IO_GUI_HOST","MOO_IO_BIND_IP","MOO_IO_NETWORK_MODE"}
+  requestedBots=tonumber(requestedBots) or 0
+  if requestedBots<0 or requestedBots>8 or requestedBots%1~=0 then
+    return false,"Quantidade de bots invalida (0 a 8)."
+  end
+  local keys={"MOO_IO_ROOM_CODE","MOO_IO_GUI_HOST","MOO_IO_BIND_IP","MOO_IO_NETWORK_MODE","MOO_IO_BOT_COUNT"}
   local originals={}
   for _,key in ipairs(keys) do originals[key]=getenv(key) end
   setenv(keys[1],self.code)
   setenv(keys[2],"1")
   setenv(keys[3],ip)
   setenv(keys[4],mode)
+  setenv(keys[5],tostring(requestedBots))
   local command='powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'..script..'"'
   local cmd=ffi.new("char[?]",#command+1,command)
   local startup=ffi.new("STARTUPINFOA[1]")

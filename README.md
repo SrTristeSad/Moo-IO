@@ -14,7 +14,8 @@ o jogador para de enviar comandos de movimento e ataque enquanto o menu
 esta aberto, mas nao pausa os demais participantes. Na interface:
 
 - **Voltar ao jogo**: fecha o menu, sem desconectar.
-- **Configuracoes**: liga/desliga a grade do mapa e a tela cheia. Se voce for o anfitriao, inclui **Convidar amigos** para ver e copiar o convite da sala.
+- **Configuracoes**: liga/desliga a grade do mapa e a tela cheia.
+- **Convidar amigos**: botao proprio na tela do **Esc**, ao lado de Configuracoes. Mostra e copia o convite quando voce hospeda.
 - **Sair da partida (convidado)**: desconecta somente este usuario.
 - **Sair e encerrar sala (anfitriao)**: pergunta antes de desligar
   o servidor e desconectar todos. Cancelar mantem a sala funcionando.
@@ -32,18 +33,18 @@ servidor nem entra em partida sozinho.
 | --- | --- |
 | **Jogar** | Abre as opcoes para criar uma sala particular manualmente ou entrar em outra pelo IP e codigo. Criar nao inicia a partida automaticamente. |
 | **Servidores** | Área própria para os futuros servidores dedicados **V2 Lite** e o catálogo de salas/contas via **Firebase**. Essas integrações ainda não estão conectadas a serviços externos. |
-| **Configurações** | Grade do mapa, tela cheia e convite da sala quando o usuario e anfitriao. |
+| **Configurações** | Grade do mapa e tela cheia; os convites ficam na tela de Jogar e no menu de Esc. |
 
 ### Jogar sozinho e convidar amigos
 
 1. Instale **Node.js 20+** e **LÖVE 2D 11.5** com LuaSocket. Baixe o ZIP completo do GitHub, **extraia todos os arquivos** e execute **MOO-IO.vbs** de dentro da pasta extraída (não execute direto de dentro do ZIP).
 2. Clique em **Jogar**, depois em **Criar minha sala**. Apos criar, clique em **Jogar agora** para entrar; a sala nao e criada ou acessada automaticamente.
-3. Dentro da partida, abra **Esc > Configuracoes > Convidar amigos > Copiar convite** e envie aos amigos. O antigo atalho F2 e o aviso permanente foram removidos.
+3. Dentro da partida, abra **Esc > Convidar amigos > Copiar convite** e envie aos amigos. O antigo atalho F2 e o aviso permanente foram removidos.
 4. Amigos abrem **Jogar**, digitam o IP/porta e o código de acesso separadamente **ou colam um convite completo**, e clicam em **Entrar na sala**.
 
 Exemplo de convite: `192.168.1.10:8080/abcd1234567890ef`. O código de acesso é necessário para obter o ticket de entrada no servidor reconstruído. Quando alguém entra, o servidor Node é responsável por movimentação, animais, construções, recursos e combate. Não são criados jogadores ou entidades fictícios no cliente.
 
-**Bots não foram adicionados.** A estrutura de sala particular permite incluí-los futuramente, mas não há comportamento de bots nem opções falsas na interface.
+**Bots sao opcionais.** Em **Jogar > Criar minha sala**, ative **Bots de IA**, defina entre **0 e 8** usando os controles de quantidade e so depois crie a sala. Eles ficam desativados por padrao. Cada bot e um Player real processado pelo servidor Node, com colisao, HP, morte/respawn, coleta, ataque e uso de alimento; as decisoes de IA incluem movimentacao, procura de recursos, caca, combate, recuo por vida baixa e desvio quando fica preso. Nao usa API de IA externa. O numero e definido na criacao, e mudar depois exige encerrar e criar outra sala. A contagem de bots nao diminui o limite de conexoes humanas, mas usa CPU do anfitriao.
 
 ### Amigos de outras redes
 

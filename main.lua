@@ -605,7 +605,8 @@ homeAction=function(action)
     if home.screen~="play" or home.starting or home.hosting then return end
     if client then client:close();client=nil end
     home:setStatus("Iniciando servidor local sem terminal...")
-    local ok,err=hosted:start(home.serverMode,home.vpnIP)
+    local ok,err=hosted:start(home.serverMode,home.vpnIP,
+      home.botsEnabled and home.botCount or 0)
     if ok then
       home.starting=true;home.hosting=false
       home.hostCode="";home.hostAddress=""
@@ -652,12 +653,6 @@ homeAction=function(action)
   elseif action=="fullscreen" then
     local ok,err=love.window.setFullscreen(home.fullscreen)
     if not ok then home:setStatus(tostring(err),true) end
-  elseif action=="open_invite" then
-    if hosted.state=="ready" and home:roomInvite()~="" then
-      home.roomOverlay=true
-    else
-      home:setStatus("Convites disponiveis depois de criar sua sala.",true)
-    end
   end
 end
 

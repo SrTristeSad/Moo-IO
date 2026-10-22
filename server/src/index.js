@@ -14,6 +14,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
+import { parseBotCount } from "./mooio/bots.js";
 import { fileURLToPath } from "node:url";
 import { config } from "./moomoo/config.js";
 import { Game } from "./moomoo/server.js";
@@ -42,6 +43,7 @@ const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const ROOM_CODE = process.env.MOO_IO_ROOM_CODE || "";
 const NETWORK_MODE = process.env.MOO_IO_NETWORK_MODE === "vpn" ? "vpn" : "lan";
+const BOT_COUNT = parseBotCount(process.env.MOO_IO_BOT_COUNT);
 if (!allowedRoomInterface(HOST, NETWORK_MODE)) throw new Error("HOST must be a private IPv4 assigned to LAN/VPN (not 0.0.0.0 or public IP)");
 if (!validRoomCode(ROOM_CODE)) throw new Error("MOO_IO_ROOM_CODE must be 8-64 letters, digits or dashes");
 
@@ -101,7 +103,9 @@ if (process.env.OWNER_EMAIL) {
 
 const games = new Map();
 for (const def of GAME_SERVERS) {
-    games.set(def.key, new Game({ key: def.key, name: def.key, capacity: def.capacity, membersOnly: def.membersOnly, accounts, log, hooks: gameHooks }));
+    games.set(def.key, new Game({ key: def.key, name: def.key, capacity: def.capacity,
+        membersOnly: def.membersOnly, accounts, log, hooks: gameHooks,
+        botCount: def.key === "LC" ? BOT_COUNT : 0 }));
 }
 
 const gameApi = {

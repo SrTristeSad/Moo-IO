@@ -36,7 +36,7 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
   assert(not pause:isOpen() and getClient()~=nil,
     "ESC from pause must resume, not close network")
   love.keypressed("escape")
-  love.mousepressed(620,410,1)
+  love.mousepressed(620,474,1)
   assert(not pause:isOpen() and getClient()==nil and getPhase()=="menu",
     "Guest exits only their own client")
   assert(stops==0 and closes==1,"Guest must not destroy host server")
@@ -64,26 +64,26 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
   love.keypressed("escape")
   assert(getOwner() and pause.owner and pause.page=="root",
     "Host ESC must open the owner's pause controls")
-  love.mousepressed(630,343,1)
-  assert(pause.page=="settings","Host settings must open inside ESC menu")
-  love.mousepressed(630,385,1)
-  assert(pause.page=="invite","Invite button must be in ESC settings")
+  love.mousepressed(630,402,1)
+  assert(pause.page=="invite","Invite must be a top-level button in ESC menu")
   assert(home:roomInvite()=="192.168.1.20:8080/myroom998",
     "Invite page must show the real current room")
   -- Do not depend on OS clipboard availability in CI. The real button
   -- must dispatch the copy action even on systems without clipboard support.
   assert(pause:click(630,389)=="copy_invite")
   love.keypressed("escape")
-  assert(pause.page=="settings","ESC from invitation returns to settings")
-  love.mousepressed(630,448,1)
-  assert(pause.page=="root","Back from settings returns to pause root")
-  love.mousepressed(620,409,1)
+  assert(pause.page=="root","ESC from invitation returns directly to pause")
+  love.mousepressed(620,343,1)
+  assert(pause.page=="settings","Settings must stay independent of invite")
+  love.keypressed("escape")
+  assert(pause.page=="root")
+  love.mousepressed(620,474,1)
   assert(pause.page=="confirm" and stops==0,
     "Host leaving needs confirmation, must not stop automatically")
   love.keypressed("escape")
   assert(pause.page=="root" and stops==0,
     "ESC cancels host confirmation")
-  love.mousepressed(620,409,1)
+  love.mousepressed(620,474,1)
   love.mousepressed(521,429,1) -- Confirm owned server termination.
   assert(stops==1 and hosted.state=="idle" and getClient()==nil,
     "Only confirmation can terminate the host's room")

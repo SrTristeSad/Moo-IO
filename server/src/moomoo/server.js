@@ -15,6 +15,7 @@ import { items } from "./modules/items.js";
 import { AiManager, AI_TYPES } from "./modules/aiManager.js";
 import { accessories, hats } from "./modules/store.js";
 import { ClanManager } from "./modules/clanManager.js";
+import { RoomBots } from "../mooio/bots.js";
 import { HAT, TAIL, EFFECT, hasTail, secretDistance } from "./modules/effects.js";
 import { ANIMAL_KEYS, BOSS_KEYS } from "../api/store.js";
 
@@ -44,7 +45,7 @@ export class Game {
     game_objects = [];
 
     // hooks: { presence(account, serverKey | ""), count(serverKey, n), event(data) }
-    constructor({ key, name, capacity, membersOnly, accounts, log, hooks }) {
+    constructor({ key, name, capacity, membersOnly, accounts, log, hooks, botCount = 0 }) {
         this.key = key;
         this.name = name;
         this.capacity = capacity;
@@ -98,6 +99,10 @@ export class Game {
 
         this.generateWorld();
         this.ensureAnimals();
+        // Bots are real Player instances in this world, not fake client sprites.
+        // They exist only when the host explicitly enables them for this room.
+        this.config = config;
+        this.bots = new RoomBots(this, botCount);
 
         this.lastTick = Date.now();
         this.leaderboardTimer = 0;
@@ -310,7 +315,8 @@ export class Game {
     }
 
     playerCount() {
-        return this.players.length;
+        // Bot slots must never count as human network connections.
+        return this.players.reduce((n, player) => n + (player.isBot ? 0 : 1), 0);
     }
 
     kickAccount(accountId, reason) {
@@ -350,6 +356,7 @@ export class Game {
         const delta = now - this.lastTick;
         this.lastTick = now;
 
+        if (this.bots) this.bots.tick(delta);
         for (const player of this.players) {
             player.chatCooldown -= delta;
             player.tribeCooldown -= delta;

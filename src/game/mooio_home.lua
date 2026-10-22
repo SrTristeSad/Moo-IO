@@ -48,7 +48,9 @@ local boxes={
   homeSettings={95,446,400,68},
   nickname={155,236,462,52},modeLan={155,312,223,46},
   modeVpn={393,312,224,46},vpnIP={155,368,462,46},
-  createLan={155,386,462,60},createVpn={155,429,462,60},
+  createLan={155,530,462,53},createVpn={155,530,462,53},
+  botsToggle={155,423,462,39},botsMinus={155,475,110,42},
+  botsPlus={508,475,109,42},
   roomCopy={155,419,462,55},roomEnter={155,485,226,55},
   roomStop={392,485,225,55},
   joinIP={704,287,421,51},joinCode={704,359,421,51},
@@ -56,7 +58,6 @@ local boxes={
   serverLite={159,274,433,58},serverFirebase={661,274,433,58},
   serverToPlay={381,526,518,54},
   grid={355,280,570,57},fullscreen={355,364,570,57},
-  settingsInvite={355,448,570,57},
   overlayCopy={478,395,322,55},overlayClose={880,177,55,43}
 }
 local function button(id,text,primary)
@@ -105,7 +106,7 @@ function Home.new()
     status="",error=false,hosting=false,starting=false,
     hostAddress="",hostCode="",connectionState="idle",serverLog="",
     showGrid=true,fullscreen=false,sessionTitle="",
-    roomOverlay=false
+    roomOverlay=false,botsEnabled=false,botCount=2
   },Home)
 end
 function Home:scale(x,y)
@@ -144,6 +145,23 @@ function Home:click(sx,sy)
       if self.serverMode=="vpn" and inside(x,y,boxes.vpnIP) then
         self.focus="vpnIP";return "focus"
       end
+      if inside(x,y,boxes.botsToggle) then
+        self.botsEnabled=not self.botsEnabled
+        self.focus=nil
+        return "bots_toggle"
+      end
+      if inside(x,y,boxes.botsMinus) then
+        self.botCount=math.max(0,self.botCount-1)
+        self.botsEnabled=self.botCount>0
+        self.focus=nil
+        return "bots_count"
+      end
+      if inside(x,y,boxes.botsPlus) then
+        self.botCount=math.min(8,self.botCount+1)
+        self.botsEnabled=true
+        self.focus=nil
+        return "bots_count"
+      end
       if inside(x,y,boxes[self.serverMode=="vpn" and "createVpn" or "createLan"]) then
         self.focus=nil;return "create"
       end
@@ -162,7 +180,6 @@ function Home:click(sx,sy)
   elseif self.screen=="settings" then
     if inside(x,y,boxes.grid) then self.showGrid=not self.showGrid;return "grid" end
     if inside(x,y,boxes.fullscreen) then self.fullscreen=not self.fullscreen;return "fullscreen" end
-    if inside(x,y,boxes.settingsInvite) then return "open_invite" end
   end
   return nil
 end
@@ -297,17 +314,22 @@ function Home:draw(state,detail,showWorld)
         printText("Preparando sua sala...",155,331,18,C.green)
         printText("Voce escolheu criar esta sala.",155,383,16,C.muted)
         printText("Ninguem precisa abrir um terminal.",155,417,16,C.muted)
-        printText("Sem bots nesta versao.",155,482,15,C.muted)
+        printText(self.botsEnabled and
+          ("Bots de IA: "..self.botCount) or "Bots desativados.",155,482,15,C.muted)
       else
         button("modeLan",self.serverMode=="lan" and "LAN ATIVA" or "LAN",self.serverMode=="lan")
         button("modeVpn",self.serverMode=="vpn" and "VPN ATIVA" or "VPN",self.serverMode=="vpn")
         if self.serverMode=="vpn" then
           field("vpnIP",self.vpnIP,"IP deste PC na VPN",self.focus=="vpnIP")
-          button("createVpn","CRIAR MINHA SALA",true)
-        else
-          button("createLan","CRIAR MINHA SALA",true)
         end
-        printText("Privado: somente amigos com convite.",155,516,15,C.muted)
+        button("botsToggle",self.botsEnabled and "BOTS DE IA: LIGADOS" or
+          "BOTS DE IA: DESLIGADOS",self.botsEnabled)
+        button("botsMinus","-")
+        printText("QUANTIDADE: "..(self.botsEnabled and self.botCount or 0).." / 8",
+          274,485,17,C.white,225,"center")
+        button("botsPlus","+")
+        button(self.serverMode=="vpn" and "createVpn" or "createLan",
+          "CRIAR MINHA SALA",true)
       end
       printText("02  ENTRAR EM OUTRA SALA",704,214,19,C.green)
       printText("IP, porta ou convite completo",704,256,15,C.muted)
@@ -343,9 +365,8 @@ function Home:draw(state,detail,showWorld)
       printText("CONFIGURACOES",336,190,31,C.white)
       button("grid","GRADE DO MAPA     "..(self.showGrid and "LIGADA" or "DESLIGADA"),false)
       button("fullscreen","TELA CHEIA       "..(self.fullscreen and "LIGADA" or "DESLIGADA"),false)
-      button("settingsInvite",self.hosting and "CONVIDAR AMIGOS" or
-        "CONVIDAR AMIGOS - CRIE UMA SALA",self.hosting)
-      printText("ESC na partida: menu e configuracoes.",360,535,16,C.muted)
+      printText("Convide amigos pela tela da sala ou pelo menu ESC.",360,477,16,C.muted)
+      printText("ESC na partida: voltar e alterar as configuracoes.",360,505,16,C.muted)
     end
   end
   panel(83,614,1111,57,{0.13,0.17,0.15},0)

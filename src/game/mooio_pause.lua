@@ -11,11 +11,11 @@ end
 local rects={
   resume={410,246,460,58},
   settings={410,316,460,58},
-  leave={410,386,460,58},
-  grid={410,236,460,52},
-  fullscreen={410,299,460,52},
-  invite={410,362,460,52},
-  back={410,425,460,52},
+  leave={410,448,460,58},
+  rootInvite={410,379,460,58},
+  grid={410,246,460,58},
+  fullscreen={410,316,460,58},
+  back={410,386,460,58},
   copyInvite={410,359,460,58},
   inviteBack={410,431,460,52},
   confirm={410,404,216,56},
@@ -77,7 +77,7 @@ function Pause:keypressed(key)
   if not self.page then return nil end
   if key=="escape" then
     if self.page=="invite" then
-      self.page="settings"
+      self.page="root"
       return "back"
     elseif self.page=="confirm" or self.page=="settings" then
       self.page="root"
@@ -97,6 +97,10 @@ function Pause:click(screenX,screenY)
   if self.page=="root" then
     if which("resume") then self:close();return "resume" end
     if which("settings") then self.page="settings";return "settings" end
+    if which("rootInvite") and self.owner then
+      self.page="invite"
+      return "show_invite"
+    end
     if which("leave") then
       if self.owner then self.page="confirm";return "confirm" end
       self:close();return "leave_guest"
@@ -104,14 +108,10 @@ function Pause:click(screenX,screenY)
   elseif self.page=="settings" then
     if which("grid") then return "toggle_grid" end
     if which("fullscreen") then return "toggle_fullscreen" end
-    if which("invite") and self.owner then
-      self.page="invite"
-      return "show_invite"
-    end
     if which("back") then self.page="root";return "back" end
   elseif self.page=="invite" then
     if which("copyInvite") then return "copy_invite" end
-    if which("inviteBack") then self.page="settings";return "back" end
+    if which("inviteBack") then self.page="root";return "back" end
   elseif self.page=="confirm" then
     if which("confirm") then
       local quit=self.confirmQuit
@@ -146,6 +146,11 @@ function Pause:draw(grid,fullscreen,inviteText)
       {0.77,0.82,0.75})
     button("VOLTAR AO JOGO","resume",true)
     button("CONFIGURACOES","settings")
+    if self.owner and inviteText and inviteText~="" then
+      button("CONVIDAR AMIGOS","rootInvite")
+    else
+      button("CONVIDAR AMIGOS - SO ANFITRIAO","rootInvite")
+    end
     button(self.owner and "SAIR E ENCERRAR SALA" or "SAIR DA PARTIDA","leave")
   elseif self.page=="settings" then
     label("CONFIGURACOES",395,146,490,58,31)
@@ -153,11 +158,6 @@ function Pause:draw(grid,fullscreen,inviteText)
       {0.77,0.82,0.75})
     button("GRADE DO MAPA: "..(grid and "LIGADA" or "DESLIGADA"),"grid")
     button("TELA CHEIA: "..(fullscreen and "LIGADA" or "DESLIGADA"),"fullscreen")
-    if self.owner and inviteText and inviteText~="" then
-      button("CONVIDAR AMIGOS","invite",true)
-    else
-      button("CONVIDAR AMIGOS - SO ANFITRIAO","invite")
-    end
     button("VOLTAR","back")
   elseif self.page=="invite" then
     label("CONVIDAR AMIGOS",395,146,490,58,31)
