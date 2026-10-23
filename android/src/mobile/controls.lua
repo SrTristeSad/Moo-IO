@@ -115,7 +115,10 @@ function M:hotbar(total,w,h)
  local rowU=min(l.u,view.clipW/(6*73))
  local step=73*rowU
  local radius=35*rowU
- local width=total>0 and ((total-1)*step+2*radius) or 0
+ -- Include outline, active pulse and shadow in the horizontal scroll extent:
+ -- first/last ability circles must not be cut at the clipping boundary.
+ local edge=radius+8*rowU
+ local width=total>0 and ((total-1)*step+2*edge) or 0
  local overflow=max(0,width-view.clipW)
  if total~=self.barCount then
    -- When a new unlock arrives after spawn, bring it into view automatically.
@@ -123,14 +126,32 @@ function M:hotbar(total,w,h)
    self.barCount=total
  end
  self.barScroll=clamp(self.barScroll,0,overflow)
- local left=view.clipX+max(0,(view.clipW-width)/2)+radius-self.barScroll
+ local left=view.clipX+max(0,(view.clipW-width)/2)+edge-self.barScroll
  local slots={}
  for i=1,total do
    slots[i]={x=left+(i-1)*step,y=view.y,r=radius,index=i}
  end
+ -- The action-number badges are below the ring and its shadow. Previous
+ -- vertical scissor used just 5*rowU and cut off the bottom of the circles.
+ local top=view.y-radius-11*rowU
+ local bottom=min(h,view.y+radius+25*rowU)
  return slots,{scroll=self.barScroll,maxScroll=overflow,
-   clipX=view.clipX,clipW=view.clipW,top=view.y-radius-5*rowU,
-   bottom=view.y+radius+5*rowU}
+   clipX=view.clipX,clipW=view.clipW,top=top,bottom=bottom,
+   rowU=rowU,edge=edge}
+end
+
+-- Geometry shared by HP/level drawing and regression checks: all numbers
+-- live INSIDE the corresponding bar/capsule, not floating above the HUD.
+function M:statusLayout(w,h)
+ local u=self:layout(w,h).u
+ local hpW=240*u
+ local xpW=146*u
+ local gap=12*u
+ local hpX=(w-hpW-xpW-gap)/2
+ local y=h-154*u
+ local height=29*u
+ return {life={x=hpX,y=y,w=hpW,h=height},
+   level={x=hpX+hpW+gap,y=y,w=xpW,h=height}}
 end
 function M:movement()
  if self.moveId then return self.moveX,self.moveY end
@@ -569,44 +590,60 @@ function M:draw(world,scale)
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
  g.setColor(.97,.97,.94,1);g.setFont(small)
  g.printf(self.auto and "AUTO ON" or "AUTO",l.auto.x-41*u,l.auto.y+43*u,82*u,"center")
- -- Authoritative health and level/XP, side by side above the item row.
+ -- Compact, lined-up HP and level capsules directly over the skill row.
+ -- Health numbers are centered *inside* the health bar. No heart icon.
  local player=world and world.localPlayer and world:localPlayer()
  local life=max(0,tonumber(player and player.health) or 0)
  local maxLife=max(1,tonumber(player and player.maxHealth) or 100)
  local xp=max(0,tonumber(world and world.xp) or 0)
  local maxXP=max(1,tonumber(world and world.maxXP) or 300)
  local level=max(1,math.floor(tonumber(world and world.age) or 1))
- local hpW=240*u
- local xpW=146*u
- local gap=12*u
- local hpX=(w-hpW-xpW-gap)/2
- local statusY=h-148*u
- local statusH=27*u
- g.setColor(.025,.085,.08,.91*self.uiOpacity)
- g.rectangle("fill",hpX,statusY,hpW,statusH,10*u,10*u)
- g.setColor(.95,.27,.29,self.uiOpacity)
- g.rectangle("fill",hpX+5*u,statusY+5*u,
-   (hpW-10*u)*clamp(life/maxLife,0,1),statusH-10*u,7*u,7*u)
- g.setColor(.97,.97,.96,1);g.setFont(font)
- g.printf(math.floor(life).."/"..math.floor(maxLife),
-   hpX,statusY+5*u,hpW,"center")
- -- Heart is merely the icon for the health bar, not the level indicator.
- local hx=hpX-14*u
- local hy=statusY+statusH/2
- g.setColor(.97,.27,.34,self.uiOpacity)
- g.circle("fill",hx-5*u,hy-3*u,6*u)
- g.circle("fill",hx+5*u,hy-3*u,6*u)
- g.polygon("fill",hx-11*u,hy-2*u,hx+11*u,hy-2*u,hx,hy+12*u)
- local xpX=hpX+hpW+gap
- g.setColor(.025,.085,.08,.90*self.uiOpacity)
- g.rectangle("fill",xpX,statusY,xpW,statusH,10*u,10*u)
- local progX=xpX+68*u
- local progW=xpW-76*u
- g.setColor(.96,.78,.35,self.uiOpacity)
- g.rectangle("fill",progX,statusY+11*u,
-   progW*clamp(xp/maxXP,0,1),6*u,3*u,3*u)
- g.setColor(.95,.88,.51,1);g.setFont(font)
- g.printf("Nv "..level,xpX+3*u,statusY+5*u,66*u,"center")
+ local status=self:statusLayout(w,h)
+ local hp=status.life
+ g.setColor(.025,.075,.075,.92*self.uiOpacity)
+ g.rectangle("fill",hp.x,hp.y,hp.w,hp.h,hp.h*.45,hp.h*.45)
+ g.setColor(.89,.20,.26,self.uiOpacity)
+ g.rectangle("fill",hp.x+3*u,hp.y+3*u,
+   (hp.w-6*u)*clamp(life/maxLife,0,1),hp.h-6*u,
+   hp.h*.38,hp.h*.38)
+ g.setColor(.75,.92,.86,.92*self.uiOpacity)
+ g.setLineWidth(2*u)
+ g.rectangle("line",hp.x,hp.y,hp.w,hp.h,hp.h*.45,hp.h*.45)
+ -- Shadow behind the digits is text, not an additional icon.
+ g.setFont(font)
+ local hpText=math.floor(life).."/"..math.floor(maxLife)
+ local hpTextY=hp.y+(hp.h-font:getHeight())*.5
+ g.setColor(0,0,0,.72*self.uiOpacity)
+ g.printf(hpText,hp.x+1*u,hpTextY+1*u,hp.w,"center")
+ g.setColor(1,1,1,1)
+ g.printf(hpText,hp.x,hpTextY,hp.w,"center")
+ -- The "Nv" label belongs inside the rounded level capsule; experience
+ -- progress has its own quiet track on the right, all within this capsule.
+ local xpBox=status.level
+ g.setColor(.025,.075,.075,.94*self.uiOpacity)
+ g.rectangle("fill",xpBox.x,xpBox.y,xpBox.w,xpBox.h,
+   xpBox.h*.48,xpBox.h*.48)
+ g.setColor(.70,.85,.71,.92*self.uiOpacity)
+ g.setLineWidth(2*u)
+ g.rectangle("line",xpBox.x,xpBox.y,xpBox.w,xpBox.h,
+   xpBox.h*.48,xpBox.h*.48)
+ local levelW=68*u
+ g.setColor(.20,.31,.24,.95*self.uiOpacity)
+ g.rectangle("fill",xpBox.x+2*u,xpBox.y+2*u,levelW,xpBox.h-4*u,
+   (xpBox.h-4*u)*.45,(xpBox.h-4*u)*.45)
+ g.setFont(font)
+ g.setColor(.98,.87,.47,1)
+ g.printf("Nv "..level,xpBox.x+2*u,
+   xpBox.y+(xpBox.h-font:getHeight())*.5,levelW,"center")
+ local trackX=xpBox.x+76*u
+ local trackY=xpBox.y+xpBox.h*.37
+ local trackW=xpBox.w-85*u
+ local trackH=xpBox.h*.26
+ g.setColor(.10,.19,.18,.9*self.uiOpacity)
+ g.rectangle("fill",trackX,trackY,trackW,trackH,trackH*.5,trackH*.5)
+ g.setColor(.98,.80,.34,self.uiOpacity)
+ g.rectangle("fill",trackX,trackY,trackW*clamp(xp/maxXP,0,1),
+   trackH,trackH*.5,trackH*.5)
  -- The auto-gather/attack mode is an independent toggle: a held manual
  -- attack and opening an overlay never change the active auto state.
  local slots,bar=self:hotbar(Slots.total(world),w,h)
@@ -630,14 +667,25 @@ function M:draw(world,scale)
      end
      ring(g,p,selected or pulse>0,selected or pulse>0)
      if pulse>0 then
-       g.setLineWidth((1+3*pulse)*u)
+       g.setLineWidth((1+3*pulse)*bar.rowU)
        g.setColor(.98,.86,.42,.8*pulse)
-       g.circle("line",p.x,p.y,p.r+4*u)
+       g.circle("line",p.x,p.y,p.r+4*bar.rowU)
      end
      local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
      if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) end
-     g.setColor(.96,.98,.96,1);g.setFont(small)
-     g.printf(tostring(p.index),p.x-p.r*.30,p.y+p.r*.48,p.r*.6,"center")
+     -- Draw a proper circular keycap as part of the ability wheel, rather
+     -- than placing a number on top of the bottom ring where it gets cut.
+     local badgeR=p.r*.31
+     local badgeY=p.y+p.r*.80
+     g.setColor(.018,.045,.056,.97*self.uiOpacity)
+     g.circle("fill",p.x,badgeY,badgeR)
+     g.setColor(selected and .99 or .34,selected and .77 or .86,
+       selected and .35 or .86,self.uiOpacity)
+     g.setLineWidth(2*bar.rowU)
+     g.circle("line",p.x,badgeY,badgeR-1*bar.rowU)
+     g.setColor(1,1,1,1);g.setFont(small)
+     g.printf(tostring(p.index),p.x-badgeR,
+       badgeY-small:getHeight()*.5,2*badgeR,"center")
    end
  end
  g.setScissor()
