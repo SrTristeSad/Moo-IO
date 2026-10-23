@@ -1,20 +1,29 @@
 package org.love2d.android;
 
-import android.content.Intent;
 import android.os.Bundle;
-import android.os.Build;
 import android.util.Log;
 
-/** Game renderer stays in the LÖVE process; Node runs in a separate app process. */
+/** LÖVE game window. Hosting only starts after the player creates a room. */
 public final class MooIOActivity extends GameActivity {
+    private MooIOHostControl control;
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         try {
-            Intent server=new Intent(this,MooIOServerService.class);
-            if(Build.VERSION.SDK_INT>=26) startForegroundService(server);
-            else startService(server);
-        } catch(Throwable failure) {
-            Log.e("MooIO-Host","Unable to start Node host service",failure);
+            control = new MooIOHostControl(this);
+        } catch (java.io.IOException e) {
+            Log.e("MooIO-Host", "Could not initialize local room controller", e);
         }
+        // No foreground Node process or ongoing notification in menus.
+    }
+
+    @Override protected void onDestroy() {
+        if (control != null) {
+            control.close();
+            control = null;
+        } else {
+            stopService(new android.content.Intent(this, MooIOServerService.class));
+        }
+        super.onDestroy();
     }
 }
