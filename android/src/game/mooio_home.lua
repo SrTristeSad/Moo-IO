@@ -2,6 +2,7 @@
 -- Moo IO: personal play rooms are separate from dedicated server providers.
 -- Gameplay authority remains in the existing Node process; no bots or fake world.
 local Network=require("src.net.mooio_network")
+local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Android"
 local Home={}
 Home.__index=Home
 
@@ -139,7 +140,7 @@ function Home:click(sx,sy)
     if inside(x,y,boxes.nickname) then self.focus="nickname";return "focus" end
     if inside(x,y,boxes.joinIP) then self.focus="invite";return "focus" end
     if inside(x,y,boxes.joinCode) then self.focus="joinCode";return "focus" end
-    if not self.hosting and not self.starting then
+    if not isAndroid and not self.hosting and not self.starting then
       if inside(x,y,boxes.modeLan) then self.serverMode="lan";self.focus=nil;return "mode_lan" end
       if inside(x,y,boxes.modeVpn) then self.serverMode="vpn";self.focus=nil;return "mode_vpn" end
       if self.serverMode=="vpn" and inside(x,y,boxes.vpnIP) then
@@ -291,8 +292,8 @@ function Home:draw(state,detail,showWorld)
     button("homeSettings","CONFIGURACOES",false)
     panel(583,202,575,340,C.panel,0)
     printText("SEU MUNDO, SUAS REGRAS",608,255,25,C.white)
-    printText("Crie sua sala somente se quiser.",612,325,20,C.green)
-    printText("Entre sozinho ou chame amigos.",612,363,18,C.muted)
+    printText(isAndroid and "Entre numa sala pelo IP." or "Crie sua sala somente se quiser.",612,325,20,C.green)
+    printText(isAndroid and "Jogue com os amigos do Windows." or "Entre sozinho ou chame amigos.",612,363,18,C.muted)
     printText("Sem configurar um terminal.",612,406,17,C.muted)
   else
     button("back","< VOLTAR",false)
@@ -302,7 +303,13 @@ function Home:draw(state,detail,showWorld)
       panel(672,194,477,402,C.panel,0)
       printText("01  CRIAR MINHA SALA",155,204,19,C.green)
       field("nickname",self.nickname,"Seu apelido",self.focus=="nickname")
-      if self.hosting then
+      if isAndroid then
+        printText("CLIENTE ANDROID",155,315,22,C.green)
+        printText("Seu apelido fica no campo acima.",155,366,16,C.white)
+        printText("Para jogar, informe IP e convite",155,419,16,C.muted)
+        printText("no painel da direita.",155,447,16,C.muted)
+        printText("Salas sao hospedadas no Windows.",155,485,15,C.amber)
+      elseif self.hosting then
         printText(self.botsEnabled and self.botCount>0 and
           ("Sala criada - "..self.botCount.." bots ativos.")
           or "Sala criada - amigos podem entrar.",155,316,17,C.green)
