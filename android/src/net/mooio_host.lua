@@ -91,7 +91,7 @@ function Host:update(dt)
     self.error="O servidor iniciou com quantidade diferente de bots."
     return
   end
-  if ip and code then
+  if ip and code and actualBots~=nil then
     self.hostIP=ip
     self.code=code
     self.address=ip..":"..self.port
@@ -109,8 +109,13 @@ function Host:stop()
   -- Native STOP closes the Android foreground service. Its isolated Node
   -- process is killed and Android removes the notification and frees RAM.
   local wasActive=self.state=="ready" or self.state=="starting"
-  if wasActive then self.controlServer("stop") end
+  if wasActive and not self.controlServer("stop") then
+    self.state="failed"
+    self.error="Nao foi possivel confirmar o encerramento do servidor Android."
+    return false,self.error
+  end
   self.state="idle";self.code="";self.address="";self.hostIP="";self.botCount=0
   self.error=nil;self.progress=""
+  return true
 end
 return Host
