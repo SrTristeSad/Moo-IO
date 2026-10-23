@@ -19,7 +19,7 @@ jobs:
         with:
           name: Moo-IO-Android-Servidor-Integrado
           repository: SrTristeSad/Moo-IO
-          run-id: 39882370641
+          run-id: 39884893006
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: dist
       - name: Liberar KVM
@@ -52,4 +52,6 @@ jobs:
             echo "---- APP PROCESS ----"
             adb shell pidof io.srtristesad.mooio || true
             bash -c 'curl -fsS --max-time 5 http://127.0.0.1:28081/status | grep -q "\"project\":\"Moo-IO\""'
+            adb shell pidof io.srtristesad.mooio
+            adb shell pidof io.srtristesad.mooio:mooio_node
             echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
