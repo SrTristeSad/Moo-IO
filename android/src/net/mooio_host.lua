@@ -28,7 +28,7 @@ end
 -- The loopback lifecycle port belongs to the Android LÖVE Activity, not Node.
 -- It is only called from the explicit create/stop actions; never in the main
 -- render loop. Fail closed rather than displaying a fake ready/hosting state.
-local function controlServer(action)
+local function controlServer(action,requestedBots)
   if action~="start" and action~="stop" then return false end
   local f=io.open("/data/user/0/io.srtristesad.mooio.beta/files/mooio-control-token.txt","rb")
   if not f then return false end
@@ -40,8 +40,14 @@ local function controlServer(action)
   if not ok then return false end
   local previous=http.TIMEOUT
   http.TIMEOUT=.75
+  local botSuffix=""
+  if action=="start" then
+    local count=tonumber(requestedBots) or 0
+    count=math.max(0,math.min(8,math.floor(count)))
+    botSuffix="/"..tostring(count)
+  end
   local call,body,status=pcall(http.request,
-    "http://127.0.0.1:8082/"..action.."/"..token)
+    "http://127.0.0.1:8082/"..action.."/"..token..botSuffix)
   http.TIMEOUT=previous
   return call and status==200 and
     type(body)=="string" and
@@ -59,12 +65,13 @@ function Host:start(mode,requestedIP,requestedBots)
   if self.state=="starting" or self.state=="ready" then
     return false,"Sala local ja aberta."
   end
-  if not self.controlServer("start") then
+  if not self.controlServer("start",requestedBots) then
     self.state="failed"
     self.error="Nao foi possivel ligar o servidor Android. Verifique o aplicativo."
     return false,self.error
   end
   self.state="starting"
+  self.botCount=math.max(0,math.min(8,math.floor(tonumber(requestedBots) or 0)))
   self.error=nil;self.elapsed=0;self.check=0
   self.progress="Ligando o servidor Node.js no celular..."
   return true
@@ -96,7 +103,7 @@ function Host:stop()
   -- process is killed and Android removes the notification and frees RAM.
   local wasActive=self.state=="ready" or self.state=="starting"
   if wasActive then self.controlServer("stop") end
-  self.state="idle";self.code="";self.address="";self.hostIP=""
+  self.state="idle";self.code="";self.address="";self.hostIP="";self.botCount=0
   self.error=nil;self.progress=""
 end
 return Host
