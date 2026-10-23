@@ -293,7 +293,7 @@ local function mobileStats(world,w,h)
   -- All numbers come from the authoritative world snapshots (not mock HUD data).
   local x=269*unit
   local y=13*unit
-  local width=math.max(380*unit,math.min(675*unit,w-x-360*unit))
+  local width=math.max(380*unit,math.min(600*unit,w-x-430*unit))
   local height=64*unit
   local health=math.max(0,tonumber(p and p.health) or 0)
   local maximum=math.max(1,tonumber(p and p.maxHealth) or 100)
