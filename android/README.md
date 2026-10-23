@@ -35,7 +35,7 @@ distinguir arquitetura, versão Android e falta de espaço.
 
 O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; o toque à direita inicia ataque e mira no mesmo dedo. Os quatro primeiros equipamentos aparecem em uma barra horizontal, sem habilidades falsas.
 
-Os botões maiores de LOJA e CLÃ abrem os sistemas existentes de compra/equipamentos e clãs permanentes, respectivamente; os clãs de conta não são as Tribes temporárias da partida. A barra superior de recursos foi ajustada para não obstruir os novos atalhos.
+Os botões maiores de LOJA, CLÃ e TRIBO abrem, respectivamente, os sistemas existentes de compra/equipamentos, clãs permanentes e alianças temporárias da partida. Clãs de conta e Tribes são mecanismos diferentes. A barra superior de recursos foi ajustada para não obstruir os novos atalhos.
 
 - **AUTO**: envia o mesmo comando de coleta/ataque automático do Windows.
 - **Ping (!) ao lado do minimapa**: envia `S(1)`, igual à tecla **R** no Windows, para sinalizar a posição atual aos aliados.
@@ -76,6 +76,7 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 | Faixa central inferior | itens a partir do quinto, em páginas de até cinco com setas |
 | LOJA | abre o Shop real do servidor, com compras e equipamentos |
 | CLÃ | abre a interface de clãs permanentes da conta |
+| TRIBO | abre as alianças temporárias da partida |
 | AUTO | alterna o comando original da tecla **E** do PC |
 | CHAT | abre entrada de texto Android, teclado, ENVIAR e X para fechar |
 | ! | ping rápido da posição, como R no PC |
