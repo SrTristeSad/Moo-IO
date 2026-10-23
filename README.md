@@ -1,25 +1,30 @@
 # Moo-IO
 
-Jogo de sobrevivência e combate 2D com um mundo multiplayer compartilhado por **Windows e Android**. Ambos utilizam Lua/LÖVE e se conectam ao mesmo servidor de partida Node.js; o servidor local continua dentro de `windows/`.
+Jogo multiplayer 2D com clientes **Windows e Android**, usando Lua/LÖVE e um servidor de partida Node.js comum às duas plataformas.
 
 ## Plataformas
 
-- [Windows](windows/README.md) — cliente completo, servidor local, bots, salas LAN/VPN, convites e ZIP offline.
-- [Android — teste](android/README.md) — cliente Lua/LÖVE adaptado ao touchscreen, mira por arrasto, joystick, ataque manual/automático, mapa de marcação, atalhos de inventário e chat; build APK debug.
-- [Servidor independente](servidor/README.md) — reservado para um futuro produto de hospedagem, **não implementado**.
+- [Windows](windows/README.md): cliente + servidor Node embutido, salas privadas LAN/VPN, convites e bots; execução pelo ZIP preparado.
+- [Android](android/README.md): cliente com joystick, mira independente, botões de ataque e inventário, **servidor Node.js Mobile integrado ao APK** e modo de criação de sala no celular.
+- [Servidor separado](servidor/README.md): pasta reservada para um futuro servidor dedicado, ainda não implementado.
 
-## Builds para testes
+## Como obter as builds
 
-No menu **Actions** deste repositório, escolha:
+Em [GitHub Actions](https://github.com/SrTristeSad/Moo-IO/actions):
 
-- **Moo IO - Windows pronto sem downloads**: artefato `Moo-IO-Windows-Pronto.zip`; extrair completamente, executar `MOO-IO.vbs`.
-- **Moo IO - Android APK**: artefato `Moo-IO-Android-APK-Teste` com `Moo-IO-Android-Teste.apk`; APK de desenvolvimento do LÖVE 11.5a.
-- **Moo IO - Android LÖVE (teste)**: `Moo-IO-Android-Teste.love` para o LÖVE no Android.
+- **Moo IO - Windows pronto sem downloads**: `Moo-IO-Windows-Pronto.zip` — extraia inteiro e execute `MOO-IO.vbs`.
+- **Moo IO Android autonomo - APK com servidor**: `Moo-IO-Android-Servidor-Integrado.apk` — cliente Android e servidor local incorporados; não precisa de Windows, VPS ou internet para hospedar uma sala solo.
+- **Moo IO Android offline host - emulador**: verifica a inicialização real do servidor no Android.
+- A compilação antiga **Android somente cliente (legado)** não incorpora o servidor e não deve ser usada para testar o modo autônomo.
 
-Ambos podem entrar na **mesma sala LAN/VPN privada** criada pelo cliente Windows, usando IP e código de convite. Para o marcador tático por coordenadas, utilize versões do Android e do servidor Windows construídas a partir desta revisão ou posterior. Testes automatizados de protocolo e de entrada Lua/Node passaram; conexão entre aparelhos físicos ainda deve ser validada.
+### Jogar
 
-## Organização
+No Windows ou no Android, abra **Jogar → Criar minha sala → Jogar agora**. Para outros jogadores participarem, conectem-se ao mesmo Wi-Fi/hotspot privado e usem o IP/porta e código da sala do anfitrião. O anfitrião Android executa Node no próprio aparelho; o Windows não é obrigatório.
 
-As pastas `android/`, `windows/` e `servidor/` são separadas; criar o Android **não apagou nem reescreveu o jogo Windows**. A pasta `servidor/` ainda é só reserva, não o Node.js embutido, que permanece em `windows/server/`.
+**Estado da versão Android:** a compilação nativa e a inicialização do servidor no emulador passaram. A entrada numa partida completa e o desempenho em telefones físicos ainda precisam de validação. O aplicativo é beta, não publicação final na Play Store.
 
-**Segurança:** versão LAN/VPN privada de teste, sem segurança adequada para hospedar publicamente na internet. Consulte [SECURITY.md](SECURITY.md).
+## Organização e segurança
+
+As pastas `windows/` e `android/` preservam seus clientes independentes. O servidor Windows original continua integrado em `windows/server/`; a build Android incorpora uma versão compatível desse mesmo servidor.
+
+Não exponha a porta diretamente à internet: esta implementação está limitada ao uso em LAN/hotspot ou VPN privada confiável. Leia [SECURITY.md](SECURITY.md).

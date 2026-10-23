@@ -1,11 +1,6 @@
-name: Moo IO - Android APK
+name: Moo IO - Android somente cliente (legado)
+# This old target has NO embedded server; build only on explicit request.
 on:
-  push:
-    branches: [feature/android-touch-ff, main]
-    paths:
-      - "android/**"
-      - "windows/server/src/protocol/**"
-      - ".github/workflows/android-apk.yml"
   workflow_dispatch:
 permissions:
   contents: read

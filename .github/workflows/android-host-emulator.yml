@@ -1,0 +1,57 @@
+name: Moo IO Android offline host - emulador
+on:
+  push:
+    branches: [feature/android-offline-host]
+    paths:
+      - ".github/workflows/android-host-emulator.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  emulator-real-node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar APK com libnode integrado
+        uses: actions/download-artifact@v4
+        with:
+          name: Moo-IO-Android-Servidor-Integrado
+          repository: SrTristeSad/Moo-IO
+          run-id: 39887279666
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: dist
+      - name: Liberar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Emulador - executar e testar servidor embutido REAL
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            set -e
+            adb install -r dist/Moo-IO-Android-Servidor-Integrado.apk
+            adb forward tcp:28081 tcp:8081
+            echo "=== FASE 1: PROVA DO MOTOR NODE NATIVO, SEM JOGO ==="
+            adb push android/tests/node-mobile-probe.mjs /data/local/tmp/mooio-probe.mjs
+            adb shell run-as io.srtristesad.mooio mkdir -p files/mooio-host/server/src
+            adb shell run-as io.srtristesad.mooio cp /data/local/tmp/mooio-probe.mjs files/mooio-host/server/src/offline.mjs
+            adb shell 'run-as io.srtristesad.mooio sh -c "printf v2 > files/mooio-host/server-version.txt"'
+            adb shell am start -n io.srtristesad.mooio/org.love2d.android.MooIOActivity
+            bash -c 'for i in $(seq 1 14); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"probe\":true"; then echo "MOOIO_NODE_MOBILE_RUNTIME_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -170; exit 1; }
+            echo "=== FASE 2: SERVIDOR MOO IO REAL, RESTAURADO DO APK ==="
+            adb shell am force-stop io.srtristesad.mooio
+            adb shell run-as io.srtristesad.mooio rm files/mooio-host/server-version.txt
+            adb shell am start -n io.srtristesad.mooio/org.love2d.android.MooIOActivity
+            bash -c 'for i in $(seq 1 18); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_REAL_NODE_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb shell run-as io.srtristesad.mooio cat files/mooio-data/node-boot.log || true; adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -200; exit 1; }
+            adb shell pidof io.srtristesad.mooio
+            adb shell pidof io.srtristesad.mooio:mooio_node
+            echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"

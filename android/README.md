@@ -1,42 +1,51 @@
-# Moo-IO Android — client LÖVE 11.5a
+# Moo-IO Android — cliente e servidor local integrados
 
-Cliente móvel **real em Lua/LÖVE** baseado no mesmo jogo Windows. Todo o mundo, assets e protocolo de sessão vêm do Moo-IO existente. A autoridade sobre recursos, dano, equipamentos, animais e posições continua no **Node.js que o Windows hospeda**.
+O aplicativo utiliza **LÖVE 11.5a** para o jogo em Lua e **Node.js Mobile 18.20.4** para hospedar o mesmo motor de partidas do Windows. O Android não precisa de outro jogador, PC ou VPS para criar uma sala. A hospedagem inicia em um serviço Android separado do processo gráfico e mantém seus dados no armazenamento privado.
 
-## Controles no Android
+## Modo solo e multiplayer
 
-| Controle | Ação |
+1. Instale o `Moo-IO-Android-Servidor-Integrado.apk` gerado pela action **Moo IO Android autonomo - APK com servidor**.
+2. Abra o aplicativo, escolha **Jogar → Criar minha sala**. A interface só apresenta a sala como pronta após receber resposta real do servidor Node.
+3. Clique **Jogar agora**. Sem Wi-Fi, o servidor usa `127.0.0.1`; a partida solo não exige internet.
+4. Para receber amigos, conecte o telefone a uma rede Wi-Fi/hotspot privado e compartilhe o IP:8080 e o código da sala. Os convidados Windows ou Android escolhem **Entrar em outra sala** e digitam essas informações.
+5. Se mudar de rede, feche e abra novamente o aplicativo para atualizar o endereço do servidor. O serviço pode permanecer ativo enquanto o aplicativo está aberto.
+
+**O Node é o responsável real pela simulação, jogadores, dano, recursos, animais, estruturas e validações.** O celular não inventa entidades.
+
+## Controles touchscreen
+
+| Controle | Função |
 |---|---|
-| Joystick esquerdo | movimentação 360° |
-| Arraste do lado direito | aponta arma/ataque independentemente do movimento |
-| ATACAR | ataque ao segurar; para ao soltar |
-| AUTO | ataque contínuo, desligado por padrão |
-| CORRER | continua andando na última direção escolhida (não aumenta velocidade do personagem) |
-| MIRA | área visual de orientação; arraste no lado direito para mudar direção |
-| COLETA | toque para golpe/coleta e solta automaticamente |
-| CONSTR. | seleciona a próxima estrutura do inventário sincronizado com o servidor |
-| TROCAR | seleciona próxima arma disponível |
-| BOLSA | abre armas/estruturas existentes recebidas pelo servidor |
-| CHAT | mensagens rápidas de chat público, não exclusivamente para o time |
-| Minimapa | abre mapa completo; toque num ponto envia coordenadas ao jogador e colegas da mesma tribo |
-| II | menu de pausa e saída |
+| Joystick esquerdo | movimento 360° |
+| Arrastar na direita | direção independente de mira/ataque |
+| ATACAR | segurar para golpear; soltar para parar |
+| AUTO | alterna ataque contínuo, desligado inicialmente |
+| CORRER | continua movendo na última direção, não concede bônus de velocidade |
+| MIRA | região indicativa para deslizar a mira |
+| COLETA | golpe curto, enviado ao servidor |
+| CONSTR. | seleciona construção disponível |
+| TROCAR | troca equipamento selecionado |
+| BOLSA | inventário recebido do servidor |
+| CHAT | mensagens rápidas públicas |
+| Minimapa | abre mapa ampliado para marcar coordenadas aos aliados |
+| II | menu de pausa |
 
-Nenhum botão cria recursos, estruturas ou dano localmente. O pacote de marcação de coordenada `U` é validado pelo servidor e usa cooldown normal do ping. Para utilizá-lo, **o anfitrião Windows deve estar usando o servidor da mesma branch**.
+A marcação por coordenada utiliza o pacote `U`, com validação de limites e cooldown no servidor. Versões Android e Windows devem utilizar protocolo compatível.
 
-## Como testar Windows e Android juntos
+## Build e testes
 
-1. Baixe **Moo-IO-Windows-Pronto.zip** na action **Moo IO - Windows pronto sem downloads** dessa branch e extraia inteiro num PC Windows.
-2. Abra `MOO-IO.vbs` no Windows, escolha **Jogar > Criar minha sala**; opcionalmente habilite bots, depois clique **Jogar agora**.
-3. Baixe **Moo-IO-Android-Teste.apk** na action **Moo IO - Android APK**; instale no Android (APK debug de teste).
-4. Conecte os dois dispositivos à **mesma rede local Wi-Fi/LAN**. No Android, abra **Jogar > Entrar em outra sala**, digite o IP:porta e o código da sala mostrados no Windows; clique **Entrar na sala**. Também funciona em VPN privada compatível, desde que o Android consiga alcançar o IP e a porta TCP do anfitrião.
-5. Teste ao mesmo tempo a movimentação, animais, coleta, ataque e os marcadores no mapa. O servidor é único, portanto ambos veem o mesmo mundo.
+- [APK autônomo](../.github/workflows/android-host-apk.yml): LÖVE + Node.js Mobile, bibliotecas nativas ARM64/x86_64 e servidor completo no APK.
+- [Emulador Android](../.github/workflows/android-host-emulator.yml): primeiro testa Node mínimo e depois o servidor Moo-IO real; verifica resposta do controlador e presença dos dois processos Android.
+- [Testes de hospedagem Lua](../.github/workflows/android-host-tests.yml): não confirma a sala antes da resposta efetiva do Node, simula falhas e timeout.
+- [Crossplay Lua/Node](../.github/workflows/game-e2e.yml): confirma conexão e jogo com o mesmo protocolo autoritativo.
+- [Windows](../.github/workflows/package-windows.yml): ZIP com servidor Node Windows pronto.
 
-### Build automatizada
+A build Android faz um ajuste específico de compatibilidade nas expressões regulares de nomes de parâmetros de rota do Express 5, já que Node.js Mobile foi compilado sem os dados Unicode necessários. **Essa alteração não modifica o servidor Windows.**
 
-- [Android APK](../.github/workflows/android-apk.yml) — compila LÖVE Android `11.5a` (commit `55feb38`) com o jogo incorporado; entrega APK debug assinado automaticamente **apenas para testes**, não destinado à Play Store.
-- [Android .love](../.github/workflows/android-love.yml) — teste de sintaxe, controles multitouch e pacote LÖVE.
-- [Windows ZIP](../.github/workflows/package-windows.yml) — distribui o cliente Windows com Node e LÖVE incorporados.
-- [Crossplay E2E](../.github/workflows/game-e2e.yml) — usa o mesmo servidor Node em testes com Windows Lua e Android Lua em modo de simulação de toques no Linux.
+### Validação conhecida e limitações
 
-### Limitações
+O APK com servidor integrado **compilou** e o emulador confirmou inicialização do Node Mobile, inicialização do servidor completo, resposta real na porta de controle e dois processos Android ativos. O pacote offline de servidor também passou em testes HTTP no Linux. **Ainda não foram comprovadas a entrada no mundo, combate e estabilidade em celulares físicos**; trate-o como beta e reporte erros do aparelho.
 
-A interface e os controles móveis precisam ser testados em celulares reais (resoluções, desempenho, teclado do chat e sensibilidade da mira). **Passar nos testes de CI não confirma que APK, conexão entre aparelhos físicos e desempenho estão perfeitos.** Não abra a sala na internet pública; use LAN/VPN privada. O projeto conserva o Windows original em sua própria pasta, sem apagar funções. O APK debug usa chave de teste e não deve ser publicado como release comercial.
+O serviço de hospedagem fica em primeiro plano com uma notificação para cumprir as regras de execução Android. Em caso de falha, `files/mooio-data/node-boot.log` (armazenamento privado) registra diagnósticos do Node. A versão antiga `Moo-IO-Android-Teste.apk` e o arquivo `.love` não incluem o servidor.
+
+Use apenas LAN, hotspot ou VPN privada confiável, sem encaminhar a porta diretamente para a internet.

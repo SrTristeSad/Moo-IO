@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.18)
+project(mooiohost LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(NODE_MOBILE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/node-mobile")
+add_library(libnode SHARED IMPORTED)
+set_target_properties(libnode PROPERTIES IMPORTED_LOCATION
+  "${NODE_MOBILE_DIR}/bin/${ANDROID_ABI}/libnode.so")
+add_library(mooiohost SHARED node-bridge.cpp)
+target_include_directories(mooiohost PRIVATE "${NODE_MOBILE_DIR}/include/node")
+target_link_libraries(mooiohost PRIVATE libnode log)
+target_link_options(mooiohost PRIVATE "-Wl,-z,max-page-size=16384")

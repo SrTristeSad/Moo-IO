@@ -1,0 +1,128 @@
+name: Moo IO Android autonomo - APK com servidor
+on:
+  push:
+    branches: [feature/android-offline-host, main]
+    paths:
+      - "android/native/**"
+      - "android/src/net/mooio_host.lua"
+      - "android/src/game/mooio_home.lua"
+      - ".github/workflows/android-host-apk.yml"
+      - "windows/server/src/offline.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  standalone-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare official LÖVE Android 11.5a
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --recurse-submodules --depth 1 --branch 11.5a https://github.com/love2d/love-android.git "$RUNNER_TEMP/love-android"
+          git -C "$RUNNER_TEMP/love-android" rev-parse HEAD | grep -qi '^55feb38'
+          engine="$RUNNER_TEMP/love-android"
+          sed -i '/^app.name_byte_array=/d' "$engine/gradle.properties"
+          sed -i 's/^#app.name=.*/app.name=Moo IO/' "$engine/gradle.properties"
+          sed -i 's/^app.application_id=.*/app.application_id=io.srtristesad.mooio/' "$engine/gradle.properties"
+          sed -i 's/^app.version_code=.*/app.version_code=2/' "$engine/gradle.properties"
+          sed -i 's/^app.version_name=.*/app.version_name=0.2.0-android-host/' "$engine/gradle.properties"
+          sed -i 's/^app.orientation=.*/app.orientation=landscape/' "$engine/gradle.properties"
+          game="$engine/app/src/embed/assets"
+          mkdir -p "$game"
+          cp android/main.lua android/conf.lua "$game/"
+          cp -a android/src android/assets "$game/"
+          sed -i 's/org.love2d.android.GameActivity/org.love2d.android.MooIOActivity/' "$engine/app/src/main/AndroidManifest.xml"
+          # A foreground service isolates Node/libuv/V8 from LÖVE's SDL graphics thread.
+          manifest="$engine/app/src/main/AndroidManifest.xml"
+          sed -i '/<uses-permission android:name="android.permission.INTERNET" \/>/a\  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' "$manifest"
+          sed -i '/<\/application>/i\    <service android:name="org.love2d.android.MooIOServerService" android:exported="false" android:process=":mooio_node" android:foregroundServiceType="dataSync" />' "$manifest"
+          grep -q 'MooIOActivity' "$manifest"
+          grep -q 'MooIOServerService' "$manifest"
+          grep -q 'android:usesCleartextTraffic="true"' "$engine/app/src/main/AndroidManifest.xml"
+          mkdir -p "$engine/app/src/main/java/org/love2d/android" "$engine/app/src/main/cpp"
+          cp android/native/*.java "$engine/app/src/main/java/org/love2d/android/"
+          cp android/native/*.cpp android/native/CMakeLists.txt "$engine/app/src/main/cpp/"
+      - name: Get Android-native Node.js Mobile v18.20.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/nodejs-mobile-android.zip"
+          curl -fLsS --retry 3 --max-time 240 \
+            "https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-android.zip" \
+            -o "$archive"
+          mkdir -p "$RUNNER_TEMP/node-release"
+          unzip -q "$archive" -d "$RUNNER_TEMP/node-release"
+          engine="$RUNNER_TEMP/love-android"
+          cmakeNode="$engine/app/src/main/cpp/node-mobile"
+          mkdir -p "$cmakeNode/bin" "$cmakeNode/include/node"
+          for abi in arm64-v8a x86_64; do
+            lib=$(find "$RUNNER_TEMP/node-release" -type f -path "*/$abi/libnode.so" | head -1)
+            if [ -z "$lib" ]; then
+              echo "Node Mobile missing libnode for $abi"; exit 1
+            fi
+            mkdir -p "$cmakeNode/bin/$abi" "$engine/app/src/main/jniLibs/$abi"
+            cp "$lib" "$cmakeNode/bin/$abi/libnode.so"
+            cp "$lib" "$engine/app/src/main/jniLibs/$abi/libnode.so"
+          done
+          nodeHeader=$(find "$RUNNER_TEMP/node-release" -type f -name node.h | head -1)
+          test -n "$nodeHeader"
+          cp -a "$(dirname "$nodeHeader")/." "$cmakeNode/include/node/"
+          test -f "$cmakeNode/include/node/node.h"
+          cat >> "$engine/app/build.gradle" <<'GRADLE'
+          android {
+              defaultConfig {
+                  ndk { abiFilters 'arm64-v8a', 'x86_64' }
+              }
+              externalNativeBuild {
+                  cmake { path 'src/main/cpp/CMakeLists.txt' }
+              }
+          }
+          GRADLE
+      - name: Embed complete offline Node game server
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s windows/server/src/offline.mjs
+          staging="$RUNNER_TEMP/mooio-node-assets"
+          mkdir -p "$staging/server/src"
+          cp windows/server/src/offline.mjs "$staging/server/src/offline.mjs"
+          node android/tools/patch-node-mobile.mjs "$staging/server/src/offline.mjs"
+          node --check "$staging/server/src/offline.mjs"
+          cp android/native/bootstrap.mjs "$staging/server/src/bootstrap.mjs"
+          (cd "$staging" && zip -q -r "$RUNNER_TEMP/mooio-server.zip" server)
+          mkdir -p "$RUNNER_TEMP/love-android/app/src/main/assets"
+          cp "$RUNNER_TEMP/mooio-server.zip" "$RUNNER_TEMP/love-android/app/src/main/assets/mooio-server.zip"
+          unzip -tq "$RUNNER_TEMP/mooio-server.zip"
+      - name: Compile standalone Android APK (ARM64 and emulator)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/love-android"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=768m" assembleEmbedNoRecordDebug --stacktrace
+      - name: Verify packaged game, native Node library and private server
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          apk=$(find "$RUNNER_TEMP/love-android/app/build/outputs/apk" -name '*embed*debug*.apk' | head -1)
+          test -s "$apk"
+          cp "$apk" dist/Moo-IO-Android-Servidor-Integrado.apk
+          unzip -l dist/Moo-IO-Android-Servidor-Integrado.apk > "$RUNNER_TEMP/apk-files.txt"
+          grep -F 'assets/mooio-server.zip' "$RUNNER_TEMP/apk-files.txt"
+          grep -F 'lib/arm64-v8a/libnode.so' "$RUNNER_TEMP/apk-files.txt"
+          grep -F 'lib/arm64-v8a/libmooiohost.so' "$RUNNER_TEMP/apk-files.txt"
+          grep -F 'assets/main.lua' "$RUNNER_TEMP/apk-files.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moo-IO-Android-Servidor-Integrado
+          path: dist/Moo-IO-Android-Servidor-Integrado.apk
+          retention-days: 30
+          if-no-files-found: error

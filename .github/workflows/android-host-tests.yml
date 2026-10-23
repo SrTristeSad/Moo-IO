@@ -1,0 +1,25 @@
+name: Moo IO Android host - testes Lua
+on:
+  push:
+    branches: [feature/android-offline-host, main]
+    paths:
+      - "android/src/net/mooio_host.lua"
+      - "android/tests/android_host_test.lua"
+      - ".github/workflows/android-host-tests.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Lua 5.4
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.4
+      - name: Verificar host e cliente Android
+        working-directory: android
+        run: |
+          set -e
+          find . -type f -name '*.lua' -print0 | xargs -0 -n1 luac -p
+          lua tests/android_host_test.lua
+          lua tests/touch_controls_test.lua
