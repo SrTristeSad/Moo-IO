@@ -22,7 +22,7 @@ local Camera=require("src.camera")
 local Input=require("src.input")
 local Pack=require("src.protocol.msgpack")
 local Mobile=require("src.mobile.controls")
-local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Android"
+local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Android" or os.getenv("MOO_IO_FORCE_ANDROID_E2E")=="1"
 local mobile=isAndroid and Mobile.new() or nil
 local mobileAttackSent=false
 local mobileForwardMouse=false
