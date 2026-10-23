@@ -651,6 +651,13 @@ homeAction=function(action)
       connectRoom(hosted.hostIP,hosted.port,hosted.code)
     else home:setStatus("A sala ainda nao esta pronta.",true) end
   elseif action=="stop" then
+    if isAndroid then
+      hosted:stop()
+      home.hosting=false;home.starting=false
+      home.hostAddress="";home.hostCode=""
+      home:setStatus("A sala integrada continua ativa ate fechar o aplicativo.")
+      return
+    end
     -- Even from the main menu, the owner must confirm disconnecting
     -- everybody before the host process can be stopped.
     if hosted.state=="ready" or hosted.state=="starting" then
@@ -729,7 +736,9 @@ local function stopGameplay(owned)
   panels:reset();clans:close();profile:close()
   phase="menu";died=false
   home.screen="play"
-  home:setStatus(owned and "Sala encerrada. Os participantes foram desconectados."
+  home:setStatus(owned and (isAndroid
+      and "Voce saiu. O servidor continua ativo enquanto o aplicativo estiver aberto."
+      or "Sala encerrada. Os participantes foram desconectados.")
     or "Voce saiu da partida. A sala do anfitriao continua online.")
 end
 local function stopPlayerControls()
