@@ -1149,12 +1149,14 @@ local function mobileSelect(kind,slot)
 end
 local function mobileAction(action,payload)
   if action=="pause" then love.keypressed("escape");return end
-  if action=="shop_open" or action=="clan_open" then
+  if action=="shop_open" or action=="clan_open" or action=="tribe_open" then
     mobileStop()
     if client and client.state=="spawn_confirmed" then
       chatOpen=false;chatDraft="";input.keys={}
       if action=="shop_open" then
         clans:close();panels:toggle("store")
+      elseif action=="tribe_open" then
+        clans:close();panels:toggle("tribe")
       else
         panels:close();clans:toggle(client.authToken)
       end
