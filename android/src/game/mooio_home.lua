@@ -467,7 +467,7 @@ function Home:draw(state,detail,showWorld)
         printText("Nao hospeda o motor do jogo.",661,414,16,C.muted)
       end
       button("serverToPlay","ENTRAR COM IP NO JOGAR",false)
-    else
+    elseif self.screen=="settings" then
       printText("CONFIGURACOES",336,171,30,C.white)
       button("grid","GRADE DO MAPA     "..(self.showGrid and "LIGADA" or "DESLIGADA"),false)
       button("fullscreen","TELA CHEIA       "..(self.fullscreen and "LIGADA" or "DESLIGADA"),false)
