@@ -194,7 +194,8 @@ angle=function(y,x)
 end
 
 function love.update(dt)
-  frameDelta=dt
+  -- Network ticks keep full dt; interpolation stays stable after a slow frame.
+  frameDelta=math.min(dt,0.05)
   if integration then integration:update(dt);return end
   if diagnostic then return end
   -- The menu backdrop reuses the original top-down world preview even
@@ -424,18 +425,21 @@ function love.draw()
         menuPreview=nil
       end
       if not menuPreview then
-        menuPreview=love.graphics.newCanvas(w,h)
+        local factor=mobile and .60 or 1
+        menuPreview=love.graphics.newCanvas(math.max(1,math.floor(w*factor)),
+          math.max(1,math.floor(h*factor)))
         previewW,previewH=w,h
       end
       love.graphics.push("all")
       love.graphics.setCanvas(menuPreview)
       love.graphics.clear(0,0,0,0)
+      love.graphics.scale(menuPreview:getWidth()/w,menuPreview:getHeight()/h)
       View.draw(menu.world,menuCamera,frameDelta,{showGrid=menu.grid})
       love.graphics.pop()
       previewAge=0
     end
     love.graphics.setColor(1,1,1,1)
-    love.graphics.draw(menuPreview,0,0)
+    love.graphics.draw(menuPreview,0,0,0,w/menuPreview:getWidth(),h/menuPreview:getHeight())
     local state=client and client.state or "idle"
     home:draw(state,client and (client.error or client.status) or "",true)
     if home.roomOverlay then home:drawRoomOverlay() end
