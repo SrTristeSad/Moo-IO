@@ -98,7 +98,7 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/love-android"
           chmod +x ./gradlew
-          ./gradlew --no-daemon assembleEmbedNoRecordDebug --stacktrace
+          ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=768m" assembleEmbedNoRecordDebug --stacktrace
       - name: Verify packaged game, native Node library and private server
         shell: bash
         run: |
