@@ -36586,7 +36586,8 @@ var ANTICHEAT_CONFIG = {
       R: [8, 12],
       A: [5, 8],
       V: [5, 10],
-      I: [5, 8]
+      I: [5, 8],
+      Y: [3, 6]
     },
     strikesToKick: 40,
     strikeDecayMs: 15e3,
@@ -37225,8 +37226,8 @@ var LEGACY_S2C_COUNT = 36;
 var BASE_C2S_COUNT = 22;
 var BASE_S2C_COUNT = 39;
 var TABLE_SIZE = 128;
-var C2S_PACKETS = ["M", "D", "9", "e", "F", "z", "H", "K", "L", "N", "b", "P", "Q", "c", "6", "S", "0", "T", "R", "A", "V", "I", "U"];
-var S2C_PACKETS = ["A", "B", "C", "D", "E", "a", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z", "g", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "W", "F", "p", "q", "r", "m"];
+var C2S_PACKETS = ["M", "D", "9", "e", "F", "z", "H", "K", "L", "N", "b", "P", "Q", "c", "6", "S", "0", "T", "R", "A", "V", "I", "U", "Y"];
+var S2C_PACKETS = ["A", "B", "C", "D", "E", "a", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z", "g", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "W", "F", "p", "q", "r", "m", "n"];
 var SEAL_OFF = 0;
 var SEAL_BIND = 2;
 var FNV_OFFSET = 2166136261;
@@ -37936,6 +37937,31 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// server/src/moomoo/mobileRankings.js
+var RANK_CATEGORIES = Object.freeze(["gold", "health", "food", "wood", "stone", "kills", "points"]);
+function buildCategoryRanking(players, viewer, category, limit = 10) {
+  if (!RANK_CATEGORIES.includes(category)) throw new RangeError("Invalid leaderboard category");
+  const value = (p) => {
+    switch (category) {
+      case "gold":
+        return p.points;
+      case "health":
+        return p.health;
+      case "food":
+        return p.food;
+      case "wood":
+        return p.wood;
+      case "stone":
+        return p.stone;
+      case "kills":
+        return p.kills;
+      case "points":
+        return p.points;
+    }
+  };
+  return players.filter((p) => p.spawned && (!p.shadowed || p === viewer || viewer.role)).map((p) => ({ player: p, count: Math.max(0, Number(value(p)) || 0) })).sort((a, b) => b.count - a.count || a.player.sid - b.player.sid).slice(0, limit).flatMap(({ player, count }) => [player.sid, player.shownName(viewer), Math.round(count)]);
+}
+
 // server/src/network/packets.js
 var isNum = UTILS.isNumber;
 var isInt = (v) => Number.isInteger(v);
@@ -38148,6 +38174,17 @@ function handlePacket(ctx, player, name, args) {
           other.send("9", px, py);
         }
       }
+      return;
+    }
+    // Category Top 10 is queried on demand (Android). Windows clients remain compatible.
+    case "Y": {
+      const category = args[0];
+      if (args.length !== 1 || typeof category !== "string" || !RANK_CATEGORIES.includes(category)) return invalid("ranking category");
+      if (!player.alive) return;
+      const now = Date.now();
+      if (now - (player.lastMobileRankingAt || 0) < 1e3) return;
+      player.lastMobileRankingAt = now;
+      player.send("n", category, buildCategoryRanking(game.players, player, category));
       return;
     }
     // PING
