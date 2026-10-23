@@ -461,6 +461,9 @@ local function labels(world,camera,w,h)
   end
 end
 function View.draw(world,camera,dt,options)
+  -- Generate at most three expensive new object sprites per frame.
+  -- They are cached permanently; deferred sprites show next frame.
+  Objects.beginFrame(3)
   local w,h=love.graphics.getDimensions()
   -- Aiming is local presentation only. The actual attack and target
   -- direction are still transmitted via the original D/F Node packets.
