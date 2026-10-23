@@ -41,13 +41,4 @@ jobs:
             adb install -r dist/Moo-IO-Android-Servidor-Integrado.apk
             adb shell am start -n io.srtristesad.mooio/org.love2d.android.MooIOActivity
             adb forward tcp:28081 tcp:8081
-            for i in $(seq 1 50); do
-              if curl -fsS --max-time 2 http://127.0.0.1:28081/status | grep -q '"project":"Moo-IO"'; then
-                echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS: native Node running on emulator!"
-                exit 0
-              fi
-              sleep 2
-            done
-            adb logcat -d -s MooIO-Host:I MooIO-Host:E | tail -100
-            echo "No integrated Node server responded on emulator loopback"
-            exit 1
+            bash -c 'for i in $(seq 1 50); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb logcat -d -s MooIO-Host:I MooIO-Host:E | tail -100; exit 1; }
