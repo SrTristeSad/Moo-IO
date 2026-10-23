@@ -61,36 +61,49 @@ function M:layout(w,h)
  local board=min(h*.78,w*.58)
  local panelW=min(w*.76,735*u)
  local panelH=min(h*.82,555*u)
- -- Items 1-4 live in a simple horizontal hotbar, not a MOBA skill wheel.
- -- Both large joysticks appear at the point where the thumbs first touch.
- local stripX=w*.50
- local skills={}
- for i=1,4 do
-   skills[i]={x=stripX+(i-2.5)*72*u,y=h-148*u,r=37*u}
- end
+ -- Every unlocked tool/consumable is placed in one centered, paginated
+ -- hotbar. As the number of slots changes the visible row is recentered.
+ -- Touch joysticks have no static base until a finger touches the playfield.
+ local barX=w*.50
+ local topY=53*u
  local l={u=u,move={x=142*u,y=h-128*u,r=86*u*self.moveScale},
    fire={x=w-135*u,y=h-132*u,r=86*u*self.fireScale},
-   auto={x=w-194*u,y=h-340*u,r=39*u},
-   skills=skills,shop={x=w-87*u,y=140*u,r=40*u},
-   clan={x=w-87*u,y=230*u,r=40*u},
-   tribe={x=w-87*u,y=320*u,r=40*u},
-   chat={x=w-280*u,y=49*u,r=40*u},
-   rank={x=w-180*u,y=49*u,r=40*u},
-   pause={x=w-65*u,y=49*u,r=39*u},
+   auto={x=w-88*u,y=h*.47,r=39*u},
+   hotbar={x=barX,y=h-76*u,r=35*u,step=73*u},
+   shop={x=w-373*u,y=topY,r=35*u},
+   clan={x=w-452*u,y=topY,r=35*u},
+   tribe={x=w-294*u,y=topY,r=35*u},
+   chat={x=w-215*u,y=topY,r=35*u},
+   rank={x=w-136*u,y=topY,r=35*u},
+   pause={x=w-57*u,y=topY,r=35*u},
    ping={x=235*u,y=85*u,r=37*u},
    mark={x=235*u,y=181*u,r=37*u},
    minimap={x=21*u,y=20*u,w=167*u,h=167*u},
    bigmap={x=(w-board)/2,y=(h-board)/2,w=board,h=board},
    close={x=w-52*u,y=45*u,r=30*u},
    rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
-   strip={x=stripX,y=h-51*u,r=30*u,step=65*u},
-   stripPrev={x=stripX-194*u,y=h-50*u,r=27*u},
-   stripNext={x=stripX+194*u,y=h-50*u,r=27*u},
+   stripPrev={x=barX-240*u,y=h-76*u,r=26*u},
+   stripNext={x=barX+240*u,y=h-76*u,r=26*u},
    chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
    chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
    chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
  self.cachedW=w;self.cachedH=h;self.cachedLayout=l
  return l
+end
+-- Visible items are recentered for each page, including when the inventory grows.
+function M:hotbar(total,w,h)
+ local l=self:layout(w,h)
+ total=max(0,math.floor(tonumber(total) or 0))
+ local pages=max(1,math.ceil(total/5))
+ self.page=clamp(self.page,1,pages)
+ local first=(self.page-1)*5+1
+ local count=max(0,min(5,total-first+1))
+ local slots={}
+ for i=1,count do
+   slots[i]={x=l.hotbar.x+(i-(count+1)/2)*l.hotbar.step,
+     y=l.hotbar.y,r=l.hotbar.r,index=first+i-1}
+ end
+ return slots,pages
 end
 function M:movement()
  if self.moveId then return self.moveX,self.moveY end
@@ -162,27 +175,18 @@ function M:pressed(id,x,y,w,h,scale,total)
    self:stopForOverlay();self.mapOpen=true
    return "map_open"
  end
- -- Centre strip receives touches BEFORE the generic movement/aim zones.
- total=total or 0
- if total>4 then
-   local pages=max(1,math.ceil((total-4)/5))
-   self.page=clamp(self.page,1,pages)
-   if pages>1 and near(x,y,l.stripPrev) then
-     self.page=max(1,self.page-1);return "page",self.page
-   end
-   if pages>1 and near(x,y,l.stripNext) then
-     self.page=min(pages,self.page+1);return "page",self.page
-   end
-   local first=5+(self.page-1)*5
-   local count=min(5,total-first+1)
-   for i=1,count do
-     local slot={x=l.strip.x+(i-3)*l.strip.step,y=l.strip.y,r=l.strip.r}
-     if near(x,y,slot) then return "slot",first+i-1 end
-   end
+ -- The complete inventory is one centered row (five items per page).
+ -- Controls below are handled BEFORE generic movement/attack zones.
+ local slots,pages=self:hotbar(total,w,h)
+ if pages>1 and near(x,y,l.stripPrev) then
+   self.page=max(1,self.page-1);return "page",self.page
+ end
+ if pages>1 and near(x,y,l.stripNext) then
+   self.page=min(pages,self.page+1);return "page",self.page
  end
  if near(x,y,l.auto) then self.auto=not self.auto;return "server_auto",self.auto end
- for i,p in ipairs(l.skills) do
-   if near(x,y,p) then return "skill",i end
+ for _,p in ipairs(slots) do
+   if near(x,y,p) then return "slot",p.index end
  end
  -- Floating left movement: any open place in the lower-left touch zone.
  if x<w*.35 and y>h*.38 and self.moveId==nil then
@@ -454,39 +458,49 @@ function M:draw(world,scale)
    glyph(g,"attack",{x=px,y=py},u*.66,true)
  end
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
- -- The first four are the exact first four quick slots, not fake cooldown skills.
- for i,p in ipairs(l.skills) do
+ g.setColor(.97,.97,.94,1);g.setFont(small)
+ g.printf(self.auto and "AUTO ON" or "AUTO",l.auto.x-41*u,l.auto.y+43*u,82*u,"center")
+ -- HUD status from actual authoritative world state, not guessed counters.
+ local player=world and world.localPlayer and world:localPlayer()
+ local life=math.max(0,tonumber(player and player.health) or 0)
+ local maxLife=math.max(1,tonumber(player and player.maxHealth) or 100)
+ local xp=math.max(0,tonumber(world and world.xp) or 0)
+ local maxXP=math.max(1,tonumber(world and world.maxXP) or 300)
+ local level=math.floor(tonumber(world and world.age) or 1)
+ local barW=320*u
+ local barX=(w-barW)/2
+ local hpY=h-210*u
+ g.setColor(.025,.10,.085,.84*self.uiOpacity)
+ g.rectangle("fill",barX+20*u,hpY,barW-40*u,17*u,7*u,7*u)
+ g.setColor(.30,.85,.44,self.uiOpacity)
+ g.rectangle("fill",barX+22*u,hpY+2*u,
+   (barW-44*u)*clamp(life/maxLife,0,1),13*u,6*u,6*u)
+ g.setFont(small);g.setColor(.96,.98,.96,1)
+ g.printf("VIDA "..math.floor(life).."/"..math.floor(maxLife),barX+20*u,hpY+1*u,barW-40*u,"center")
+ -- This is the LEVEL/XP indicator requested above the items (not a heart).
+ local xpY=h-178*u
+ g.setColor(.025,.10,.085,.89*self.uiOpacity)
+ g.rectangle("fill",barX,xpY,barW,36*u,10*u,10*u)
+ g.setColor(.16,.31,.30,.97*self.uiOpacity)
+ g.rectangle("fill",barX+4*u,xpY+4*u,(barW-8*u)*clamp(xp/maxXP,0,1),28*u,7*u,7*u)
+ g.setColor(.97,.88,.45,1);g.setFont(font)
+ g.printf("NIVEL "..level,barX,xpY+8*u,barW,"center")
+ -- The auto-gather/attack mode is an independent toggle: a held manual
+ -- attack and opening an overlay never change the active auto state.
+ local slots,pages=self:hotbar(Slots.total(world),w,h)
+ for _,p in ipairs(slots) do
    ring(g,p,false,false)
-   local id,weapon=Slots.at(world,i)
+   local id,weapon=Slots.at(world,p.index)
    local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
-   if item and Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) then
-     g.setColor(.04,.13,.12,.92);g.circle("fill",p.x+p.r*.6,p.y+p.r*.6,10*u)
-     g.setFont(small);g.setColor(1,1,1,1)
-     g.printf(tostring(i),p.x+p.r*.6-10*u,p.y+p.r*.6-6*u,20*u,"center")
-   else
-     words(g,tostring(i),p)
-   end
+   if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) end
+   g.setColor(.96,.98,.96,1);g.setFont(small)
+   g.printf(tostring(p.index),p.x-p.r*.30,p.y+p.r*.48,p.r*.6,"center")
  end
- -- All inventory entries from #5 onward, horizontally in the centre.
- local total=Slots.total(world)
- local pageCount=Slots.pages(world,5)
- self.page=clamp(self.page,1,pageCount)
- if total>4 then
-   local first=5+(self.page-1)*5
-   local count=min(5,total-first+1)
-   for i=1,count do
-     local p={x=l.strip.x+(i-3)*l.strip.step,y=l.strip.y,r=l.strip.r}
-     ring(g,p,false,false)
-     local id,weapon=Slots.at(world,first+i-1)
-     local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
-     if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.34) end
-   end
-   if pageCount>1 then
-     ring(g,l.stripPrev,false,false);words(g,"<",l.stripPrev)
-     ring(g,l.stripNext,false,false);words(g,">",l.stripNext)
-     g.setColor(1,1,1,1);g.setFont(small)
-     g.printf(self.page.."/"..pageCount,l.strip.x-38*u,h-104*u,76*u,"center")
-   end
+ if pages>1 then
+   ring(g,l.stripPrev,false,false);words(g,"<",l.stripPrev)
+   ring(g,l.stripNext,false,false);words(g,">",l.stripNext)
+   g.setColor(.95,.97,.96,1);g.setFont(small)
+   g.printf(self.page.."/"..pages,l.hotbar.x-34*u,l.hotbar.y-75*u,68*u,"center")
  end
  g.pop()
 end
