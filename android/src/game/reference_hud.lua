@@ -245,6 +245,7 @@ end
 -- Native LÖVE click target maps to original actionBarItem onclick/selectToBuild.
 -- CSS: 66 x 66, 5px margins on each side, bottom 17px.
 function H.hitTest(world,w,h,x,y)
+  if mobile then return nil end -- Four tactical slots and backpack replace hidden desktop bar
   if type(x)~="number" or type(y)~="number" then return nil end
   local entries=actionBarEntries(world)
   if #entries==0 then return nil end
@@ -287,27 +288,38 @@ local function mobileStats(world,w,h)
   local g=love.graphics
   local p=world:localPlayer()
   local health=p and p.health or 0
-  local food=world.resources.food or 0
+  local maximum=p and (p.maxHealth or 100) or 100
+  local gold=world.resources.points or 0
   g.push("all")
-  g.setColor(.04,.12,.09,.72)
-  g.rectangle("fill",16,16,270,118,8,8)
+  -- Under the MOBA minimap; no collision with the upper-right Top 10 button.
+  local unit=math.max(.55,math.min(w/1280,h/720,1.8))
+  local left=22*unit
+  local top=207*unit
+  local width=255*unit
+  g.setColor(.05,.11,.08,.80)
+  g.rectangle("fill",left,top,width,135*unit,7*unit,7*unit)
   g.setFont(fontMedium)
-  g.setColor(1,1,1,1)
-  g.print(p and p.name or "Moo IO",28,24)
-  local function bar(y,value,maxVal,r,c,b)
-    g.setColor(.14,.2,.17,1);g.rectangle("fill",30,y,230,18,3,3)
-    local portion=math.min(1,math.max(0,(tonumber(value) or 0)/maxVal))
-    g.setColor(r,c,b,1);g.rectangle("fill",30,y,230*portion,18,3,3)
-    g.setColor(1,1,1,1)
-    g.setFont(fontSmall)
-    g.print(tostring(math.floor(value or 0)),35,y+2)
-  end
-  bar(56,health,100,.82,.22,.20)
-  bar(81,food,100,.88,.70,.23)
+  g.setColor(.93,.97,.90,1)
+  g.print((p and p.name or "Moo IO"):sub(1,18),left+10*unit,top+8*unit)
   g.setFont(fontSmall)
-  g.setColor(.86,.92,.85,1)
-  g.print("Madeira "..(world.resources.wood or 0)..
-    "   Pedra "..(world.resources.stone or 0),28,107)
+  local function bar(y,value,maxValue,col)
+    g.setColor(.16,.24,.2,1)
+    g.rectangle("fill",left+10*unit,y,width-20*unit,14*unit,4,4)
+    g.setColor(col)
+    local ratio=math.min(1,math.max(0,(tonumber(value) or 0)/math.max(1,maxValue)))
+    g.rectangle("fill",left+10*unit,y,(width-20*unit)*ratio,14*unit,4,4)
+    g.setColor(1,1,1,1)
+    g.print(tostring(math.floor(value or 0)).."/"..tostring(math.floor(maxValue)),
+      left+16*unit,y)
+  end
+  bar(top+34*unit,health,maximum,{.82,.26,.22,1})
+  g.setColor(.95,.93,.72,1)
+  local first="Ouro "..math.floor(gold).."   Comida "..math.floor(world.resources.food or 0)
+  local second="Madeira "..math.floor(world.resources.wood or 0)..
+    "   Pedra "..math.floor(world.resources.stone or 0)
+  g.print(first,left+10*unit,top+60*unit)
+  g.print(second,left+10*unit,top+83*unit)
+  g.print("Abates "..math.floor(world.resources.kills or 0),left+10*unit,top+108*unit)
   g.pop()
 end
 function H.draw(world,chatActive,chatText,suppressItemInfo)
@@ -315,7 +327,6 @@ function H.draw(world,chatActive,chatText,suppressItemInfo)
   local w,h=love.graphics.getDimensions()
   if mobile then
     mobileStats(world,w,h)
-    actionBar(world,w,h)
     Upgrades.draw(world,w)
     return
   end
