@@ -762,7 +762,7 @@ local function openProfile(sid)
     return false
   end
   profile:open(sid)
-  if mobile then mobile:reset();mobileAttackSent=false end
+  if mobile then mobile:stopForOverlay();mobileAttackSent=false end
   panels:close()
   clans:close()
   chatOpen=false;chatDraft=""
@@ -797,7 +797,8 @@ local function stopGameplay(owned)
     or "Voce saiu da partida. A sala do anfitriao continua online.")
 end
 local function stopPlayerControls()
-  if mobile then mobile:reset();mobileAttackSent=false;mobileInteractLeft=0 end
+  -- Opening pause/options suspends held pointers, not server auto-attack.
+  if mobile then mobile:stopForOverlay();mobileAttackSent=false;mobileInteractLeft=0 end
   input.keys={}
   lastMove=false
   mouseAttack=false;spaceAttack=false
@@ -907,7 +908,7 @@ function love.keypressed(key)
     and client.state=="spawn_confirmed" and not died then
     chatOpen=true;chatDraft=""
     if mobile then
-      mobile:reset();mobileAttackSent=false
+      mobile:stopForOverlay();mobileAttackSent=false
       if love.keyboard and love.keyboard.setTextInput then
         local w,h=love.graphics.getDimensions()
         love.keyboard.setTextInput(true,math.floor(w*.22),math.floor(h*.27),
@@ -1006,7 +1007,7 @@ function love.keyreleased(key)
 end
 function love.focus(focused)
   if not focused and client and client.state=="spawn_confirmed" then
-    if mobile then mobile:reset();mobileAttackSent=false end
+    if mobile then mobile:stopForOverlay();mobileAttackSent=false end
     client:send("e",{})
     client:send("F",{0,Pack.null})
     mouseAttack=false;spaceAttack=false
@@ -1042,7 +1043,7 @@ function love.mousepressed(x,y,button)
       if consumed then return end
     end
     if clans:click(x,y,w,h,false,client and client.authToken) then
-      if mobile then mobile:reset();mobileAttackSent=false end
+      if mobile then mobile:stopForOverlay();mobileAttackSent=false end
       if clans:isOpen() and panels:isOpen() then panels:close() end
       -- Keep the permanent Clan window exclusive with Shop and Tribe,
       -- matching how the original client hides competing overlays.
@@ -1070,7 +1071,7 @@ function love.mousepressed(x,y,button)
         -- stop gathering while the menu takes keyboard/mouse focus.
         chatOpen=false;chatDraft=""
         if panels:isOpen() then
-          if mobile then mobile:reset();mobileAttackSent=false end
+          if mobile then mobile:stopForOverlay();mobileAttackSent=false end
           input.keys={}
           lastMove=false
           mouseAttack=false;spaceAttack=false
@@ -1169,10 +1170,8 @@ local function mobileAction(action,payload)
   end
   if action=="map_open" or action=="chat_open" or action=="rank_open" then
     mobileStop()
-    if mobile.auto and client and client.state=="spawn_confirmed" then
-      local ok=client:send("K",{1}) -- E: disable previous auto-gather
-      if ok then mobile.auto=false end
-    end
+    -- Never toggle K here: auto-gather is a persistent SERVER mode.
+    -- F(0) above only releases the manual attack state.
     if action=="rank_open" and client and client.state=="spawn_confirmed" then
       client:send("Y",{payload or mobile.rankingCategory})
       mobile.rankRefresh=3
