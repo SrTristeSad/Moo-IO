@@ -609,10 +609,11 @@ function M:draw(world,scale)
  g.setColor(.75,.92,.86,.92*self.uiOpacity)
  g.setLineWidth(2*u)
  g.rectangle("line",hp.x,hp.y,hp.w,hp.h,hp.h*.45,hp.h*.45)
- -- Shadow behind the digits is text, not an additional icon.
- g.setFont(font)
+ -- Keep the text INSIDE the bar even at smaller mobile resolutions.
+ local statusFont=hp.h>=font:getHeight()+4*u and font or small
+ g.setFont(statusFont)
  local hpText=math.floor(life).."/"..math.floor(maxLife)
- local hpTextY=hp.y+(hp.h-font:getHeight())*.5
+ local hpTextY=hp.y+(hp.h-statusFont:getHeight())*.5
  g.setColor(0,0,0,.72*self.uiOpacity)
  g.printf(hpText,hp.x+1*u,hpTextY+1*u,hp.w,"center")
  g.setColor(1,1,1,1)
@@ -631,10 +632,10 @@ function M:draw(world,scale)
  g.setColor(.20,.31,.24,.95*self.uiOpacity)
  g.rectangle("fill",xpBox.x+2*u,xpBox.y+2*u,levelW,xpBox.h-4*u,
    (xpBox.h-4*u)*.45,(xpBox.h-4*u)*.45)
- g.setFont(font)
+ g.setFont(statusFont)
  g.setColor(.98,.87,.47,1)
  g.printf("Nv "..level,xpBox.x+2*u,
-   xpBox.y+(xpBox.h-font:getHeight())*.5,levelW,"center")
+   xpBox.y+(xpBox.h-statusFont:getHeight())*.5,levelW,"center")
  local trackX=xpBox.x+76*u
  local trackY=xpBox.y+xpBox.h*.37
  local trackW=xpBox.w-85*u
