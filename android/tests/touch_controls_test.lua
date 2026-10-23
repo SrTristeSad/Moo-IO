@@ -16,18 +16,22 @@ for i=1,10 do
   assert(type(id)=="number")
   eq(weapon,i<=3)
 end
-eq(Slots.pages(world,6),2)
-local three=m:hotbar(3,w,h)
-eq(#three,3);eq(three[2].x,w*.50)
+-- Growth always stays in ONE row. All unlocked options are reachable
+-- by a swipe instead of a second page; taps equip only on finger release.
+local three,shortBar=m:hotbar(3,w,h)
+eq(#three,3);eq(three[2].x,w*.50);eq(shortBar.maxScroll,0)
 local two=m:hotbar(2,w,h)
 eq(two[1].x+two[2].x,w)
-assert(two[1].x>three[1].x,"added items must recenter hotbar")
-local six,pages=m:hotbar(10,w,h)
-eq(#six,6);eq(pages,2);eq(six[1].index,1)
+assert(two[1].x>three[1].x,"added choices must recenter the row")
+local six,sixBar=m:hotbar(6,w,h)
+eq(#six,6);eq(sixBar.maxScroll,0);eq(six[1].index,1)
 eq(six[3].x+six[4].x,w)
-local four=m:hotbar(4,w,h)
-eq(#four,4);eq(four[2].x+four[3].x,w)
-assert(four[1].x>six[1].x,"fewer items must remain horizontally centered")
+local ten,tenBar=m:hotbar(10,w,h)
+eq(#ten,10)
+assert(tenBar.maxScroll>0 and tenBar.scroll==tenBar.maxScroll,
+  "newly unlocked options should automatically become visible")
+assert(m.page==nil and l.stripPrev==nil and l.stripNext==nil,
+  "one continuous row must not have inventory paging controls")
 assert(l.clan.y==l.shop.y and l.shop.y==l.tribe.y,
   "Clan, Shop and Tribe must share the top HUD row")
 assert(l.auto.x>w*.8 and l.auto.y<h*.55,
@@ -80,20 +84,30 @@ eq(m:released(4),"attack")
 assert(m.fireOrigin==nil and not m:attacking())
 -- No dormant base at a fixed screen coordinate.
 assert(m.moveOrigin==nil and m.fireOrigin==nil)
--- All items (not just four) form one centered, dynamically paginated row.
-local shown=m:hotbar(Slots.total(world),w,h)
-for i,p in ipairs(shown) do
-  local a,num=m:pressed(10+i,p.x,p.y,w,h,14400,10)
-  eq(a,"slot");eq(num,i)
-end
-local a,page=m:pressed(35,l.stripNext.x,l.stripNext.y,w,h,14400,10)
-eq(a,"page");eq(page,2)
-shown=m:hotbar(Slots.total(world),w,h)
-eq(#shown,4);eq(shown[1].index,7);eq(shown[4].index,10)
-a,page=m:pressed(36,shown[4].x,shown[4].y,w,h,14400,10)
-eq(a,"slot");eq(page,10)
-a,page=m:pressed(37,l.stripPrev.x,l.stripPrev.y,w,h,14400,10)
-eq(a,"page");eq(page,1)
+-- Swiping along a single row does not select items or start combat.
+m:hotbar(3,w,h)
+local shown,bar=m:hotbar(Slots.total(world),w,h)
+eq(#shown,10);assert(bar.maxScroll>0)
+local visible=shown[#shown]
+assert(visible.x>=bar.clipX and visible.x<=bar.clipX+bar.clipW)
+eq(m:pressed(25,visible.x,visible.y,w,h,14400,10),"bar_hold")
+local picked,index=m:released(25)
+eq(picked,"slot");eq(index,10)
+local middleX=bar.clipX+bar.clipW*.5
+eq(m:pressed(26,middleX,l.hotbar.y,w,h,14400,10),"bar_hold")
+eq(m:moved(26,middleX+150,l.hotbar.y,w,h),"bar_scroll")
+local scrolled=m:hotbar(10,w,h)
+assert(scrolled[1].x>shown[1].x,"swipe must reveal earlier options")
+eq(m:released(26),"bar_release")
+assert(not m:attacking() and m.moveId==nil,
+  "swiping action row cannot trigger attack or movement")
+local left=m:hotbar(10,w,h)
+local first=left[1]
+assert(first.x>=bar.clipX and first.x<=bar.clipX+bar.clipW)
+eq(m:pressed(27,first.x,first.y,w,h,14400,10),"bar_hold")
+picked,index=m:released(27)
+eq(picked,"slot");eq(index,1)
+local a,page
 a,page=m:pressed(40,l.auto.x,l.auto.y,w,h,14400,10)
 eq(a,"server_auto");eq(page,true)
 assert(not m:attacking(),"server auto must not act as held attack button")
