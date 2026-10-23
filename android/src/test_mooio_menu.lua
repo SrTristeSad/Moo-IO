@@ -66,8 +66,17 @@ assert(home:click(379,418)=="hud_changed" and home.hudScale==oldScale)
 local oldOpacity=home.hudOpacity
 assert(home:click(384,489)=="hud_changed" and home.hudOpacity<oldOpacity)
 assert(home:click(821,489)=="hud_changed" and home.hudOpacity==oldOpacity)
-assert(home:click(619,560)=="hud_changed" and home.hudScale==1.20)
-assert(home:click(450,600)==nil,
+assert(home:click(619,560)=="controls_tab" and home.screen=="controls")
+  local moveBefore=home.moveScale
+  local fireBefore=home.fireScale
+  local deadBefore=home.deadzone
+  assert(home:click(842,273)=="hud_changed" and home.moveScale>moveBefore)
+  assert(home:click(839,350)=="hud_changed" and home.fireScale>fireBefore)
+  assert(home:click(836,440)=="hud_changed" and home.deadzone>deadBefore)
+  assert(home:click(618,532)=="hud_changed" and home.moveScale==1
+    and home.fireScale==1 and home.deadzone==.15)
+  assert(home:click(1121,110)=="back" and home.screen=="settings")
+  assert(home:click(450,600)==nil,
     "Invitations belong on the ESC pause root, not in Settings")
   assert(home:keypressed("f2")==nil,
     "F2 is no longer a shortcut to copy invitation")
