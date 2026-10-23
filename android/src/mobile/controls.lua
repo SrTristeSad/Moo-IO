@@ -68,7 +68,10 @@ function M:layout(w,h)
    rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
    strip={x=stripX,y=h-48*u,r=28*u,step=60*u},
    stripPrev={x=stripX-181*u,y=h-47*u,r=23*u},
-   stripNext={x=stripX+181*u,y=h-47*u,r=23*u}}
+   stripNext={x=stripX+181*u,y=h-47*u,r=23*u},
+   chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
+   chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
+   chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
  self.cachedW=w;self.cachedH=h;self.cachedLayout=l
  return l
 end
@@ -223,6 +226,48 @@ local function map(g,world,b,scale)
  for _,p in ipairs(world and world.mapPings or {}) do dot(p.x,p.y,5,1,.81,.24) end
  local marker=world and world.mapMarker
  if marker then dot(marker.x,marker.y,6,1,.94,.38) end
+end
+function M:drawChat(draft)
+ local g=love.graphics
+ local w,h=g.getDimensions()
+ local l=self:layout(w,h)
+ fonts()
+ local b=l.chatPanel
+ g.push("all")
+ g.setColor(.015,.035,.035,.80)
+ g.rectangle("fill",0,0,w,h)
+ g.setColor(.055,.15,.13,.97)
+ g.rectangle("fill",b.x,b.y,b.w,b.h,12,12)
+ g.setColor(.48,.74,.55,1)
+ g.setLineWidth(2)
+ g.rectangle("line",b.x,b.y,b.w,b.h,12,12)
+ g.setFont(font)
+ g.setColor(.94,.97,.88,1)
+ g.print("CHAT DA PARTIDA",b.x+22*l.u,b.y+13*l.u)
+ g.setColor(.11,.24,.22,.98)
+ g.rectangle("fill",w*.20,h*.275,w*.48,h*.079,8,8)
+ g.setColor(.60,.78,.72,1)
+ g.rectangle("line",w*.20,h*.275,w*.48,h*.079,8,8)
+ g.setFont(font)
+ local text=tostring(draft or "")
+ if #text>75 then text=text:sub(-75) end
+ g.setColor(.96,.98,.96,1)
+ g.print((#text>0 and text or "Digite sua mensagem...")..
+   (#text>0 and "|" or ""),w*.21,h*.293)
+ local send=l.chatSend
+ g.setColor(.29,.58,.37,1)
+ g.rectangle("fill",send.x,send.y,send.w,send.h,8,8)
+ g.setColor(1,1,1,1)
+ g.printf("ENVIAR",send.x,send.y+send.h*.30,send.w,"center")
+ local exit=l.chatCancel
+ g.setColor(.35,.27,.23,1)
+ g.rectangle("fill",exit.x,exit.y,exit.w,exit.h,6,6)
+ g.setColor(.98,.96,.94,1)
+ g.printf("X",exit.x,exit.y+exit.h*.25,exit.w,"center")
+ g.setFont(small)
+ g.setColor(.77,.87,.80,1)
+ g.print("Ate 30 caracteres. ENTER tambem envia.",b.x+22*l.u,b.y+b.h-27*l.u)
+ g.pop()
 end
 function M:draw(world,scale)
  local g=love.graphics
