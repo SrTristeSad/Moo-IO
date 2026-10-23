@@ -164,10 +164,10 @@ end
 function P:click(world,x,y,w,h)
   if type(x)~="number" or type(y)~="number" then return nil end
   local storeX,tribeX,top,size=self:buttons(w)
-  if inside(x,y,storeX,top,size,size) then
+  if not self.hideButtons and inside(x,y,storeX,top,size,size) then
     self:toggle("store");return {consumed=true}
   end
-  if inside(x,y,tribeX,top,size,size) then
+  if not self.hideButtons and inside(x,y,tribeX,top,size,size) then
     self:toggle("tribe");return {consumed=true}
   end
   -- Join request notifications are independent of the open window.
@@ -307,11 +307,14 @@ local function preview(entry,accessory,x,y)
   return Assets.draw(accessory and "accessories" or "hats",
     filename,x+24,y+24,43,43)
 end
-function P:draw(world)
+function P:draw(world,showButtons)
   local w,h=love.graphics.getDimensions()
-  local storeX,tribeX,top,size=self:buttons(w)
-  button("Shop",storeX,top,size,size,self.opened=="store",true)
-  button("Tribe",tribeX,top,size,size,self.opened=="tribe",true)
+  self.hideButtons=showButtons==false
+  if not self.hideButtons then
+    local storeX,tribeX,top,size=self:buttons(w)
+    button("Shop",storeX,top,size,size,self.opened=="store",true)
+    button("Tribe",tribeX,top,size,size,self.opened=="tribe",true)
+  end
   if world.tribeOwner and #world.joinRequests>0 then
     local first=world.joinRequests[1]
     rect(w-440,88,190,49,0,0,0,0.64)
