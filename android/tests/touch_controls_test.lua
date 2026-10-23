@@ -102,6 +102,7 @@ assert(l.chatSend and l.chatCancel,"full Android keyboard chat has SEND and CLOS
 eq(m:pressed(50,l.pause.x,l.pause.y,w,h,14400,10),"pause")
 eq(m:pressed(51,l.shop.x,l.shop.y,w,h,14400,10),"shop_open")
 eq(m:pressed(52,l.clan.x,l.clan.y,w,h,14400,10),"clan_open")
+eq(m:pressed(55,l.tribe.x,l.tribe.y,w,h,14400,10),"tribe_open")
 -- Movement ring and attack ring must each follow their own finger-down point.
 local mx,my=w*.20,h*.65
 eq(m:pressed(53,mx,my,w,h,14400,10),"move")
