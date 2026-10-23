@@ -26,6 +26,9 @@ local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Andr
 local mobile=isAndroid and Mobile.new() or nil
 local mobileAttackSent=false
 local mobileForwardMouse=false
+local mobileInteractLeft=0
+local mobileBuilding=0
+local mobileWeapon=0
 local client=nil
 local integration=nil
 local uiSmokeMode=os.getenv("MOO_IO_E2E") or os.getenv("MOOQUEST_UI_E2E")
@@ -295,7 +298,7 @@ function love.update(dt)
         died=true
         phase="death"
         death:start()
-        if mobile then mobile:reset();mobileAttackSent=false end
+        if mobile then mobile:reset();mobileAttackSent=false;mobileInteractLeft=0 end
         menu.status=""
         latestEvent="YOU DIED: morte confirmada pelo Node."
       elseif packet.name=="B" then
@@ -329,7 +332,16 @@ function love.update(dt)
   if client.state=="spawn_confirmed" and not died and not pause:isOpen() then
     if panels:isOpen() or clans:isOpen() then input.keys={} end
     input:update(dt)
-    if mobile then input.dx,input.dy=mobile:movement() end
+    if mobile then
+      input.dx,input.dy=mobile:movement()
+      if mobileInteractLeft>0 then
+        mobileInteractLeft=mobileInteractLeft-dt
+        if mobileInteractLeft<=0 and not mobile:attacking() then
+          client:send("F",{0,Pack.null})
+          mobileAttackSent=false
+        end
+      end
+    end
     movementClock=movementClock+dt
     if movementClock>=0.07 then
       movementClock=0
@@ -712,7 +724,7 @@ local function stopGameplay(owned)
   end
   input.keys={};lastMove=false
   mouseAttack=false;spaceAttack=false
-  if mobile then mobile:reset();mobileAttackSent=false end
+  if mobile then mobile:reset();mobileAttackSent=false;mobileInteractLeft=0 end
   chatOpen=false;chatDraft=""
   panels:reset();clans:close();profile:close()
   phase="menu";died=false
@@ -721,7 +733,7 @@ local function stopGameplay(owned)
     or "Voce saiu da partida. A sala do anfitriao continua online.")
 end
 local function stopPlayerControls()
-  if mobile then mobile:reset();mobileAttackSent=false end
+  if mobile then mobile:reset();mobileAttackSent=false;mobileInteractLeft=0 end
   input.keys={}
   lastMove=false
   mouseAttack=false;spaceAttack=false
@@ -1033,39 +1045,75 @@ function love.mousereleased(_,_,button)
     if not spaceAttack then client:send("F",{0,Pack.null}) end
   end
 end
+local function mobileStop()
+  if client and client.state=="spawn_confirmed" then
+    client:send("9",{Pack.null})
+    client:send("e",{})
+    client:send("F",{0,Pack.null})
+  end
+  mobileAttackSent=false
+  mobileInteractLeft=0
+  lastMove=false
+end
+local function mobileSelect(kind,slot)
+  if not client or client.state~="spawn_confirmed" then return end
+  local inv=world and world.inventory
+  local entries=inv and inv[kind]
+  if not entries or #entries==0 then return end
+  slot=math.floor(slot)
+  if slot<1 or slot>#entries then return end
+  local id=entries[slot]
+  if type(id)=="number" then
+    local ok,err=client:send("z",{id,kind=="weapons"})
+    if not ok then latestEvent="Equipamento nao enviado: "..tostring(err) end
+  end
+end
 local function mobileAction(action,payload)
   if action=="pause" then love.keypressed("escape");return end
-  if action=="map_open" then
-    -- Reset server input while using the tactical map.
-    if client and client.state=="spawn_confirmed" then
-      client:send("9",{Pack.null})
-      client:send("e",{})
-      client:send("F",{0,Pack.null})
-    end
-    lastMove=false;mobileAttackSent=false
+  if action=="map_open" or action=="chat_open" or action=="bag_open" then
+    mobileStop()
     return
   end
-  if action=="attack" and client and client.state=="spawn_confirmed" then
+  if not client or client.state~="spawn_confirmed" then return end
+  if action=="attack" then
     local active=mobile:attacking()
     if active~=mobileAttackSent then
       local ok=client:send("F",{active and 1 or 0,
         active and currentAttackDir() or Pack.null})
       if ok then mobileAttackSent=active end
     end
-  elseif action=="ping" and client and client.state=="spawn_confirmed" then
-    local ok,err=client:send("U",{payload.x,payload.y})
-    if ok then
-      world.mapMarker={x=payload.x,y=payload.y}
-      latestEvent="Marcacao solicitada para o time."
-    else
-      latestEvent="Marcacao indisponivel: "..tostring(err)
+  elseif action=="interact" then
+    if not mobile:attacking() then
+      local ok=client:send("F",{1,currentAttackDir()})
+      if ok then mobileInteractLeft=.25;mobileAttackSent=true end
     end
+  elseif action=="swap" then
+    local weapons=world.inventory.weapons or {}
+    if #weapons>0 then
+      mobileWeapon=mobileWeapon%#weapons+1
+      mobileSelect("weapons",mobileWeapon)
+    end
+  elseif action=="build" then
+    local items=world.inventory.items or {}
+    if #items>0 then
+      mobileBuilding=mobileBuilding%#items+1
+      mobileSelect("items",mobileBuilding)
+    end
+  elseif action=="bag_slot" and payload then
+    mobileSelect(payload.row==1 and "weapons" or "items",payload.column)
+  elseif action=="chat_select" and type(payload)=="string" then
+    client:send("6",{payload:sub(1,30)})
+  elseif action=="ping" and payload then
+    local ok,err=client:send("U",{payload.x,payload.y})
+    if ok then world.mapMarker={x=payload.x,y=payload.y}
+    else latestEvent="Marcacao indisponivel: "..tostring(err) end
   end
 end
 local function mobileMouse(x,y)
   mobileForwardMouse=true
   love.mousepressed(x,y,1)
   mobileForwardMouse=false
+  if phase=="playing" then love.mousereleased(x,y,1) end
   if isAndroid and love.keyboard and love.keyboard.setTextInput then
     love.keyboard.setTextInput(phase=="menu" and home.focus~=nil)
   end
@@ -1078,7 +1126,8 @@ function love.touchpressed(id,x,y)
     return
   end
   local w,h=love.graphics.getDimensions()
-  if Hud.hitTest(world,w,h,x,y) or Upgrades.hitTest(world,w,x,y) then
+  if not (mobile.mapOpen or mobile.chatOpen or mobile.bagOpen)
+    and (Hud.hitTest(world,w,h,x,y) or Upgrades.hitTest(world,w,x,y)) then
     mobileMouse(x,y)
     return
   end
