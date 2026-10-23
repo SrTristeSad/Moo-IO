@@ -26,7 +26,7 @@ end
 function M.new()
  return setmetatable({moveId=nil,fireId=nil,moveX=0,moveY=0,
    moveOrigin=nil,fireOrigin=nil,aimDir=0,fireOffsetX=0,fireOffsetY=0,
-   uiScale=1.20,uiOpacity=.90,
+   uiScale=1.20,uiOpacity=.90,moveScale=1,fireScale=1,deadzone=.15,
    auto=false,rankOpen=false,mapOpen=false,
    rankRefresh=0,rankingCategory="gold",page=1,lastPoint=nil,
    cachedW=0,cachedH=0,cachedLayout=nil},M)
@@ -42,11 +42,16 @@ function M:stopForOverlay()
  self.moveOrigin=nil;self.fireOrigin=nil;self.moveX=0;self.moveY=0
  self.fireOffsetX=0;self.fireOffsetY=0
 end
-function M:configure(size,opacity)
+function M:configure(size,opacity,movement,attack,deadzone)
  local nextSize=clamp(tonumber(size) or 1.20,.85,1.55)
  local nextOpacity=clamp(tonumber(opacity) or .90,.50,1)
- if self.uiScale~=nextSize then self.cachedLayout=nil end
+ local nextMove=clamp(tonumber(movement) or 1,.75,1.50)
+ local nextFire=clamp(tonumber(attack) or 1,.75,1.50)
+ local nextDeadzone=clamp(tonumber(deadzone) or .15,.05,.30)
+ if self.uiScale~=nextSize or self.moveScale~=nextMove
+   or self.fireScale~=nextFire then self.cachedLayout=nil end
  self.uiScale=nextSize;self.uiOpacity=nextOpacity
+ self.moveScale=nextMove;self.fireScale=nextFire;self.deadzone=nextDeadzone
 end
 function M:layout(w,h)
  if self.cachedW==w and self.cachedH==h and self.cachedLayout then
@@ -63,8 +68,8 @@ function M:layout(w,h)
  for i=1,4 do
    skills[i]={x=stripX+(i-2.5)*72*u,y=h-148*u,r=37*u}
  end
- local l={u=u,move={x=142*u,y=h-128*u,r=86*u},
-   fire={x=w-135*u,y=h-132*u,r=86*u},
+ local l={u=u,move={x=142*u,y=h-128*u,r=86*u*self.moveScale},
+   fire={x=w-135*u,y=h-132*u,r=86*u*self.fireScale},
    auto={x=w-86*u,y=h-305*u,r=39*u},
    skills=skills,shop={x=w-480*u,y=49*u,r=40*u},
    clan={x=w-380*u,y=49*u,r=40*u},
@@ -112,7 +117,7 @@ end
 function M:joystick(x,y,l)
  local dx,dy=x-self.moveOrigin.x,y-self.moveOrigin.y
  local magnitude=sqrt(dx*dx+dy*dy)
- if magnitude<l.move.r*.15 then
+ if magnitude<l.move.r*self.deadzone then
    self.moveX=0;self.moveY=0
  else
    self.moveX=dx/magnitude;self.moveY=dy/magnitude
@@ -419,8 +424,8 @@ function M:draw(world,scale)
    local x=base.x+self.moveX*l.move.r*.48
    local y=base.y+self.moveY*l.move.r*.48
    g.setColor(.67,.94,.79,self.uiOpacity)
-   g.circle("fill",x,y,27*u)
-   g.setColor(.12,.31,.23,1);g.circle("line",x,y,26*u)
+   g.circle("fill",x,y,27*u*self.moveScale)
+   g.setColor(.12,.31,.23,1);g.circle("line",x,y,26*u*self.moveScale)
  end
  if self.fireOrigin then
    local base={x=self.fireOrigin.x,y=self.fireOrigin.y,r=l.fire.r}
@@ -432,9 +437,9 @@ function M:draw(world,scale)
      g.setLineWidth(4*u);g.line(base.x,base.y,px,py)
    end
    g.setColor(.89,.74,.41,self.uiOpacity)
-   g.circle("fill",px,py,26*u)
+   g.circle("fill",px,py,26*u*self.fireScale)
    g.setColor(.16,.28,.21,1);g.setLineWidth(2*u)
-   g.circle("line",px,py,26*u)
+   g.circle("line",px,py,26*u*self.fireScale)
    glyph(g,"attack",{x=px,y=py},u*.66,true)
  end
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
