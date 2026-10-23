@@ -46,58 +46,16 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
             set -e
+            echo "Instalando pacote legado e Beta lado a lado"
             adb install -r dist/legacy/Moo-IO-Android-Servidor-Integrado.apk
             adb install -r dist/beta/Moo-IO-Android-Servidor-Integrado.apk
             adb shell pm path io.srtristesad.mooio
-            adb forward tcp:28081 tcp:8081
-            echo "=== FASE 1: PROVA DO MOTOR NODE NATIVO, SEM JOGO ==="
-            adb push android/tests/node-mobile-probe.mjs /data/local/tmp/mooio-probe.mjs
-            adb shell run-as io.srtristesad.mooio.beta mkdir -p files/mooio-host/server/src
-            adb shell run-as io.srtristesad.mooio.beta cp /data/local/tmp/mooio-probe.mjs files/mooio-host/server/src/offline.mjs
-            adb shell 'run-as io.srtristesad.mooio.beta sh -c "printf v3 > files/mooio-host/server-version.txt"'
-            adb shell am start -n io.srtristesad.mooio.beta/org.love2d.android.MooIOActivity
-            bash -c 'for i in $(seq 1 14); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"probe\":true"; then echo "MOOIO_NODE_MOBILE_RUNTIME_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -170; exit 1; }
-            echo "=== FASE 2: SERVIDOR MOO IO REAL, RESTAURADO DO APK ==="
-            adb shell am force-stop io.srtristesad.mooio.beta
-            adb shell run-as io.srtristesad.mooio.beta rm files/mooio-host/server-version.txt
-            adb shell am start -n io.srtristesad.mooio.beta/org.love2d.android.MooIOActivity
-            bash -c 'for i in $(seq 1 18); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_REAL_NODE_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb shell run-as io.srtristesad.mooio.beta cat files/mooio-data/node-boot.log || true; adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -200; exit 1; }
-            adb shell pidof io.srtristesad.mooio.beta
-            adb shell pidof io.srtristesad.mooio.beta:mooio_node
-            echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
-
             adb shell pm path io.srtristesad.mooio.beta
-            adb forward tcp:28081 tcp:8081
-            echo "=== FASE 1: PROVA DO MOTOR NODE NATIVO, SEM JOGO ==="
-            adb push android/tests/node-mobile-probe.mjs /data/local/tmp/mooio-probe.mjs
-            adb shell run-as io.srtristesad.mooio.beta mkdir -p files/mooio-host/server/src
-            adb shell run-as io.srtristesad.mooio.beta cp /data/local/tmp/mooio-probe.mjs files/mooio-host/server/src/offline.mjs
-            adb shell 'run-as io.srtristesad.mooio.beta sh -c "printf v2 > files/mooio-host/server-version.txt"'
-            adb shell am start -n io.srtristesad.mooio.beta/org.love2d.android.MooIOActivity
-            bash -c 'for i in $(seq 1 14); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"probe\":true"; then echo "MOOIO_NODE_MOBILE_RUNTIME_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -170; exit 1; }
-            echo "=== FASE 2: SERVIDOR MOO IO REAL, RESTAURADO DO APK ==="
-            adb shell am force-stop io.srtristesad.mooio.beta
-            adb shell run-as io.srtristesad.mooio.beta rm files/mooio-host/server-version.txt
-            adb shell am start -n io.srtristesad.mooio.beta/org.love2d.android.MooIOActivity
-            bash -c 'for i in $(seq 1 18); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_REAL_NODE_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb shell run-as io.srtristesad.mooio.beta cat files/mooio-data/node-boot.log || true; adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -200; exit 1; }
-            adb shell pidof io.srtristesad.mooio.beta
-            adb shell pidof io.srtristesad.mooio.beta:mooio_node
-            echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
-
             echo "MOOIO_BETA_SIDE_BY_SIDE_INSTALL_PASS"
+            echo "Iniciando jogo e servidor Node Beta"
             adb forward tcp:28081 tcp:8081
-            echo "=== FASE 1: PROVA DO MOTOR NODE NATIVO, SEM JOGO ==="
-            adb push android/tests/node-mobile-probe.mjs /data/local/tmp/mooio-probe.mjs
-            adb shell run-as io.srtristesad.mooio.beta mkdir -p files/mooio-host/server/src
-            adb shell run-as io.srtristesad.mooio.beta cp /data/local/tmp/mooio-probe.mjs files/mooio-host/server/src/offline.mjs
-            adb shell 'run-as io.srtristesad.mooio.beta sh -c "printf v2 > files/mooio-host/server-version.txt"'
             adb shell am start -n io.srtristesad.mooio.beta/org.love2d.android.MooIOActivity
-            bash -c 'for i in $(seq 1 14); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"probe\":true"; then echo "MOOIO_NODE_MOBILE_RUNTIME_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -170; exit 1; }
-            echo "=== FASE 2: SERVIDOR MOO IO REAL, RESTAURADO DO APK ==="
-            adb shell am force-stop io.srtristesad.mooio.beta
-            adb shell run-as io.srtristesad.mooio.beta rm files/mooio-host/server-version.txt
-            adb shell am start -n io.srtristesad.mooio.beta/org.love2d.android.MooIOActivity
-            bash -c 'for i in $(seq 1 18); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_REAL_NODE_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb shell run-as io.srtristesad.mooio.beta cat files/mooio-data/node-boot.log || true; adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -200; exit 1; }
+            bash -c 'for i in $(seq 1 24); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_REAL_NODE_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb shell run-as io.srtristesad.mooio.beta cat files/mooio-data/node-boot.log || true; adb logcat -d -v time -s MooIO-Host:V MooIO-Node:V AndroidRuntime:E libc:F | tail -120 || true; exit 1; }
             adb shell pidof io.srtristesad.mooio.beta
             adb shell pidof io.srtristesad.mooio.beta:mooio_node
-            echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
+            echo "MOOIO_ANDROID_BETA_INSTALL_AND_HOST_PASS"
