@@ -25,8 +25,11 @@ local function getStatus()
   if not host then return nil end
   return host
 end
-function Host.new()
-  return setmetatable({state="idle",code="",address="",port=8080,
+function Host.new(options)
+  options=options or {}
+  return setmetatable({
+    readStatus=options.readStatus or getStatus,
+    readSessionCode=options.readSessionCode or getSessionCode,state="idle",code="",address="",port=8080,
     hostIP="",mode="lan",elapsed=0,check=0,error=nil,progress="",lastLog=""},Host)
 end
 function Host:start(mode,requestedIP,requestedBots)
@@ -44,8 +47,8 @@ function Host:update(dt)
   self.check=self.check+(dt or 0)
   if self.check<.7 then return end
   self.check=0
-  local ip=getStatus()
-  local code=getSessionCode()
+  local ip=self.readStatus()
+  local code=self.readSessionCode()
   if ip and code then
     self.hostIP=ip
     self.code=code
