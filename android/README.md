@@ -2,6 +2,18 @@
 
 O aplicativo utiliza **LÖVE 11.5a** para o jogo em Lua e **Node.js Mobile 18.20.4** para hospedar o mesmo motor de partidas do Windows. O Android não precisa de outro jogador, PC ou VPS para criar uma sala. A hospedagem inicia em um serviço Android separado do processo gráfico e mantém seus dados no armazenamento privado.
 
+## HUD tático mobile — quatro atalhos e rankings
+
+O layout Android é original, inspirado na organização funcional de MOBAs mobile: joystick esquerdo, mira independente na direita, **quatro botões de atalhos circulares** exibindo as quatro primeiras armas/estruturas realmente desbloqueadas, e **ataque manual grande**. Esses atalhos selecionam equipamentos existentes validados pelo Node (teclas 1–4); **ainda não existem quatro novos poderes/feitiços** com tempo de recarga. Eles poderão receber habilidades quando o sistema de habilidades for definido.
+
+- **AUTO** na região do botão Flash de um MOBA: envia o mesmo comando `K(1)` da tecla **E** do Windows, alternando a coleta/ataque automático no servidor. Não simula um mouse continuamente pressionado.
+- **Ping (!) ao lado do minimapa**: envia `S(1)`, igual à tecla **R** no Windows, para sinalizar a posição atual aos aliados.
+- **MAP**: abre o mapa completo; toque num ponto para enviar `U(x,y)` aos aliados. O servidor valida coordenadas e cooldown.
+- **TOP10**: abre um ranking com abas **OURO, VIDA, COMIDA, MADEIRA, PEDRA, ABATES e PONTOS**. As classificações vêm exclusivamente do servidor (pacote de pedido `Y`, resposta `n`), até dez jogadores por categoria e ocultação de identidades anônimas.
+- A área sob o minimapa mostra **vida, ouro, comida, madeira, pedra e abates** obtidos das mensagens reais do jogo.
+
+O APK com servidor integrado precisa ser gerado pela Action **Moo IO Android autonomo - APK com servidor**. O workflow recompila o servidor Node a partir dos módulos atuais antes de incorporá-lo ao APK; evita Top 10 antigo/ausente em salas hospedadas no próprio Android.
+
 ## Modo solo e multiplayer
 
 1. Instale o `Moo-IO-Android-Servidor-Integrado.apk` gerado pela action **Moo IO Android autonomo - APK com servidor**.
