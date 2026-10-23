@@ -1,6 +1,6 @@
--- Moo-IO touchscreen HUD: fixed regions, pointer ownership and original game icons.
--- Left joystick moves; ATACAR is the second joystick for aiming.
--- Hold ATACAR to hit, drag that SAME finger to choose attack direction.
+-- Moo-IO Android: two independent FLOATING joysticks and a compact survival HUD.
+-- Left touch moves; right touch simultaneously aims and attacks. No MOBA skill cluster.
+-- Buttons remain server-authoritative and never create imaginary abilities.
 local Slots=require("src.mobile.slots")
 local Catalog=require("src.game.catalog")
 local Icons=require("src.game.reference_icons")
@@ -25,54 +25,61 @@ local function fonts()
 end
 function M.new()
  return setmetatable({moveId=nil,fireId=nil,moveX=0,moveY=0,
-   moveOrigin=nil,aimDir=0,fireOffsetX=0,fireOffsetY=0,
+   moveOrigin=nil,fireOrigin=nil,aimDir=0,fireOffsetX=0,fireOffsetY=0,
+   uiScale=1.20,uiOpacity=.90,
    auto=false,rankOpen=false,mapOpen=false,
    rankRefresh=0,rankingCategory="gold",page=1,lastPoint=nil,
    cachedW=0,cachedH=0,cachedLayout=nil},M)
 end
 function M:reset()
  self.moveId=nil;self.fireId=nil
- self.moveX=0;self.moveY=0;self.moveOrigin=nil
+ self.moveX=0;self.moveY=0;self.moveOrigin=nil;self.fireOrigin=nil
  self.fireOffsetX=0;self.fireOffsetY=0
  self.mapOpen=false;self.rankOpen=false;self.rankRefresh=0;self.auto=false
 end
 function M:stopForOverlay()
  self.moveId=nil;self.fireId=nil
- self.moveOrigin=nil;self.moveX=0;self.moveY=0
+ self.moveOrigin=nil;self.fireOrigin=nil;self.moveX=0;self.moveY=0
  self.fireOffsetX=0;self.fireOffsetY=0
+end
+function M:configure(size,opacity)
+ local nextSize=clamp(tonumber(size) or 1.20,.85,1.55)
+ local nextOpacity=clamp(tonumber(opacity) or .90,.50,1)
+ if self.uiScale~=nextSize then self.cachedLayout=nil end
+ self.uiScale=nextSize;self.uiOpacity=nextOpacity
 end
 function M:layout(w,h)
  if self.cachedW==w and self.cachedH==h and self.cachedLayout then
    return self.cachedLayout
  end
- local u=clamp(min(w/1280,h/720),.52,1.8)
+ local u=clamp(min(w/1280,h/720)*self.uiScale,.50,2.15)
  local board=min(h*.78,w*.58)
  local panelW=min(w*.76,735*u)
  local panelH=min(h*.82,555*u)
- -- Left thumb moves. The ATACAR circle controls both direction and hits.
- -- The strip for slots 5+ sits BETWEEN the two thumb joysticks.
+ -- Items 1-4 live in a simple horizontal hotbar, not a MOBA skill wheel.
+ -- Both large joysticks appear at the point where the thumbs first touch.
  local stripX=w*.50
- local skills={
-   {x=w-279*u,y=h-104*u,r=35*u},
-   {x=w-342*u,y=h-191*u,r=35*u},
-   {x=w-261*u,y=h-276*u,r=35*u},
-   {x=w-143*u,y=h-315*u,r=35*u}
- }
- local l={u=u,move={x=137*u,y=h-137*u,r=77*u},
-   fire={x=w-108*u,y=h-125*u,r=64*u},
-   auto={x=w-155*u,y=h-223*u,r=36*u},
-   skills=skills,chat={x=w-276*u,y=49*u,r=37*u},
-   rank={x=w-155*u,y=49*u,r=35*u},
-   pause={x=w-48*u,y=49*u,r=30*u},
-   ping={x=220*u,y=77*u,r=30*u},
-   mark={x=220*u,y=158*u,r=30*u},
+ local skills={}
+ for i=1,4 do
+   skills[i]={x=stripX+(i-2.5)*72*u,y=h-148*u,r=37*u}
+ end
+ local l={u=u,move={x=142*u,y=h-128*u,r=86*u},
+   fire={x=w-135*u,y=h-132*u,r=86*u},
+   auto={x=w-86*u,y=h-305*u,r=39*u},
+   skills=skills,shop={x=w-480*u,y=49*u,r=40*u},
+   clan={x=w-380*u,y=49*u,r=40*u},
+   chat={x=w-280*u,y=49*u,r=40*u},
+   rank={x=w-180*u,y=49*u,r=40*u},
+   pause={x=w-65*u,y=49*u,r=39*u},
+   ping={x=235*u,y=85*u,r=37*u},
+   mark={x=235*u,y=181*u,r=37*u},
    minimap={x=21*u,y=20*u,w=167*u,h=167*u},
    bigmap={x=(w-board)/2,y=(h-board)/2,w=board,h=board},
    close={x=w-52*u,y=45*u,r=30*u},
    rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
-   strip={x=stripX,y=h-48*u,r=28*u,step=60*u},
-   stripPrev={x=stripX-181*u,y=h-47*u,r=23*u},
-   stripNext={x=stripX+181*u,y=h-47*u,r=23*u},
+   strip={x=stripX,y=h-51*u,r=30*u,step=65*u},
+   stripPrev={x=stripX-194*u,y=h-50*u,r=27*u},
+   stripNext={x=stripX+194*u,y=h-50*u,r=27*u},
    chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
    chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
    chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
@@ -88,7 +95,8 @@ function M:attacking()return self.fireId~=nil end
 -- Use the same captured attack pointer for targeting. It keeps control even
 -- after the finger leaves the button's visual boundary.
 function M:attackJoystick(x,y,l)
- local dx,dy=x-l.fire.x,y-l.fire.y
+ local origin=self.fireOrigin or l.fire
+ local dx,dy=x-origin.x,y-origin.y
  local distance=sqrt(dx*dx+dy*dy)
  if distance<=12*l.u then
    self.fireOffsetX=0;self.fireOffsetY=0
@@ -135,6 +143,8 @@ function M:pressed(id,x,y,w,h,scale,total)
    return nil
  end
  if near(x,y,l.pause) then return "pause" end
+ if near(x,y,l.shop) then self:stopForOverlay();return "shop_open" end
+ if near(x,y,l.clan) then self:stopForOverlay();return "clan_open" end
  if near(x,y,l.chat) then self:stopForOverlay();return "chat_open" end
  if near(x,y,l.rank) then
    self:stopForOverlay();self.rankOpen=true
@@ -163,27 +173,23 @@ function M:pressed(id,x,y,w,h,scale,total)
      if near(x,y,slot) then return "slot",first+i-1 end
    end
  end
- -- ATACAR serves as a directional attack joystick, not a static button.
- if near(x,y,l.fire) then
-   if self.fireId==nil then
-     self.fireId=id
-     self:attackJoystick(x,y,l)
-     return "attack"
-   end
-   return nil
- end
  if near(x,y,l.auto) then self.auto=not self.auto;return "server_auto",self.auto end
  for i,p in ipairs(l.skills) do
    if near(x,y,p) then return "skill",i end
  end
- -- A left thumb remains captured even if it crosses the screen.
+ -- Floating left movement: any open place in the lower-left touch zone.
  if x<w*.35 and y>h*.38 and self.moveId==nil then
    self.moveId=id;self.moveOrigin={x=x,y=y}
    self:joystick(x,y,l)
    return "move"
  end
- -- No invisible separate right-side aiming joystick.
- -- Aiming works ONLY while holding the ATACAR button.
+ -- Floating ATTACK+MIRA: finger down starts firing at its current position;
+ -- drag controls facing direction, and release ends the attack.
+ if x>w*.68 and y>h*.38 and self.fireId==nil then
+   self.fireId=id;self.fireOrigin={x=x,y=y}
+   self:attackJoystick(x,y,l)
+   return "attack"
+ end
  return nil
 end
 function M:moved(id,x,y,w,h)
@@ -202,7 +208,7 @@ function M:released(id)
    self.moveId=nil;self.moveOrigin=nil;self.moveX=0;self.moveY=0;return "move"
  end
  if self.fireId==id then
-   self.fireId=nil
+   self.fireId=nil;self.fireOrigin=nil
    self.fireOffsetX=0;self.fireOffsetY=0
    return "attack"
  end
@@ -239,6 +245,15 @@ local function glyph(g,kind,p,u,active)
    g.setColor(1,.86,.44,1)
    g.rectangle("fill",-20,10,40,6,2,2)
    g.rectangle("fill",-3,15,6,14,2,2)
+ elseif kind=="shop" then
+   g.setColor(.95,.83,.44,1)
+   g.rectangle("line",-18,-17,36,33,3,3)
+   g.line(-21,-17,-12,-26,12,-26,21,-17)
+   g.line(-4,-17,-4,16);g.line(5,-17,5,16)
+ elseif kind=="clan" then
+   g.setColor(.66,.9,.73,1)
+   g.polygon("line",0,-24,20,-14,17,14,0,24,-17,14,-20,-14)
+   g.line(-11,0,11,0);g.line(0,-12,0,13)
  elseif kind=="auto" then
    g.setColor(active and .91 or .67,active and .9 or .82,.48,1)
    g.arc("line","open",0,0,18,-.3,math.pi*1.37)
@@ -390,33 +405,35 @@ function M:draw(world,scale)
  map(g,world,l.minimap,scale)
  ring(g,l.ping,false,true);glyph(g,"ping",l.ping,u)
  ring(g,l.mark,false,false);glyph(g,"map",l.mark,u)
+ ring(g,l.shop,false,true);glyph(g,"shop",l.shop,u)
+ ring(g,l.clan,false,false);glyph(g,"clan",l.clan,u)
  ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
  ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
  ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
- ring(g,l.move,self.moveId~=nil,false)
- local x=self.moveOrigin and self.moveOrigin.x or l.move.x
- local y=self.moveOrigin and self.moveOrigin.y or l.move.y
- g.setColor(.67,.94,.79,.93)
- g.circle("fill",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,26*u)
- g.setColor(.12,.31,.23,1)
- g.circle("line",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,25*u)
- ring(g,l.fire,self:attacking(),true)
- if self:attacking() then
-   local px=l.fire.x+self.fireOffsetX
-   local py=l.fire.y+self.fireOffsetY
+ -- No anchored joystick circles: bases are created at the finger-down points.
+ if self.moveOrigin then
+   local base={x=self.moveOrigin.x,y=self.moveOrigin.y,r=l.move.r}
+   ring(g,base,true,false)
+   local x=base.x+self.moveX*l.move.r*.48
+   local y=base.y+self.moveY*l.move.r*.48
+   g.setColor(.67,.94,.79,self.uiOpacity)
+   g.circle("fill",x,y,27*u)
+   g.setColor(.12,.31,.23,1);g.circle("line",x,y,26*u)
+ end
+ if self.fireOrigin then
+   local base={x=self.fireOrigin.x,y=self.fireOrigin.y,r=l.fire.r}
+   ring(g,base,true,true)
+   local px=base.x+self.fireOffsetX
+   local py=base.y+self.fireOffsetY
    if self.fireOffsetX~=0 or self.fireOffsetY~=0 then
-     g.setColor(.95,.80,.40,.56)
-     g.setLineWidth(4*u)
-     g.line(l.fire.x,l.fire.y,px,py)
+     g.setColor(.95,.80,.40,.56*self.uiOpacity)
+     g.setLineWidth(4*u);g.line(base.x,base.y,px,py)
    end
-   g.setColor(.89,.74,.41,.95)
-   g.circle("fill",px,py,23*u)
-   g.setColor(.16,.28,.21,1)
-   g.setLineWidth(2*u)
-   g.circle("line",px,py,23*u)
+   g.setColor(.89,.74,.41,self.uiOpacity)
+   g.circle("fill",px,py,26*u)
+   g.setColor(.16,.28,.21,1);g.setLineWidth(2*u)
+   g.circle("line",px,py,26*u)
    glyph(g,"attack",{x=px,y=py},u*.66,true)
- else
-   glyph(g,"attack",l.fire,u,false)
  end
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
  -- The first four are the exact first four quick slots, not fake cooldown skills.
