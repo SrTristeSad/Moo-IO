@@ -30,11 +30,18 @@ end
 -- render loop. Fail closed rather than displaying a fake ready/hosting state.
 local function controlServer(action)
   if action~="start" and action~="stop" then return false end
+  local f=io.open("/data/user/0/io.srtristesad.mooio.beta/files/mooio-control-token.txt","rb")
+  if not f then return false end
+  local token=f:read("*a");f:close()
+  if type(token)~="string" or #token~=48 or token:find("[^%x]") then
+    return false
+  end
   local ok,http=pcall(require,"socket.http")
   if not ok then return false end
   local previous=http.TIMEOUT
   http.TIMEOUT=.75
-  local call,body,status=pcall(http.request,"http://127.0.0.1:8082/"..action)
+  local call,body,status=pcall(http.request,
+    "http://127.0.0.1:8082/"..action.."/"..token)
   http.TIMEOUT=previous
   return call and status==200 and
     type(body)=="string" and
