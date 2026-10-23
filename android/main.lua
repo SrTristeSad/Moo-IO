@@ -47,6 +47,26 @@ local previewAge=2
 local menu=Menu.new()
 local home=Home.new()
 local hosted=Host.new()
+local function saveHudSettings()
+  if mobile then mobile:configure(home.hudScale,home.hudOpacity) end
+  if love.filesystem then
+    love.filesystem.write("mooio-hud-v1.cfg",
+      string.format("%.2f %.2f",home.hudScale,home.hudOpacity))
+  end
+end
+local function loadHudSettings()
+  if love.filesystem then
+    local content=love.filesystem.read("mooio-hud-v1.cfg")
+    if type(content)=="string" then
+      local size,opacity=content:match("^(%d+%.?%d*)%s+(%d+%.?%d*)$")
+      if size and opacity then
+        home.hudScale=math.max(.85,math.min(1.55,tonumber(size)))
+        home.hudOpacity=math.max(.50,math.min(1,tonumber(opacity)))
+      end
+    end
+  end
+  if mobile then mobile:configure(home.hudScale,home.hudOpacity) end
+end
 local pause=Pause.new()
 local sessionIsHost=false
 local allowQuit=false
@@ -106,6 +126,7 @@ local function backspaceUtf8(text)
 end
 
 function love.load()
+  loadHudSettings()
   love.graphics.setDefaultFilter("linear","linear")
   camera=Camera.new()
   menuCamera=Camera.new()
@@ -444,7 +465,7 @@ function love.draw()
     local state=client and client.state or "idle"
     home:draw(state,client and (client.error or client.status) or "",true)
     if home.roomOverlay then home:drawRoomOverlay() end
-    if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite()) end
+    if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite(),home.hudScale,home.hudOpacity) end
     return
   end
   if client and client.state=="spawn_confirmed" and not died
@@ -456,7 +477,7 @@ function love.draw()
        localAim=View.localAim(lockDir,currentAttackDir(),lastAim)})
     Hud.draw(world,chatOpen,chatDraft,
       chatOpen or panels:isOpen() or clans:isOpen() or profile:isOpen())
-    panels:draw(world)
+    panels:draw(world,not mobile)
     if mobile and not pause:isOpen() and not panels:isOpen()
       and not clans:isOpen() and not profile:isOpen() then
       if chatOpen then
@@ -465,7 +486,7 @@ function love.draw()
         mobile:draw(world,Config.mapScale)
       end
     end
-    -- Keep permanent clans internal; no separate Clan button in gameplay HUD.
+    -- Permanent clans are accessible via the dedicated Android CLAN icon.
     clans:draw(false)
     Notices.draw(world,w,h)
     profile:draw(world)
@@ -476,7 +497,7 @@ function love.draw()
       love.event.quit(0)
     end
     if pause:isOpen() then
-      pause:draw(home.showGrid,home.fullscreen,home:roomInvite())
+      pause:draw(home.showGrid,home.fullscreen,home:roomInvite(),home.hudScale,home.hudOpacity)
       return
     end
     -- Only show missing PNG diagnostics on explicit developer opt-in.
@@ -505,7 +526,7 @@ function love.draw()
   love.graphics.printf("Carregando mundo e jogadores...",0,h/2-20,w,"center")
   love.graphics.setColor(0.68,0.75,0.73)
   love.graphics.printf(client and client.status or "Aguardando servidor...",40,h/2+26,w-80,"center")
-  if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite()) end
+  if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite(),home.hudScale,home.hudOpacity) end
 end
 
 local menuAction
@@ -702,6 +723,9 @@ homeAction=function(action)
   elseif action=="fullscreen" then
     local ok,err=love.window.setFullscreen(home.fullscreen)
     if not ok then home:setStatus(tostring(err),true) end
+  elseif action=="hud_changed" then
+    saveHudSettings()
+    home:setStatus("HUD atualizado. Tamanho e opacidade salvos no aparelho.")
   end
 end
 
@@ -780,6 +804,15 @@ local function pauseAction(action)
     home.fullscreen=not home.fullscreen
     local ok,err=love.window.setFullscreen(home.fullscreen)
     if not ok then home.fullscreen=not home.fullscreen;home:setStatus(tostring(err),true) end
+  elseif action=="hud_smaller" or action=="hud_bigger"
+    or action=="opacity_less" or action=="opacity_more" then
+    if action=="hud_smaller" then home.hudScale=math.max(.85,home.hudScale-.10)
+    elseif action=="hud_bigger" then home.hudScale=math.min(1.55,home.hudScale+.10)
+    elseif action=="opacity_less" then home.hudOpacity=math.max(.50,home.hudOpacity-.10)
+    elseif action=="opacity_more" then home.hudOpacity=math.min(1,home.hudOpacity+.10) end
+    home.hudScale=math.floor(home.hudScale*100+.5)/100
+    home.hudOpacity=math.floor(home.hudOpacity*100+.5)/100
+    saveHudSettings()
   elseif action=="copy_invite" then
     local invite=home:roomInvite()
     if pause.owner and hosted.state=="ready" and invite~="" then
@@ -1105,6 +1138,18 @@ local function mobileSelect(kind,slot)
 end
 local function mobileAction(action,payload)
   if action=="pause" then love.keypressed("escape");return end
+  if action=="shop_open" or action=="clan_open" then
+    mobileStop()
+    if client and client.state=="spawn_confirmed" then
+      chatOpen=false;chatDraft="";input.keys={}
+      if action=="shop_open" then
+        clans:close();panels:toggle("store")
+      else
+        panels:close();clans:toggle(client.authToken)
+      end
+    end
+    return
+  end
   if action=="map_open" or action=="chat_open" or action=="rank_open" then
     mobileStop()
     if mobile.auto and client and client.state=="spawn_confirmed" then
