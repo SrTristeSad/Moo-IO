@@ -932,7 +932,11 @@ function love.keypressed(key)
       openProfile(world.sid)
       return
     end
-    if key=="e" then client:send("K",{1});return end
+    if key=="e" then
+      local ok=client:send("K",{1})
+      if ok and mobile then mobile.auto=not mobile.auto end
+      return
+    end
     if key=="x" then
       local ok=client:send("K",{0})
       if ok then lockDir=not lockDir end
@@ -1199,7 +1203,7 @@ local function mobileAction(action,payload)
       latestEvent="Ataque automatico indisponivel: "..tostring(err)
     end
   elseif action=="skill" then
-    -- The first four use the same mapping as the middle strip.
+    -- Legacy action only; the current dynamic hotbar uses "slot" for all items.
     local itemId,isWeapon=require("src.mobile.slots").at(world,payload)
     if itemId~=nil then
       client:send("z",{itemId,isWeapon})
