@@ -1,7 +1,7 @@
 name: Moo IO Android autonomo - APK com servidor
 on:
   push:
-    branches: [feature/android-offline-host, feature/android-moba-hud, feature/android-attack-aim-joystick, main]
+    branches: [feature/android-offline-host, feature/android-moba-hud, feature/android-attack-aim-joystick, fix/android-beta-install-real-hud, main]
     paths:
       - "android/**"
       - "windows/server/src/**"
@@ -39,10 +39,10 @@ jobs:
           git -C "$RUNNER_TEMP/love-android" rev-parse HEAD | grep -qi '^55feb38'
           engine="$RUNNER_TEMP/love-android"
           sed -i '/^app.name_byte_array=/d' "$engine/gradle.properties"
-          sed -i 's/^#app.name=.*/app.name=Moo IO/' "$engine/gradle.properties"
-          sed -i 's/^app.application_id=.*/app.application_id=io.srtristesad.mooio/' "$engine/gradle.properties"
-          sed -i 's/^app.version_code=.*/app.version_code=2/' "$engine/gradle.properties"
-          sed -i 's/^app.version_name=.*/app.version_name=0.2.0-android-host/' "$engine/gradle.properties"
+          sed -i 's/^#app.name=.*/app.name=Moo IO Beta/' "$engine/gradle.properties"
+          sed -i 's/^app.application_id=.*/app.application_id=io.srtristesad.mooio.beta/' "$engine/gradle.properties"
+          sed -i 's/^app.version_code=.*/app.version_code=3/' "$engine/gradle.properties"
+          sed -i 's/^app.version_name=.*/app.version_name=0.3.0-beta/' "$engine/gradle.properties"
           sed -i 's/^app.orientation=.*/app.orientation=landscape/' "$engine/gradle.properties"
           game="$engine/app/src/embed/assets"
           mkdir -p "$game"
@@ -110,6 +110,44 @@ jobs:
           mkdir -p "$RUNNER_TEMP/love-android/app/src/main/assets"
           cp "$RUNNER_TEMP/mooio-server.zip" "$RUNNER_TEMP/love-android/app/src/main/assets/mooio-server.zip"
           unzip -tq "$RUNNER_TEMP/mooio-server.zip"
+      - name: Stable beta signing when GitHub secrets are configured
+        shell: bash
+        env:
+          MOOIO_BETA_KEYSTORE_B64: ${{ secrets.MOOIO_BETA_KEYSTORE_B64 }}
+          MOOIO_BETA_STORE_PASS: ${{ secrets.MOOIO_BETA_STORE_PASS }}
+          MOOIO_BETA_KEY_ALIAS: ${{ secrets.MOOIO_BETA_KEY_ALIAS }}
+          MOOIO_BETA_KEY_PASS: ${{ secrets.MOOIO_BETA_KEY_PASS }}
+        run: |
+          set -euo pipefail
+          if [ -n "${MOOIO_BETA_KEYSTORE_B64}" ]; then
+            test -n "${MOOIO_BETA_STORE_PASS}"
+            test -n "${MOOIO_BETA_KEY_ALIAS}"
+            test -n "${MOOIO_BETA_KEY_PASS}"
+            printf '%s' "${MOOIO_BETA_KEYSTORE_B64}" | base64 --decode > "$RUNNER_TEMP/mooio-beta.jks"
+            chmod 600 "$RUNNER_TEMP/mooio-beta.jks"
+            echo "MOOIO_BETA_KEYSTORE_PATH=$RUNNER_TEMP/mooio-beta.jks" >> "$GITHUB_ENV"
+            echo "MOOIO_BETA_STORE_PASSWORD=$MOOIO_BETA_STORE_PASS" >> "$GITHUB_ENV"
+            echo "MOOIO_BETA_ALIAS=$MOOIO_BETA_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "MOOIO_BETA_KEY_PASSWORD=$MOOIO_BETA_KEY_PASS" >> "$GITHUB_ENV"
+            cat >> "$RUNNER_TEMP/love-android/app/build.gradle" <<'GRADLE'
+          android {
+              signingConfigs {
+                  mooioBeta {
+                      storeFile file(System.getenv('MOOIO_BETA_KEYSTORE_PATH'))
+                      storePassword System.getenv('MOOIO_BETA_STORE_PASSWORD')
+                      keyAlias System.getenv('MOOIO_BETA_ALIAS')
+                      keyPassword System.getenv('MOOIO_BETA_KEY_PASSWORD')
+                  }
+              }
+              buildTypes {
+                  debug { signingConfig signingConfigs.mooioBeta }
+              }
+          }
+          GRADLE
+          else
+            echo "BETA_SIGNING_EPHEMERAL: Android SDK debug cert changes per workflow."
+            echo "Beta uses separate app ID so it can be installed alongside legacy APKs."
+          fi
       - name: Compile standalone Android APK (ARM64 and emulator)
         shell: bash
         run: |
