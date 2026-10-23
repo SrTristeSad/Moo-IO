@@ -1286,8 +1286,8 @@ function love.touchmoved(id,x,y)
 end
 function love.touchreleased(id)
   if not mobile then return end
-  local action=mobile:released(id)
-  if action then mobileAction(action) end
+  local action,payload=mobile:released(id)
+  if action then mobileAction(action,payload) end
 end
 function love.quit()
   if not allowQuit and (hosted.state=="ready" or hosted.state=="starting") then
