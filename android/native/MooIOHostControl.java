@@ -4,6 +4,9 @@ import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.security.SecureRandom;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -26,9 +29,19 @@ public final class MooIOHostControl implements AutoCloseable {
     private final Thread thread;
     private volatile boolean closed = false;
     private volatile boolean roomRequested = false;
+    private final String token;
 
     public MooIOHostControl(MooIOActivity activity) throws IOException {
         this.activity = activity;
+        byte[] secret = new byte[24];
+        new SecureRandom().nextBytes(secret);
+        StringBuilder text = new StringBuilder(secret.length * 2);
+        for (byte b : secret) text.append(String.format(java.util.Locale.US, "%02x", b & 255));
+        token = text.toString();
+        try (FileOutputStream output = new FileOutputStream(
+                new File(activity.getFilesDir(), "mooio-control-token.txt"))) {
+            output.write(token.getBytes(StandardCharsets.US_ASCII));
+        }
         this.listener = new ServerSocket(8082, 4, InetAddress.getByName("127.0.0.1"));
         thread = new Thread(this::serve, "MooIO-HostControl");
         thread.setDaemon(true);
@@ -44,9 +57,12 @@ public final class MooIOHostControl implements AutoCloseable {
                     new InputStreamReader(client.getInputStream(), StandardCharsets.US_ASCII));
                 String request = input.readLine();
                 if (request == null || request.length() > 256) continue;
-                String path = request.startsWith("GET /start ") ? "/start"
-                    : request.startsWith("GET /stop ") ? "/stop"
-                    : request.startsWith("GET /status ") ? "/status" : "";
+                // Secret resides in the app-private sandbox and is never
+                // exposed by the control API. Other Android apps cannot toggle
+                // our local room merely by opening loopback TCP connections.
+                String path = request.startsWith("GET /start/" + token + " ") ? "/start"
+                    : request.startsWith("GET /stop/" + token + " ") ? "/stop"
+                    : request.startsWith("GET /status/" + token + " ") ? "/status" : "";
                 int code = 200;
                 String body;
                 if ("/start".equals(path)) {
