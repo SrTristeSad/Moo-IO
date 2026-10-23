@@ -56,12 +56,12 @@ public final class MooIOServerService extends android.app.Service {
                 unpack("mooio-server.zip",root);
                 write(version,revision);
             }
-            String code=getPreferences(MODE_PRIVATE).getString("room_code","");
+            String code=getSharedPreferences("mooio_host",MODE_PRIVATE).getString("room_code","");
             if(code.length()<8) {
                 byte[] random=new byte[16];
                 new SecureRandom().nextBytes(random);
                 code=Base64.getUrlEncoder().withoutPadding().encodeToString(random).replace("_","-");
-                getPreferences(MODE_PRIVATE).edit().putString("room_code",code).apply();
+                getSharedPreferences("mooio_host",MODE_PRIVATE).edit().putString("room_code",code).apply();
             }
             write(new File(root,"room-code.txt"),code);
             String ip=localIPv4();
