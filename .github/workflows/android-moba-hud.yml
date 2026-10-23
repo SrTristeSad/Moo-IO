@@ -34,6 +34,7 @@ jobs:
           lua tests/touch_controls_test.lua
           lua tests/category_rankings_test.lua
           lua tests/android_host_test.lua
+          lua tests/android_home_bot_test.lua
       - name: Node authoritative categories, cross-platform packets
         working-directory: windows
         run: |
