@@ -8,6 +8,38 @@ local l=m:layout(w,h)
 assert(l==m:layout(w,h),"layout should reuse cached geometry on every move/draw")
 assert(l~=m:layout(1365,h),"must invalidate layout after resize")
 l=m:layout(w,h)
+-- Larger button artwork and touch regions must match, with space between them.
+local function layoutNonOverlap(w,h)
+  local x=m:layout(w,h)
+  local rects={{"move",x.move},{"attack",x.fire},{"auto",x.auto},
+    {"ping",x.ping},{"map",x.mark},{"chat",x.chat},
+    {"rank",x.rank},{"pause",x.pause}}
+  for i,p in ipairs(x.skills) do rects[#rects+1]={"skill"..i,p} end
+  for i=1,5 do
+    rects[#rects+1]={"slot"..i,{
+      x=x.strip.x+(i-3)*x.strip.step,y=x.strip.y,r=x.strip.r}}
+  end
+  rects[#rects+1]={"prev",x.stripPrev}
+  rects[#rects+1]={"next",x.stripNext}
+  for i,a in ipairs(rects) do
+    local pa=a[2]
+    assert(pa.x-pa.r>=0 and pa.x+pa.r<=w and pa.y-pa.r>=0 and pa.y+pa.r<=h,
+      a[1].." clipped on "..w.."x"..h)
+    for j=i+1,#rects do
+      local b=rects[j]
+      local pb=b[2]
+      local dx,dy=pa.x-pb.x,pa.y-pb.y
+      assert(dx*dx+dy*dy>=(pa.r+pb.r)^2,
+        a[1].." overlaps "..b[1].." on "..w.."x"..h)
+    end
+  end
+end
+assert(l.fire.r>=78 and l.move.r>=96 and l.skills[1].r>=44
+  and l.strip.r>=34,"controls must be enlarged for mobile")
+for _,resolution in ipairs({{1280,720},{1920,1080},{960,540},{800,360},{640,360},{2400,1080}}) do
+  layoutNonOverlap(resolution[1],resolution[2])
+end
+l=m:layout(w,h)
 assert(not l.run and not l.bag and not l.gather and not l.build,"no generic extra buttons")
 local world={inventory={weapons={0,1,3},items={0,3,6,10,13,15,19}}}
 eq(Slots.total(world),10)
