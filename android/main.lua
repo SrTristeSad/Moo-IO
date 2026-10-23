@@ -96,6 +96,7 @@ local latestEvent="Nenhum io-init recebido."
 local startupError=nil
 local input=Input.new()
 local movementClock=0
+local mobileAbilitySentAt=nil
 local lastMove=false
 local lastAim=nil
 local playerX,playerY=nil,nil
