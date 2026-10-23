@@ -69,9 +69,12 @@ public final class MooIOServerService extends android.app.Service {
             if(!data.exists()&&!data.mkdirs())throw new IOException("Cannot create data dir");
             File entry=new File(root,"server/src/offline.mjs");
             File version=new File(root,"server-version.txt");
-            String revision="v"+getPackageManager().getPackageInfo(getPackageName(),0).versionCode;
+            // The APK versionCode is NOT a reliable server revision: test APKs
+            // frequently reuse it. Hash the bundled payload before deciding to skip.
+            String revision=assetSha256("mooio-server.zip");
             if(!entry.isFile()||!version.isFile()||!revision.equals(read(version).trim())) {
                 unpack("mooio-server.zip",root);
+                if(!entry.isFile()) throw new IOException("Server entry missing after extraction");
                 write(version,revision);
             }
             String code=getSharedPreferences("mooio_host",MODE_PRIVATE).getString("room_code","");
@@ -115,6 +118,17 @@ public final class MooIOServerService extends android.app.Service {
         for(String ip:candidates)if(ip.startsWith("10."))return ip;
         for(String ip:candidates)if(ip.startsWith("172."))return ip;
         return "127.0.0.1"; // no network = standalone solo
+    }
+    private String assetSha256(String name)throws Exception {
+        java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");
+        try(InputStream input=getAssets().open(name)){
+            byte[] buf=new byte[16384]; int n;
+            while((n=input.read(buf))!=-1)digest.update(buf,0,n);
+        }
+        StringBuilder hex=new StringBuilder(64);
+        for(byte b:digest.digest())
+            hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
+        return hex.toString();
     }
     private static String read(File f)throws IOException{
         ByteArrayOutputStream buffer=new ByteArrayOutputStream();
