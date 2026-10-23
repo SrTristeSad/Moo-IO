@@ -31,11 +31,13 @@ e contém o identificador correto.
 limpa, obtenha a mensagem do instalador ou o resultado de `adb install` para
 distinguir arquitetura, versão Android e falta de espaço.
 
-## HUD tático mobile — quatro atalhos e rankings
+## HUD de sobrevivência — joysticks flutuantes
 
-O layout Android é original, inspirado na organização funcional de MOBAs mobile: joystick esquerdo, mira independente na direita, **quatro botões de atalhos circulares** exibindo as quatro primeiras armas/estruturas realmente desbloqueadas, e **ataque manual grande**. Esses atalhos selecionam equipamentos existentes validados pelo Node (teclas 1–4); **ainda não existem quatro novos poderes/feitiços** com tempo de recarga. Eles poderão receber habilidades quando o sistema de habilidades for definido.
+O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; o toque à direita inicia ataque e mira no mesmo dedo. Os quatro primeiros equipamentos aparecem em uma barra horizontal, sem habilidades falsas.
 
-- **AUTO** na região do botão Flash de um MOBA: envia o mesmo comando `K(1)` da tecla **E** do Windows, alternando a coleta/ataque automático no servidor. Não simula um mouse continuamente pressionado.
+Os botões maiores de LOJA e CLÃ abrem os sistemas existentes de compra/equipamentos e clãs permanentes, respectivamente; os clãs de conta não são as Tribes temporárias da partida. A barra superior de recursos foi ajustada para não obstruir os novos atalhos.
+
+- **AUTO**: envia o mesmo comando de coleta/ataque automático do Windows.
 - **Ping (!) ao lado do minimapa**: envia `S(1)`, igual à tecla **R** no Windows, para sinalizar a posição atual aos aliados.
 - **MAP**: abre o mapa completo; toque num ponto para enviar `U(x,y)` aos aliados. O servidor valida coordenadas e cooldown.
 - **TOP10**: abre um ranking com abas **OURO, VIDA, COMIDA, MADEIRA, PEDRA, ABATES e PONTOS**. As classificações vêm exclusivamente do servidor (pacote de pedido `Y`, resposta `n`), até dez jogadores por categoria e ocultação de identidades anônimas.
@@ -57,7 +59,7 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 ## Modo solo e multiplayer
 
 1. Instale o `Moo-IO-Android-Beta-Instalavel.apk` gerado pela action **Moo IO Android autonomo - APK com servidor**.
-2. Abra o aplicativo, escolha **Jogar → Criar minha sala**. A interface só apresenta a sala como pronta após receber resposta real do servidor Node.
+2. Abra o aplicativo, escolha **Jogar**, selecione opcionalmente **0 a 8 bots** e pressione **Criar minha sala**. A interface só confirma a sala após resposta real do Node.
 3. Clique **Jogar agora**. Sem Wi-Fi, o servidor usa `127.0.0.1`; a partida solo não exige internet.
 4. Para receber amigos, conecte o telefone a uma rede Wi-Fi/hotspot privado e compartilhe o IP:8080 e o código da sala. Os convidados Windows ou Android escolhem **Entrar em outra sala** e digitam essas informações.
 5. Se mudar de rede, feche e abra novamente o aplicativo para atualizar o endereço do servidor. O serviço permanece ativo apenas enquanto a sala estiver explicitamente hospedada; sair da sala o encerra.
@@ -68,11 +70,12 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 
 | Controle | Função |
 |---|---|
-| Região inferior esquerda / joystick | movimento 360°; um dedo capturado nunca vira ataque |
-| ATACAR — segurar e arrastar | **o próprio botão é o joystick de mira e ataque**: mantém o ataque enquanto o dedo está pressionado e aponta os golpes para onde o dedo arrasta; soltar para de atacar |
-| Região direita fora de ATACAR | não ativa mira separada; use o botão ATACAR para controlar a direção dos golpes |
-| Quatro botões à direita | seleção dos quatro primeiros itens/armas realmente disponíveis |
+| Parte inferior esquerda (livre) | o joystick de movimento surge onde o dedo toca; arraste para mover |
+| Parte inferior direita (livre) | o joystick de ataque e mira surge onde o dedo toca; segurar ataca, arrastar mira e soltar interrompe |
+| Quatro atalhos em barra horizontal | selecionam os quatro primeiros itens/armas reais do servidor |
 | Faixa central inferior | itens a partir do quinto, em páginas de até cinco com setas |
+| LOJA | abre o Shop real do servidor, com compras e equipamentos |
+| CLÃ | abre a interface de clãs permanentes da conta |
 | AUTO | alterna o comando original da tecla **E** do PC |
 | CHAT | abre entrada de texto Android, teclado, ENVIAR e X para fechar |
 | ! | ping rápido da posição, como R no PC |
@@ -84,8 +87,8 @@ Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removi
 
 ### Ajustes de estabilidade
 
-- Layout dos controles calculado uma vez por resolução e reutilizado durante desenho/movimento.
-- Toques independentes por identificador: polegar esquerdo movimenta o personagem e o botão ATACAR, pressionado com o polegar direito, também direciona a mira. O ataque continua mesmo se esse dedo ultrapassar o limite visual do botão; soltar interrompe o golpe. Não existe segundo joystick de mira invisível.
+- Layout dos controles calculado pela resolução e pelos ajustes individuais, reutilizado durante desenho e movimento.
+- Toques independentes por identificador, com origem flutuante para cada polegar. Um dedo não assume o controle do outro; manter o ataque enquanto desliza controla a mira, e soltá-lo termina o ataque.
 - Renderização de estruturas otimizada com classificação por camadas reaproveitável, preservando a ordem original.
 - Prévia de fundo do menu Android desenhada em resolução reduzida e atualizada com menor frequência.
 - Intervalos de animação visual limitados após engasgos, sem alterar o tempo de rede do servidor.
@@ -95,10 +98,18 @@ Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removi
 
 A marcação por coordenada utiliza o pacote `U`, com validação de limites e cooldown no servidor. Versões Android e Windows devem utilizar protocolo compatível.
 
+## Ajustar tamanho e comportamento dos botões
+
+Em **Configurações**, altere o tamanho geral e a opacidade do HUD. Toque em **Ajustar joysticks** para mudar individualmente o tamanho do movimento, o tamanho do ataque+mira e a zona morta. Em **Pausa → Configurações** também é possível alterar tamanho geral e opacidade. Todas as escolhas são salvas no armazenamento privado do app e restauradas ao abri-lo novamente.
+
+## Bots reais no Android
+
+A criação de sala passa a quantidade de bots selecionada (0–8) para o processo Node por meio de um endpoint privado de loopback protegido por token. O servidor recebe essa quantidade na variável de ambiente MOO_IO_BOT_COUNT, informa a quantidade efetiva no endpoint de status e o cliente recusa marcar a sala como pronta se houver divergência. Para trocar a quantidade, encerre a sala e crie outra. O cliente não inventa personagens.
+
 ## Build e testes
 
 - [APK autônomo](../.github/workflows/android-host-apk.yml): LÖVE + Node.js Mobile, bibliotecas nativas ARM64/x86_64 e servidor completo no APK.
-- [Emulador Android](../.github/workflows/android-host-emulator.yml): primeiro testa Node mínimo e depois o servidor Moo-IO real; verifica resposta do controlador e presença dos dois processos Android.
+- [Emulador do APK atual](../.github/workflows/android-host-apk.yml): instala o artefato do mesmo commit, testa 0 e 5 bots e confirma a parada do processo Node.
 - [Testes de hospedagem Lua](../.github/workflows/android-host-tests.yml): não confirma a sala antes da resposta efetiva do Node, simula falhas e timeout.
 - [Crossplay Lua/Node](../.github/workflows/game-e2e.yml): confirma conexão e jogo com o mesmo protocolo autoritativo.
 - [Windows](../.github/workflows/package-windows.yml): ZIP com servidor Node Windows pronto.
