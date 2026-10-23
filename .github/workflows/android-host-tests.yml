@@ -5,6 +5,8 @@ on:
     paths:
       - "android/src/net/mooio_host.lua"
       - "android/tests/android_host_test.lua"
+      - "android/tests/android_home_bot_test.lua"
+      - "android/src/game/mooio_home.lua"
       - ".github/workflows/android-host-tests.yml"
   workflow_dispatch:
 permissions:
@@ -23,3 +25,4 @@ jobs:
           find . -type f -name '*.lua' -print0 | xargs -0 -n1 luac -p
           lua tests/android_host_test.lua
           lua tests/touch_controls_test.lua
+          lua tests/android_home_bot_test.lua
