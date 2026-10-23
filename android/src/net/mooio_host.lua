@@ -16,7 +16,9 @@ local function getStatus()
   local ok,http=pcall(require,"socket.http")
   if not ok then return nil end
   local old=http.TIMEOUT
-  http.TIMEOUT=0.4
+  -- The host-status request runs on the UI thread during room startup.
+  -- Keep its loopback timeout short to avoid 400-ms input freezes.
+  http.TIMEOUT=0.12
   local call,body,status=pcall(http.request,"http://127.0.0.1:8081/status")
   http.TIMEOUT=old
   if not call or status~=200 or type(body)~="string" then return nil end
