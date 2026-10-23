@@ -1,5 +1,5 @@
 -- Shared mapping of server-owned weapon/item IDs onto mobile buttons.
--- Weapons and consumables share one paginated, dynamically centered bottom hotbar.
+-- The options actually unlocked on the server share one continuous bottom row.
 -- Neither this module nor the client grants ownership or creates items.
 local S={}
 function S.list(world)
@@ -31,8 +31,4 @@ function S.total(world)
   local inv=world and world.inventory or {}
   return #(inv.weapons or {})+#(inv.items or {})
 end
-function S.pages(world,perPage)
-  perPage=perPage or 6
-  return math.max(1,math.ceil(S.total(world)/perPage))
-end
-return S
+ return S
