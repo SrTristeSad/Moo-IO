@@ -19,7 +19,7 @@ jobs:
         with:
           name: Moo-IO-Android-Servidor-Integrado
           repository: SrTristeSad/Moo-IO
-          run-id: 39886536819
+          run-id: 39887279666
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: dist
       - name: Liberar KVM
