@@ -290,7 +290,7 @@ if (process.env.MOO_IO_GUI_HOST === "1") {
         res.setHeader("cache-control", "no-store");
         if (req.url === "/status" && req.method === "GET") {
             res.writeHead(200);
-            return res.end(JSON.stringify({project:"Moo-IO",mode:NETWORK_MODE,host:HOST}));
+            return res.end(JSON.stringify({project:"Moo-IO",mode:NETWORK_MODE,host:HOST,bots:BOT_COUNT}));
         }
         if (req.url === "/shutdown" && req.method === "POST" &&
             equalRoomCode(ROOM_CODE,req.headers["x-mooio-code"])) {
