@@ -107,6 +107,13 @@ Em **Configurações**, altere o tamanho geral e a opacidade do HUD. Toque em **
 
 A criação de sala passa a quantidade de bots selecionada (0–8) para o processo Node por meio de um endpoint privado de loopback protegido por token. O servidor recebe essa quantidade na variável de ambiente MOO_IO_BOT_COUNT, informa a quantidade efetiva no endpoint de status e o cliente recusa marcar a sala como pronta se houver divergência. Para trocar a quantidade, encerre a sala e crie outra. O cliente não inventa personagens.
 
+## Correções da auditoria pós-PR #8
+
+- O servidor Node embutido é atualizado por **SHA-256 do ZIP** e não mais apenas pelo versionCode do aplicativo, impedindo uso silencioso de JavaScript antigo após atualização da mesma Beta.
+- A confirmação de sala pronta exige que o status do processo Node informe também a quantidade real de bots. A resposta sem esse campo não autoriza a interface a dizer que a sala está pronta.
+- Se a solicitação de encerramento nativo falhar, o cliente mostra erro e não declara que a RAM foi liberada. Essa confirmação indica o aceite do controle nativo; a verificação de morte do processo continua coberta pelo teste de emulador.
+- Testes de regressão acrescentados para encerramento não confirmado e resposta incompleta do servidor.
+
 ## Build e testes
 
 - [APK autônomo](../.github/workflows/android-host-apk.yml): LÖVE + Node.js Mobile, bibliotecas nativas ARM64/x86_64 e servidor completo no APK.
