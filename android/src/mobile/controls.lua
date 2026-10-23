@@ -31,6 +31,7 @@ function M.new()
    rankRefresh=0,rankingCategory="gold",lastPoint=nil,
    barScroll=0,barCount=0,barTouchId=nil,barTouchX=nil,
    barTouchMoved=false,barTouchIndex=nil,
+   topCollapsed=false,abilityPulse=nil,abilityPulseAt=0,
    cachedW=0,cachedH=0,cachedLayout=nil},M)
 end
 function M:reset()
@@ -60,6 +61,10 @@ function M:configure(size,opacity,movement,attack,deadzone)
  self.uiScale=nextSize;self.uiOpacity=nextOpacity
  self.moveScale=nextMove;self.fireScale=nextFire;self.deadzone=nextDeadzone
 end
+function M:abilityFeedback(index,now)
+ self.abilityPulse=index
+ self.abilityPulseAt=tonumber(now) or 0
+end
 function M:layout(w,h)
  if self.cachedW==w and self.cachedH==h and self.cachedLayout then
    return self.cachedLayout
@@ -79,12 +84,13 @@ function M:layout(w,h)
    auto={x=w-88*u,y=h*.47,r=39*u},
    hotbar={x=barX,y=h-76*u,r=35*u,step=73*u,
      clipX=w*.255,clipW=w*.49},
-   shop={x=w-373*u,y=topY,r=35*u},
-   clan={x=w-452*u,y=topY,r=35*u},
-   tribe={x=w-294*u,y=topY,r=35*u},
-   chat={x=w-215*u,y=topY,r=35*u},
-   rank={x=w-136*u,y=topY,r=35*u},
-   pause={x=w-57*u,y=topY,r=35*u},
+   shop={x=w-452*u,y=topY,r=35*u},
+   clan={x=w-531*u,y=topY,r=35*u},
+   tribe={x=w-373*u,y=topY,r=35*u},
+   chat={x=w-294*u,y=topY,r=35*u},
+   rank={x=w-215*u,y=topY,r=35*u},
+   pause={x=w-136*u,y=topY,r=35*u},
+   fold={x=w-57*u,y=topY,r=35*u},
    ping={x=235*u,y=85*u,r=37*u},
    mark={x=235*u,y=181*u,r=37*u},
    minimap={x=21*u,y=20*u,w=167*u,h=167*u},
@@ -182,14 +188,20 @@ function M:pressed(id,x,y,w,h,scale,total)
    end
    return nil
  end
- if near(x,y,l.pause) then return "pause" end
- if near(x,y,l.shop) then self:stopForOverlay();return "shop_open" end
- if near(x,y,l.clan) then self:stopForOverlay();return "clan_open" end
- if near(x,y,l.tribe) then self:stopForOverlay();return "tribe_open" end
- if near(x,y,l.chat) then self:stopForOverlay();return "chat_open" end
- if near(x,y,l.rank) then
-   self:stopForOverlay();self.rankOpen=true
-   return "rank_open",self.rankingCategory
+ if near(x,y,l.fold) then
+   self.topCollapsed=not self.topCollapsed
+   return "top_toggle",self.topCollapsed
+ end
+ if not self.topCollapsed then
+   if near(x,y,l.pause) then return "pause" end
+   if near(x,y,l.shop) then self:stopForOverlay();return "shop_open" end
+   if near(x,y,l.clan) then self:stopForOverlay();return "clan_open" end
+   if near(x,y,l.tribe) then self:stopForOverlay();return "tribe_open" end
+   if near(x,y,l.chat) then self:stopForOverlay();return "chat_open" end
+   if near(x,y,l.rank) then
+     self:stopForOverlay();self.rankOpen=true
+     return "rank_open",self.rankingCategory
+   end
  end
  if near(x,y,l.ping) then return "ping_here" end
  if near(x,y,l.mark) or inside(x,y,l.minimap) then
@@ -472,20 +484,37 @@ function M:draw(world,scale)
  g.setFont(small);g.setColor(.97,.97,.94,self.uiOpacity)
  g.printf("PING",l.ping.x-31*u,l.ping.y+29*u,62*u,"center")
  g.printf("MAPA",l.mark.x-31*u,l.mark.y+29*u,62*u,"center")
- ring(g,l.shop,false,true);glyph(g,"shop",l.shop,u)
- ring(g,l.clan,false,false);glyph(g,"clan",l.clan,u)
- ring(g,l.tribe,false,false);glyph(g,"tribe",l.tribe,u)
+ -- Collapse the busy top-right navigation to one small touch control.
+ -- This does not hide ping/map, auto attack, joystick or the skill line.
+ if not self.topCollapsed then
+   ring(g,l.shop,false,true);glyph(g,"shop",l.shop,u)
+   ring(g,l.clan,false,false);glyph(g,"clan",l.clan,u)
+   ring(g,l.tribe,false,false);glyph(g,"tribe",l.tribe,u)
+   ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
+   ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
+   ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
+   g.setFont(small);g.setColor(1,1,1,self.uiOpacity)
+   g.printf("LOJA",l.shop.x-35*u,l.shop.y+25*u,70*u,"center")
+   g.printf("CLA",l.clan.x-35*u,l.clan.y+25*u,70*u,"center")
+   g.printf("TRIBO",l.tribe.x-35*u,l.tribe.y+25*u,70*u,"center")
+   g.printf("CHAT",l.chat.x-35*u,l.chat.y+25*u,70*u,"center")
+   g.printf("TOP",l.rank.x-35*u,l.rank.y+25*u,70*u,"center")
+   g.printf("MENU",l.pause.x-35*u,l.pause.y+25*u,70*u,"center")
+ end
+ ring(g,l.fold,false,true)
+ g.setColor(.88,.94,.82,self.uiOpacity);g.setLineWidth(3*u)
+ local x,y=l.fold.x,l.fold.y
+ if self.topCollapsed then
+   g.line(x-12*u,y-7*u,x+12*u,y-7*u)
+   g.line(x-12*u,y,x+12*u,y)
+   g.line(x-12*u,y+7*u,x+12*u,y+7*u)
+ else
+   g.line(x-10*u,y-7*u,x+10*u,y-7*u)
+   g.line(x-10*u,y+7*u,x+10*u,y+7*u)
+ end
  g.setFont(small);g.setColor(1,1,1,self.uiOpacity)
- g.printf("LOJA",l.shop.x-35*u,l.shop.y+25*u,70*u,"center")
- g.printf("CLA",l.clan.x-35*u,l.clan.y+25*u,70*u,"center")
- g.printf("TRIBO",l.tribe.x-35*u,l.tribe.y+25*u,70*u,"center")
- ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
- ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
- ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
- g.setFont(small);g.setColor(.97,.97,.94,self.uiOpacity)
- g.printf("CHAT",l.chat.x-35*u,l.chat.y+25*u,70*u,"center")
- g.printf("TOP",l.rank.x-35*u,l.rank.y+25*u,70*u,"center")
- g.printf("MENU",l.pause.x-35*u,l.pause.y+25*u,70*u,"center")
+ g.printf(self.topCollapsed and "ABRIR" or "OCULTAR",
+   l.fold.x-39*u,l.fold.y+25*u,78*u,"center")
  -- No anchored joystick circles: bases are created at the finger-down points.
  if self.moveOrigin then
    local base={x=self.moveOrigin.x,y=self.moveOrigin.y,r=l.move.r}
@@ -521,12 +550,12 @@ function M:draw(world,scale)
  local xp=max(0,tonumber(world and world.xp) or 0)
  local maxXP=max(1,tonumber(world and world.maxXP) or 300)
  local level=max(1,math.floor(tonumber(world and world.age) or 1))
- local hpW=355*u
- local xpW=204*u
- local gap=14*u
+ local hpW=240*u
+ local xpW=146*u
+ local gap=12*u
  local hpX=(w-hpW-xpW-gap)/2
- local statusY=h-170*u
- local statusH=37*u
+ local statusY=h-148*u
+ local statusH=27*u
  g.setColor(.025,.085,.08,.91*self.uiOpacity)
  g.rectangle("fill",hpX,statusY,hpW,statusH,10*u,10*u)
  g.setColor(.95,.27,.29,self.uiOpacity)
@@ -534,24 +563,24 @@ function M:draw(world,scale)
    (hpW-10*u)*clamp(life/maxLife,0,1),statusH-10*u,7*u,7*u)
  g.setColor(.97,.97,.96,1);g.setFont(font)
  g.printf(math.floor(life).."/"..math.floor(maxLife),
-   hpX,statusY+10*u,hpW,"center")
+   hpX,statusY+5*u,hpW,"center")
  -- Heart is merely the icon for the health bar, not the level indicator.
- local hx=hpX-18*u
+ local hx=hpX-14*u
  local hy=statusY+statusH/2
  g.setColor(.97,.27,.34,self.uiOpacity)
- g.circle("fill",hx-7*u,hy-4*u,8*u)
- g.circle("fill",hx+7*u,hy-4*u,8*u)
- g.polygon("fill",hx-15*u,hy-3*u,hx+15*u,hy-3*u,hx,hy+17*u)
+ g.circle("fill",hx-5*u,hy-3*u,6*u)
+ g.circle("fill",hx+5*u,hy-3*u,6*u)
+ g.polygon("fill",hx-11*u,hy-2*u,hx+11*u,hy-2*u,hx,hy+12*u)
  local xpX=hpX+hpW+gap
  g.setColor(.025,.085,.08,.90*self.uiOpacity)
  g.rectangle("fill",xpX,statusY,xpW,statusH,10*u,10*u)
- local progX=xpX+84*u
- local progW=xpW-93*u
+ local progX=xpX+68*u
+ local progW=xpW-76*u
  g.setColor(.96,.78,.35,self.uiOpacity)
- g.rectangle("fill",progX,statusY+14*u,
-   progW*clamp(xp/maxXP,0,1),9*u,4*u,4*u)
+ g.rectangle("fill",progX,statusY+11*u,
+   progW*clamp(xp/maxXP,0,1),6*u,3*u,3*u)
  g.setColor(.95,.88,.51,1);g.setFont(font)
- g.printf("Nv "..level,xpX+3*u,statusY+9*u,82*u,"center")
+ g.printf("Nv "..level,xpX+3*u,statusY+5*u,66*u,"center")
  -- The auto-gather/attack mode is an independent toggle: a held manual
  -- attack and opening an overlay never change the active auto state.
  local slots,bar=self:hotbar(Slots.total(world),w,h)
@@ -569,7 +598,16 @@ function M:draw(world,scale)
          selected=weapon and id==player.weaponIndex
        end
      end
-     ring(g,p,selected,selected)
+     local pulse=0
+     if self.abilityPulse==p.index and love.timer and love.timer.getTime then
+       pulse=clamp(1-(love.timer.getTime()-self.abilityPulseAt)/.27,0,1)
+     end
+     ring(g,p,selected or pulse>0,selected or pulse>0)
+     if pulse>0 then
+       g.setLineWidth((1+3*pulse)*u)
+       g.setColor(.98,.86,.42,.8*pulse)
+       g.circle("line",p.x,p.y,p.r+4*u)
+     end
      local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
      if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) end
      g.setColor(.96,.98,.96,1);g.setFont(small)
