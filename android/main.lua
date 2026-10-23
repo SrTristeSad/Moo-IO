@@ -25,6 +25,7 @@ local Mobile=require("src.mobile.controls")
 local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Android" or os.getenv("MOO_IO_FORCE_ANDROID_E2E")=="1"
 local mobile=isAndroid and Mobile.new() or nil
 local mobileAttackSent=false
+local mobileAimSentAt=-math.huge
 local mobileForwardMouse=false
 local mobileInteractLeft=0
 local mobileBuilding=0
@@ -1201,7 +1202,22 @@ end
 function love.touchmoved(id,x,y)
   if not mobile or phase~="playing" or pause:isOpen() then return end
   local w,h=love.graphics.getDimensions()
-  mobile:moved(id,x,y,w,h)
+  local action=mobile:moved(id,x,y,w,h)
+  -- The attack thumb IS the aim control. Send real Node direction packets
+  -- promptly during a drag (max 25 Hz). The normal 70-ms tick remains a
+  -- fallback when Android coalesces touch events.
+  if action=="aim" and mobile:attacking() and not chatOpen and client
+    and client.state=="spawn_confirmed" then
+    local now=love.timer.getTime()
+    if now-mobileAimSentAt>=.04 then
+      local dir=currentAttackDir()
+      if not lastAim or math.abs(dir-lastAim)>.02 then
+        local ok=client:send("D",{dir})
+        if ok then lastAim=dir end
+      end
+      mobileAimSentAt=now
+    end
+  end
 end
 function love.touchreleased(id)
   if not mobile then return end

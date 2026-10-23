@@ -1,7 +1,7 @@
 name: Moo IO - Android HUD e rankings
 on:
   push:
-    branches: [feature/android-moba-hud, main]
+    branches: [feature/android-moba-hud, feature/android-attack-aim-joystick, main]
     paths:
       - "android/**"
       - "windows/server/src/moomoo/mobileRankings.js"

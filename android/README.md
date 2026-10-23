@@ -29,8 +29,8 @@ O APK com servidor integrado precisa ser gerado pela Action **Moo IO Android aut
 | Controle | Função |
 |---|---|
 | Região inferior esquerda / joystick | movimento 360°; um dedo capturado nunca vira ataque |
-| Região direita, deslizar | mira independente; não envia comandos de movimento |
-| ATACAR | pressionar para atacar, soltar para parar; nunca controla o personagem |
+| ATACAR — segurar e arrastar | **o próprio botão é o joystick de mira e ataque**: mantém o ataque enquanto o dedo está pressionado e aponta os golpes para onde o dedo arrasta; soltar para de atacar |
+| Região direita fora de ATACAR | não ativa mira separada; use o botão ATACAR para controlar a direção dos golpes |
 | Quatro botões à direita | seleção dos quatro primeiros itens/armas realmente disponíveis |
 | Faixa central inferior | itens a partir do quinto, em páginas de até cinco com setas |
 | AUTO | alterna o comando original da tecla **E** do PC |
@@ -45,7 +45,7 @@ Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removi
 ### Ajustes de estabilidade
 
 - Layout dos controles calculado uma vez por resolução e reutilizado durante desenho/movimento.
-- Toques independentes por identificador: polegar esquerdo fica em movimento e direito em ataque/mira, mesmo se cruzarem a tela.
+- Toques independentes por identificador: polegar esquerdo movimenta o personagem e o botão ATACAR, pressionado com o polegar direito, também direciona a mira. O ataque continua mesmo se esse dedo ultrapassar o limite visual do botão; soltar interrompe o golpe. Não existe segundo joystick de mira invisível.
 - Renderização de estruturas otimizada com classificação por camadas reaproveitável, preservando a ordem original.
 - Prévia de fundo do menu Android desenhada em resolução reduzida e atualizada com menor frequência.
 - Intervalos de animação visual limitados após engasgos, sem alterar o tempo de rede do servidor.
