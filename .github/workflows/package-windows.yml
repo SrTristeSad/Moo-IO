@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/package-windows.yml
       - windows/**
+      - android/**
 permissions:
   contents: write
 jobs:
