@@ -1,6 +1,8 @@
 -- Moo-IO Android tactical HUD, built for 2-thumb controls.
 -- Original visual language: do not ship copyrighted MOBA icons or textures.
 -- The four skill-shaped slots trigger the first four REAL, server-owned quick slots.
+local Catalog=require("src.game.catalog")
+local Icons=require("src.game.reference_icons")
 local M={}
 M.__index=M
 local sqrt=math.sqrt
@@ -317,7 +319,24 @@ function M:draw(world,scale)
  ring(g,l.fire,self:attacking(),.98);text(g,"ATACAR",l.fire,15*u)
  for i,p in ipairs(l.skills) do
    ring(g,p,false,.91)
-   text(g,tostring(i),p,19*u)
+   local weapons=world and world.inventory and world.inventory.weapons or {}
+   local items=world and world.inventory and world.inventory.items or {}
+   local kind,id
+   if i<=#weapons then
+     kind,id="weapon",weapons[i]
+   else
+     kind,id="item",items[i-#weapons]
+   end
+   local data=kind=="weapon" and Catalog.weaponById(id) or
+     kind=="item" and Catalog.itemById(id) or nil
+   if not (data and Icons.draw(kind,data,p.x,p.y,p.r*1.45)) then
+     text(g,tostring(i),p,19*u)
+   else
+     g.setColor(.04,.09,.06,.95)
+     g.rectangle("fill",p.x+p.r*.36,p.y+p.r*.34,17*u,17*u,4*u,4*u)
+     g.setColor(1,1,1,1)
+     g.print(tostring(i),p.x+p.r*.43,p.y+p.r*.37)
+   end
  end
  ring(g,l.auto,self.auto,.96);text(g,"AUTO",l.auto,13*u)
  ring(g,l.gather,false,.82);text(g,"COLETA",l.gather,10*u)
