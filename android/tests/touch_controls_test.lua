@@ -18,7 +18,7 @@ for i=1,10 do
 end
 eq(Slots.pages(world,5),2)
 eq(m:movement(),0)
--- ATACAR is itself the aim joystick: drag the SAME finger to rotate the
+-- ATACAR is a FLOATING aim joystick: drag the SAME finger to rotate the
 -- weapon while continuously attacking. It never changes the movement input.
 local action=m:pressed(1,l.fire.x,l.fire.y,w,h,14400,10)
 eq(action,"attack");assert(m:attacking())
@@ -55,12 +55,16 @@ m:moved(2,w-100,h-130,w,h) -- pointer crossing onto attack NEVER changes owner
 assert(m.moveId==2 and not m:attacking())
 eq(m:released(2),"move")
 dx,dy=m:movement();eq(dx,0);eq(dy,0)
--- No second invisible right-side aim area.
-eq(m:pressed(4,w*.77,h*.49,w,h,14400,10),nil)
-eq(m:moved(4,w*.82,h*.49,w,h),nil)
-assert(math.abs(m:aimAngle()-math.pi/2)<.001)
-assert(not m:attacking() and m.moveId==nil)
-eq(m:released(4),nil)
+-- Second floating touch location is independent of the nominal rest positions.
+local rx,ry=w*.77,h*.49
+eq(m:pressed(4,rx,ry,w,h,14400,10),"attack")
+assert(m.fireOrigin.x==rx and m.fireOrigin.y==ry and m:attacking())
+eq(m:moved(4,rx+80,ry,w,h),"aim")
+assert(math.abs(m:aimAngle())<.001)
+eq(m:released(4),"attack")
+assert(m.fireOrigin==nil and not m:attacking())
+-- No dormant base at a fixed screen coordinate.
+assert(m.moveOrigin==nil and m.fireOrigin==nil)
 -- Four first slots use original items, extra slots are in the middle.
 for i,p in ipairs(l.skills) do
   local a,num=m:pressed(10+i,p.x,p.y,w,h,14400,10)
@@ -96,6 +100,25 @@ eq(m:pressed(47,l.close.x,l.close.y,w,h,14400,10),"rank_close")
 eq(m:pressed(48,l.chat.x,l.chat.y,w,h,14400,10),"chat_open")
 assert(l.chatSend and l.chatCancel,"full Android keyboard chat has SEND and CLOSE")
 eq(m:pressed(50,l.pause.x,l.pause.y,w,h,14400,10),"pause")
+eq(m:pressed(51,l.shop.x,l.shop.y,w,h,14400,10),"shop_open")
+eq(m:pressed(52,l.clan.x,l.clan.y,w,h,14400,10),"clan_open")
+-- Movement ring and attack ring must each follow their own finger-down point.
+local mx,my=w*.20,h*.65
+eq(m:pressed(53,mx,my,w,h,14400,10),"move")
+assert(m.moveOrigin.x==mx and m.moveOrigin.y==my)
+eq(m:pressed(54,w*.89,h*.63,w,h,14400,10),"attack")
+assert(m.fireOrigin.x==w*.89 and m.fireOrigin.y==h*.63)
+eq(m:released(53),"move")
+assert(m.fireOrigin and m:attacking(),"releasing movement must not stop attack")
+eq(m:released(54),"attack")
+local before=m:layout(w,h)
+m:configure(1.55,.55)
+local adjusted=m:layout(w,h)
+assert(before~=adjusted and adjusted.move.r>before.move.r,
+  "resizing HUD must rebuild geometry and enlarge controls")
+assert(m.uiOpacity==.55)
+m:configure(100,-2)
+assert(m.uiScale==1.55 and m.uiOpacity==.5,"settings must clamp")
 m:reset()
 assert(not m:attacking() and m.moveId==nil)
 print("MOO IO ANDROID TOUCH STABLE PASS")
