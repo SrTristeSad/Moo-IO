@@ -214,15 +214,16 @@ function M:released(id)
  end
  return nil
 end
+local currentHudOpacity=1
 local function ring(g,p,active,accent)
  -- Small number of primitive draws; no new textures, canvases or shaders per frame.
  local r=p.r
- g.setColor(.015,.036,.037,.67);g.circle("fill",p.x+2,p.y+3,r+4)
- g.setColor(active and .23 or .09,active and .41 or .17,active and .26 or .19,.92)
+ g.setColor(.015,.036,.037,.67*currentHudOpacity);g.circle("fill",p.x+2,p.y+3,r+4)
+ g.setColor(active and .23 or .09,active and .41 or .17,active and .26 or .19,.92*currentHudOpacity)
  g.circle("fill",p.x,p.y,r)
- g.setColor(accent and .89 or .45,accent and .76 or .75,accent and .35 or .72,1)
+ g.setColor(accent and .89 or .45,accent and .76 or .75,accent and .35 or .72,currentHudOpacity)
  g.setLineWidth(2.4);g.circle("line",p.x,p.y,r-1)
- g.setColor(.87,.96,.93,.22);g.arc("line","open",p.x,p.y,r-5,math.pi*1.09,math.pi*1.86)
+ g.setColor(.87,.96,.93,.22*currentHudOpacity);g.arc("line","open",p.x,p.y,r-5,math.pi*1.09,math.pi*1.86)
 end
 local function words(g,str,p,size)
  g.setColor(.97,.98,.94,1)
@@ -357,6 +358,7 @@ function M:draw(world,scale)
  local w,h=g.getDimensions()
  local l=self:layout(w,h)
  local u=l.u
+ currentHudOpacity=self.uiOpacity
  fonts()
  g.push("all")
  if self.mapOpen or self.rankOpen then
