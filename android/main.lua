@@ -194,7 +194,8 @@ angle=function(y,x)
 end
 
 function love.update(dt)
-  frameDelta=dt
+  -- Network ticks keep full dt; interpolation stays stable after a slow frame.
+  frameDelta=math.min(dt,0.05)
   if integration then integration:update(dt);return end
   if diagnostic then return end
   -- The menu backdrop reuses the original top-down world preview even
@@ -329,6 +330,13 @@ function love.update(dt)
       client:send("0",{})
     end
   end
+  if mobile and mobile.rankOpen and client.state=="spawn_confirmed" and not died then
+    mobile.rankRefresh=mobile.rankRefresh-dt
+    if mobile.rankRefresh<=0 then
+      client:send("Y",{mobile.rankingCategory})
+      mobile.rankRefresh=3
+    end
+  end
   if client.state=="spawn_confirmed" and not died and not pause:isOpen() then
     if panels:isOpen() or clans:isOpen() then input.keys={} end
     input:update(dt)
@@ -411,24 +419,27 @@ function love.draw()
     -- screen. Rendering all procedural foliage every frame slowed the menu,
     -- particularly on software-rendered or lower-end Windows machines.
     -- Rebuild once per second or immediately on resize/grid changes.
-    if not menuPreview or previewW~=w or previewH~=h or previewAge>=1 then
+    if not menuPreview or previewW~=w or previewH~=h or previewAge>=(mobile and 4 or 1) then
       if menuPreview and (previewW~=w or previewH~=h) then
         menuPreview:release()
         menuPreview=nil
       end
       if not menuPreview then
-        menuPreview=love.graphics.newCanvas(w,h)
+        local factor=mobile and .60 or 1
+        menuPreview=love.graphics.newCanvas(math.max(1,math.floor(w*factor)),
+          math.max(1,math.floor(h*factor)))
         previewW,previewH=w,h
       end
       love.graphics.push("all")
       love.graphics.setCanvas(menuPreview)
       love.graphics.clear(0,0,0,0)
+      love.graphics.scale(menuPreview:getWidth()/w,menuPreview:getHeight()/h)
       View.draw(menu.world,menuCamera,frameDelta,{showGrid=menu.grid})
       love.graphics.pop()
       previewAge=0
     end
     love.graphics.setColor(1,1,1,1)
-    love.graphics.draw(menuPreview,0,0)
+    love.graphics.draw(menuPreview,0,0,0,w/menuPreview:getWidth(),h/menuPreview:getHeight())
     local state=client and client.state or "idle"
     home:draw(state,client and (client.error or client.status) or "",true)
     if home.roomOverlay then home:drawRoomOverlay() end
@@ -446,8 +457,12 @@ function love.draw()
       chatOpen or panels:isOpen() or clans:isOpen() or profile:isOpen())
     panels:draw(world)
     if mobile and not pause:isOpen() and not panels:isOpen()
-      and not clans:isOpen() and not profile:isOpen() and not chatOpen then
-      mobile:draw(world,Config.mapScale)
+      and not clans:isOpen() and not profile:isOpen() then
+      if chatOpen then
+        mobile:drawChat(chatDraft)
+      else
+        mobile:draw(world,Config.mapScale)
+      end
     end
     -- Keep permanent clans internal; no separate Clan button in gameplay HUD.
     clans:draw(false)
@@ -790,6 +805,12 @@ function love.keypressed(key)
     return
   end
 
+  -- Android Back/Escape while typing must close chat, NOT pause the game.
+  if phase=="playing" and chatOpen and key=="escape" then
+    chatOpen=false;chatDraft=""
+    if mobile and love.keyboard then love.keyboard.setTextInput(false) end
+    return
+  end
   if phase=="playing" and key=="escape" then
     stopPlayerControls()
     panels:close();clans:close()
@@ -816,15 +837,12 @@ function love.keypressed(key)
     homeAction(home:keypressed(key))
     return
   end
-  if key=="escape" and chatOpen then
-    chatOpen=false;chatDraft=""
-    return
-  end
   if chatOpen then
     if key=="return" or key=="kpenter" then
       local value=shortenChat(chatDraft)
       if #value>0 and client then client:send("6",{value}) end
       chatDraft="";chatOpen=false
+      if mobile and love.keyboard then love.keyboard.setTextInput(false) end
     elseif key=="backspace" then
       chatDraft=backspaceUtf8(chatDraft)
     end
@@ -839,7 +857,14 @@ function love.keypressed(key)
   if (key=="return" or key=="kpenter") and client
     and client.state=="spawn_confirmed" and not died then
     chatOpen=true;chatDraft=""
-    if mobile then mobile:reset();mobileAttackSent=false end
+    if mobile then
+      mobile:reset();mobileAttackSent=false
+      if love.keyboard and love.keyboard.setTextInput then
+        local w,h=love.graphics.getDimensions()
+        love.keyboard.setTextInput(true,math.floor(w*.22),math.floor(h*.27),
+          math.floor(w*.53),math.floor(h*.10))
+      end
+    end
     input.keys={}
     lastMove=false
     -- A player can open chat while holding mouse/Space. Stop the ongoing
@@ -1079,39 +1104,54 @@ local function mobileSelect(kind,slot)
 end
 local function mobileAction(action,payload)
   if action=="pause" then love.keypressed("escape");return end
-  if action=="map_open" or action=="chat_open" or action=="bag_open" then
+  if action=="map_open" or action=="chat_open" or action=="rank_open" then
     mobileStop()
+    if mobile.auto and client and client.state=="spawn_confirmed" then
+      local ok=client:send("K",{1}) -- E: disable previous auto-gather
+      if ok then mobile.auto=false end
+    end
+    if action=="rank_open" and client and client.state=="spawn_confirmed" then
+      client:send("Y",{payload or mobile.rankingCategory})
+      mobile.rankRefresh=3
+    elseif action=="chat_open" then
+      chatOpen=true;chatDraft=""
+      input.keys={}
+      local w,h=love.graphics.getDimensions()
+      if love.keyboard and love.keyboard.setTextInput then
+        love.keyboard.setTextInput(true,math.floor(w*.22),math.floor(h*.27),
+          math.floor(w*.53),math.floor(h*.10))
+      end
+    end
     return
   end
   if not client or client.state~="spawn_confirmed" then return end
-  if action=="attack" then
+  if action=="rank_category" then
+    mobile.rankRefresh=3
+    client:send("Y",{payload})
+  elseif action=="ping_here" then
+    client:send("S",{1}) -- Same real team ping as keyboard R on Windows
+  elseif action=="server_auto" then
+    local ok,err=client:send("K",{1}) -- Same toggle as E on Windows
+    if not ok then
+      mobile.auto=not mobile.auto
+      latestEvent="Ataque automatico indisponivel: "..tostring(err)
+    end
+  elseif action=="skill" then
+    -- The first four use the same mapping as the middle strip.
+    local itemId,isWeapon=require("src.mobile.slots").at(world,payload)
+    if itemId~=nil then
+      client:send("z",{itemId,isWeapon})
+    else latestEvent="Atalho "..tostring(payload).." ainda sem item." end
+  elseif action=="attack" then
     local active=mobile:attacking()
     if active~=mobileAttackSent then
       local ok=client:send("F",{active and 1 or 0,
         active and currentAttackDir() or Pack.null})
       if ok then mobileAttackSent=active end
     end
-  elseif action=="interact" then
-    if not mobile:attacking() then
-      local ok=client:send("F",{1,currentAttackDir()})
-      if ok then mobileInteractLeft=.25;mobileAttackSent=true end
-    end
-  elseif action=="swap" then
-    local weapons=world.inventory.weapons or {}
-    if #weapons>0 then
-      mobileWeapon=mobileWeapon%#weapons+1
-      mobileSelect("weapons",mobileWeapon)
-    end
-  elseif action=="build" then
-    local items=world.inventory.items or {}
-    if #items>0 then
-      mobileBuilding=mobileBuilding%#items+1
-      mobileSelect("items",mobileBuilding)
-    end
-  elseif action=="bag_slot" and payload then
-    mobileSelect(payload.row==1 and "weapons" or "items",payload.column)
-  elseif action=="chat_select" and type(payload)=="string" then
-    client:send("6",{payload:sub(1,30)})
+  elseif action=="slot" then
+    local id,isWeapon=require("src.mobile.slots").at(world,payload)
+    if id~=nil then client:send("z",{id,isWeapon}) end
   elseif action=="ping" and payload then
     local ok,err=client:send("U",{payload.x,payload.y})
     if ok then world.mapMarker={x=payload.x,y=payload.y}
@@ -1129,18 +1169,33 @@ local function mobileMouse(x,y)
 end
 function love.touchpressed(id,x,y)
   if not mobile then return end
+  if chatOpen and phase=="playing" and not pause:isOpen() then
+    local w,h=love.graphics.getDimensions()
+    local l=mobile:layout(w,h)
+    if x>=l.chatSend.x and x<=l.chatSend.x+l.chatSend.w
+      and y>=l.chatSend.y and y<=l.chatSend.y+l.chatSend.h then
+      love.keypressed("return")
+    elseif x>=l.chatCancel.x and x<=l.chatCancel.x+l.chatCancel.w
+      and y>=l.chatCancel.y and y<=l.chatCancel.y+l.chatCancel.h then
+      love.keypressed("escape")
+    elseif love.keyboard and love.keyboard.setTextInput then
+      love.keyboard.setTextInput(true,math.floor(w*.22),math.floor(h*.27),
+        math.floor(w*.53),math.floor(h*.10))
+    end
+    return
+  end
   if phase~="playing" or pause:isOpen() or home.roomOverlay
-    or panels:isOpen() or clans:isOpen() or profile:isOpen() or chatOpen then
+    or panels:isOpen() or clans:isOpen() or profile:isOpen() then
     mobileMouse(x,y)
     return
   end
   local w,h=love.graphics.getDimensions()
-  if not (mobile.mapOpen or mobile.chatOpen or mobile.bagOpen)
-    and (Hud.hitTest(world,w,h,x,y) or Upgrades.hitTest(world,w,x,y)) then
+  if not (mobile.mapOpen or mobile.rankOpen)
+    and Upgrades.hitTest(world,w,x,y) then
     mobileMouse(x,y)
     return
   end
-  local action,payload=mobile:pressed(id,x,y,w,h,Config.mapScale)
+  local action,payload=mobile:pressed(id,x,y,w,h,Config.mapScale,require("src.mobile.slots").total(world))
   if action then mobileAction(action,payload) end
 end
 function love.touchmoved(id,x,y)

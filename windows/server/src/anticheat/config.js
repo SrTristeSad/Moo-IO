@@ -48,7 +48,8 @@ export const ANTICHEAT_CONFIG = {
             R: [8, 12],
             A: [5, 8],
             V: [5, 10],
-            I: [5, 8]
+            I: [5, 8],
+            Y: [3, 6]
         },
         strikesToKick: 40,
         strikeDecayMs: 15000,

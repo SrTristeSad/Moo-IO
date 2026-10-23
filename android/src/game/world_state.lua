@@ -137,7 +137,7 @@ function World.new()
     animals={},projectiles={},
     entityPaintOrder={players={},animals={}},
     entityPaintTracked={players={},animals={}},
-    resources={},resourceGain={},itemCounts={},inventory={weapons={},items={}},leaderboard={},
+    resources={},resourceGain={},itemCounts={},inventory={weapons={},items={}},leaderboard={},categoryRankings={},
     combatText={},bossEffects={},
     updateSeconds=nil,restartSeconds=nil,pongCount=0,
     profiles={},lifeStats={},
@@ -550,6 +550,22 @@ function World:apply(name,args)
     stats.score=args[13]
     -- Guest account IDs are privileged data; do not expose on the card.
     self.lifeStats[sid]=stats
+    return true
+  elseif name=="n" then
+    -- Optional Android ranking response: category and up to ten [sid,name,value] tuples.
+    -- UI never constructs public rankings from hidden or untrusted client data.
+    local category,data=args[1],args[2]
+    local allowed={gold=true,health=true,food=true,wood=true,stone=true,kills=true,points=true}
+    if type(category)~="string" or not allowed[category] or type(data)~="table"
+      or #data>30 or #data%3~=0 then return false end
+    local entries={}
+    for i=1,#data,3 do
+      local sid,name,value=data[i],data[i+1],data[i+2]
+      if not validId(sid) or type(name)~="string" or #name>80
+        or not number(value) or value<0 then return false end
+      entries[#entries+1]={sid=sid,name=name,score=value}
+    end
+    self.categoryRankings[category]=entries
     return true
   elseif name=="G" then
     local list=array(args[1]);self.leaderboard={}

@@ -14,6 +14,7 @@ test("Android and Windows use exactly the same Node packet names and ordering",(
   assert.deepEqual(extract(android,"c2s"),C2S_PACKETS);
   assert.deepEqual(extract(android,"s2c"),S2C_PACKETS);
   assert.deepEqual(extract(windows,"s2c"),S2C_PACKETS);
-  assert.deepEqual(extract(windows,"c2s").concat("U"),C2S_PACKETS);
-  assert.equal(C2S_PACKETS.at(-1),"U");
+  assert.deepEqual(extract(windows,"c2s"),C2S_PACKETS);
+  assert.equal(C2S_PACKETS.at(-1),"Y");
+  assert.equal(S2C_PACKETS.at(-1),"n");
 });

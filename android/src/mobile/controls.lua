@@ -1,139 +1,181 @@
--- Moo-IO Android HUD / two-thumb input. Actions are processed by real Node server.
+-- Moo-IO touchscreen HUD: fixed regions, pointer ownership and original game icons.
+-- Left thumb moves; right thumb aims/attacks. Extra items use a central strip.
+local Slots=require("src.mobile.slots")
+local Catalog=require("src.game.catalog")
+local Icons=require("src.game.reference_icons")
 local M={}
 M.__index=M
-local atan2=math.atan2 or function(y,x)return math.atan(y,x)end
 local sqrt=math.sqrt
-local function clamp(x,a,b)return math.max(a,math.min(b,x))end
-local function near(x,y,p)return (x-p.x)^2+(y-p.y)^2<=p.r^2 end
-local function inBox(x,y,b)return x>=b.x and y>=b.y and x<=b.x+b.w and y<=b.y+b.h end
-local messages={"Vamos!","Inimigo!","Aqui!","Preciso de ajuda!","Reunam-se!","Boa!"}
-M.messages=messages
+local atan2=math.atan2 or function(y,x)return math.atan(y,x)end
+local min,max=math.min,math.max
+local function clamp(v,a,b)return max(a,min(b,v))end
+local function near(x,y,p)return (x-p.x)^2+(y-p.y)^2<=p.r*p.r end
+local function inside(x,y,b)return x>=b.x and y>=b.y and x<=b.x+b.w and y<=b.y+b.h end
+local categories={"gold","health","food","wood","stone","kills","points"}
+local names={gold="OURO",health="VIDA",food="COMIDA",wood="MADEIRA",stone="PEDRA",kills="ABATES",points="PONTOS"}
+M.categories=categories
+M.rankingNames=names
+local font,small=nil,nil
+local function fonts()
+ if not font then
+   font=love.graphics.newFont(17)
+   small=love.graphics.newFont(12)
+ end
+end
 function M.new()
- return setmetatable({moveId=nil,moveOrigin=nil,moveX=0,moveY=0,
-   lastX=0,lastY=-1,run=false,aimId=nil,aimOrigin=nil,aimDir=0,
-   fireId=nil,auto=false,mapOpen=false,chatOpen=false,bagOpen=false,
-   lastPoint=nil,opacity=.8},M)
+ return setmetatable({moveId=nil,aimId=nil,fireId=nil,moveX=0,moveY=0,
+   moveOrigin=nil,aimOrigin=nil,aimDir=0,auto=false,rankOpen=false,mapOpen=false,
+   rankRefresh=0,rankingCategory="gold",page=1,lastPoint=nil,
+   cachedW=0,cachedH=0,cachedLayout=nil},M)
 end
 function M:reset()
- self.moveId=nil;self.moveOrigin=nil;self.moveX=0;self.moveY=0
- self.aimId=nil;self.aimOrigin=nil;self.fireId=nil
- self.run=false;self.auto=false
- self.mapOpen=false;self.chatOpen=false;self.bagOpen=false
+ self.moveId=nil;self.aimId=nil;self.fireId=nil
+ self.moveX=0;self.moveY=0;self.moveOrigin=nil;self.aimOrigin=nil
+ self.mapOpen=false;self.rankOpen=false;self.rankRefresh=0;self.auto=false
+end
+function M:stopForOverlay()
+ self.moveId=nil;self.aimId=nil;self.fireId=nil
+ self.moveOrigin=nil;self.aimOrigin=nil;self.moveX=0;self.moveY=0
 end
 function M:layout(w,h)
- local u=clamp(math.min(w/1280,h/720),.7,2.3)
- local r=math.min(w*.52,h*.75)
- return {u=u,
-   move={x=138*u,y=h-135*u,r=82*u},
-   run={x=335*u,y=h-103*u,r=36*u},
-   fire={x=w-116*u,y=h-133*u,r=66*u},
-   auto={x=w-98*u,y=h-285*u,r=43*u},
-   aim={x=w-259*u,y=h-259*u,r=45*u},
-   gather={x=w-279*u,y=h-118*u,r=42*u},
-   build={x=w-345*u,y=h-198*u,r=36*u},
-   swap={x=w-360*u,y=h-102*u,r=34*u},
-   bag={x=w-422*u,y=h-118*u,r=33*u},
-   chat={x=270*u,y=54*u,r=31*u},
-   pause={x=w-45*u,y=48*u,r=33*u},
-   minimap={x=w-210*u,y=95*u,w=170*u,h=150*u},
-   bigmap={x=(w-r)/2,y=(h-r)/2,w=r,h=r},
-   close={x=w-70*u,y=44*u,r=35*u},
-   modal={x=w*.24,y=h*.18,w=w*.52,h=h*.64}
+ if self.cachedW==w and self.cachedH==h and self.cachedLayout then
+   return self.cachedLayout
+ end
+ local u=clamp(min(w/1280,h/720),.52,1.8)
+ local board=min(h*.78,w*.58)
+ local panelW=min(w*.76,735*u)
+ local panelH=min(h*.82,555*u)
+ -- Left 34% is reserved for movement. Right 33% for aim and attack.
+ -- The strip for slots 5+ sits BETWEEN them, never above attack/joystick.
+ local stripX=w*.50
+ local skills={
+   {x=w-279*u,y=h-104*u,r=35*u},
+   {x=w-342*u,y=h-191*u,r=35*u},
+   {x=w-261*u,y=h-276*u,r=35*u},
+   {x=w-143*u,y=h-315*u,r=35*u}
  }
+ local l={u=u,move={x=137*u,y=h-137*u,r=77*u},
+   fire={x=w-108*u,y=h-125*u,r=64*u},
+   auto={x=w-155*u,y=h-223*u,r=36*u},
+   skills=skills,chat={x=w-276*u,y=49*u,r=37*u},
+   rank={x=w-155*u,y=49*u,r=35*u},
+   pause={x=w-48*u,y=49*u,r=30*u},
+   ping={x=220*u,y=77*u,r=30*u},
+   mark={x=220*u,y=158*u,r=30*u},
+   minimap={x=21*u,y=20*u,w=167*u,h=167*u},
+   bigmap={x=(w-board)/2,y=(h-board)/2,w=board,h=board},
+   close={x=w-52*u,y=45*u,r=30*u},
+   rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
+   strip={x=stripX,y=h-48*u,r=28*u,step=60*u},
+   stripPrev={x=stripX-181*u,y=h-47*u,r=23*u},
+   stripNext={x=stripX+181*u,y=h-47*u,r=23*u},
+   chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
+   chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
+   chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
+ self.cachedW=w;self.cachedH=h;self.cachedLayout=l
+ return l
 end
 function M:movement()
  if self.moveId then return self.moveX,self.moveY end
- if self.run then return self.lastX,self.lastY end
  return 0,0
 end
 function M:aimAngle()return self.aimDir end
-function M:attacking()return self.auto or self.fireId~=nil end
-function M:stopForOverlay()
- self.run=false;self.auto=false;self.fireId=nil
- self.moveId=nil;self.moveOrigin=nil;self.moveX=0;self.moveY=0
- self.aimId=nil;self.aimOrigin=nil
-end
-function M:moveJoystick(x,y,l)
- if not self.moveOrigin then return end
+function M:attacking()return self.fireId~=nil end
+function M:joystick(x,y,l)
  local dx,dy=x-self.moveOrigin.x,y-self.moveOrigin.y
- local d=sqrt(dx*dx+dy*dy)
- if d<l.move.r*.12 then self.moveX=0;self.moveY=0;return end
- self.moveX=dx/d;self.moveY=dy/d
- self.lastX=self.moveX;self.lastY=self.moveY
+ local magnitude=sqrt(dx*dx+dy*dy)
+ if magnitude<l.move.r*.15 then
+   self.moveX=0;self.moveY=0
+ else
+   self.moveX=dx/magnitude;self.moveY=dy/magnitude
+ end
 end
-function M:pressed(id,x,y,w,h,scale)
+function M:pressed(id,x,y,w,h,scale,total)
  local l=self:layout(w,h)
  if self.mapOpen then
    if near(x,y,l.close) then self.mapOpen=false;return "map_close" end
-   if inBox(x,y,l.bigmap) then
+   if inside(x,y,l.bigmap) then
      scale=scale or 14400
-     local p={x=clamp(math.floor((x-l.bigmap.x)/l.bigmap.w*scale+.5),0,scale),
-       y=clamp(math.floor((y-l.bigmap.y)/l.bigmap.h*scale+.5),0,scale)}
-     self.lastPoint=p;self.mapOpen=false
-     return "ping",p
+     local mark={x=clamp(math.floor((x-l.bigmap.x)*scale/l.bigmap.w+.5),0,scale),
+       y=clamp(math.floor((y-l.bigmap.y)*scale/l.bigmap.h+.5),0,scale)}
+     self.lastPoint=mark
+     self.mapOpen=false
+     return "ping",mark
    end
    self.mapOpen=false;return "map_close"
  end
- if self.chatOpen then
-   if near(x,y,l.close) then self.chatOpen=false;return "chat_close" end
-   local row=math.floor((y-l.modal.y-56*l.u)/(l.modal.h/4))+1
-   local col=x<l.modal.x+l.modal.w*.5 and 1 or 2
-   local index=(row-1)*2+col
-   if inBox(x,y,l.modal) and messages[index] then
-     self.chatOpen=false
-     return "chat_select",messages[index]
+ if self.rankOpen then
+   if near(x,y,l.close) then self.rankOpen=false;return "rank_close" end
+   local b=l.rankPanel
+   if inside(x,y,{x=b.x+10*l.u,y=b.y+57*l.u,w=b.w-20*l.u,h=45*l.u}) then
+     local index=clamp(math.floor((x-b.x-10*l.u)/(b.w-20*l.u)*#categories)+1,1,#categories)
+     self.rankingCategory=categories[index]
+     return "rank_category",self.rankingCategory
    end
-   self.chatOpen=false;return "chat_close"
- end
- if self.bagOpen then
-   if near(x,y,l.close) then self.bagOpen=false;return "bag_close" end
-   if inBox(x,y,l.modal) then
-     local col=math.floor((x-l.modal.x)/(l.modal.w/6))+1
-     local row=math.floor((y-l.modal.y-55*l.u)/(l.modal.h*.34))
-     if row>=0 and row<=1 and col>=1 and col<=6 then
-       self.bagOpen=false;return "bag_slot",{row=row+1,column=col}
-     end
-   end
-   self.bagOpen=false;return "bag_close"
+   return nil
  end
  if near(x,y,l.pause) then return "pause" end
- if inBox(x,y,l.minimap) then
+ if near(x,y,l.chat) then self:stopForOverlay();return "chat_open" end
+ if near(x,y,l.rank) then
+   self:stopForOverlay();self.rankOpen=true
+   return "rank_open",self.rankingCategory
+ end
+ if near(x,y,l.ping) then return "ping_here" end
+ if near(x,y,l.mark) or inside(x,y,l.minimap) then
    self:stopForOverlay();self.mapOpen=true
    return "map_open"
  end
- if near(x,y,l.chat) then
-   self:stopForOverlay();self.chatOpen=true;return "chat_open"
+ -- Centre strip receives touches BEFORE the generic movement/aim zones.
+ total=total or 0
+ if total>4 then
+   local pages=max(1,math.ceil((total-4)/5))
+   self.page=clamp(self.page,1,pages)
+   if pages>1 and near(x,y,l.stripPrev) then
+     self.page=max(1,self.page-1);return "page",self.page
+   end
+   if pages>1 and near(x,y,l.stripNext) then
+     self.page=min(pages,self.page+1);return "page",self.page
+   end
+   local first=5+(self.page-1)*5
+   local count=min(5,total-first+1)
+   for i=1,count do
+     local slot={x=l.strip.x+(i-3)*l.strip.step,y=l.strip.y,r=l.strip.r}
+     if near(x,y,slot) then return "slot",first+i-1 end
+   end
  end
- if near(x,y,l.bag) then
-   self:stopForOverlay();self.bagOpen=true;return "bag_open"
+ -- Attack FIRST, then special buttons; touch on right never causes movement.
+ if near(x,y,l.fire) then
+   if self.fireId==nil then self.fireId=id;return "attack" end
+   return nil
  end
- if near(x,y,l.build) then return "build" end
- if near(x,y,l.swap) then return "swap" end
- if near(x,y,l.gather) then return "interact" end
- if near(x,y,l.run) then
-   self.run=not self.run;return "run"
+ if near(x,y,l.auto) then self.auto=not self.auto;return "server_auto",self.auto end
+ for i,p in ipairs(l.skills) do
+   if near(x,y,p) then return "skill",i end
  end
- if near(x,y,l.auto) then self.auto=not self.auto;return "attack" end
- if near(x,y,l.fire) and self.fireId==nil then
-   self.fireId=id;return "attack"
+ -- A left thumb remains captured even if it crosses the screen.
+ if x<w*.35 and y>h*.38 and self.moveId==nil then
+   self.moveId=id;self.moveOrigin={x=x,y=y}
+   self:joystick(x,y,l)
+   return "move"
  end
- if x<w*.45 and y>h*.3 and self.moveId==nil then
-   self.run=false;self.moveId=id;self.moveOrigin={x=x,y=y}
-   self:moveJoystick(x,y,l);return "move"
- end
- if x>w*.47 and y>h*.25 and self.aimId==nil then
-   self.aimId=id;self.aimOrigin={x=x,y=y};return "aim"
+ -- Right-side swipe aims, but never starts a joystick or a held attack.
+ if x>w*.66 and y>h*.26 and self.aimId==nil then
+   self.aimId=id;self.aimOrigin={x=x,y=y}
+   return "aim"
  end
  return nil
 end
 function M:moved(id,x,y,w,h)
- local l=self:layout(w,h)
- if self.moveId==id then self:moveJoystick(x,y,l);return "move" end
- if self.aimId==id and self.aimOrigin then
-   local dx,dy=x-self.aimOrigin.x,y-self.aimOrigin.y
-   if dx*dx+dy*dy>(12*l.u)^2 then
+ if id==self.moveId and self.moveOrigin then
+   self:joystick(x,y,self:layout(w,h))
+   return "move"
+ end
+ if id==self.aimId and self.aimOrigin then
+   local ox,oy=self.aimOrigin.x,self.aimOrigin.y
+   local dx,dy=x-ox,y-oy
+   if dx*dx+dy*dy>96 then
      self.aimDir=atan2(dy,dx)
-     self.aimOrigin={x=x-dx*.55,y=y-dy*.55}
+     self.aimOrigin.x=x-dx*.50;self.aimOrigin.y=y-dy*.50
    end
    return "aim"
  end
@@ -147,114 +189,235 @@ function M:released(id)
  if self.fireId==id then self.fireId=nil;return "attack" end
  return nil
 end
-local function ring(g,p,selected,a)
- g.setColor(selected and {.52,.74,.22,a} or {.13,.22,.18,a})
- g.circle("fill",p.x,p.y,p.r)
- g.setColor(selected and {1,.91,.45,1} or {.82,.91,.79,a})
- g.setLineWidth(math.max(2,p.r*.065))
- g.circle("line",p.x,p.y,p.r)
+local function ring(g,p,active,accent)
+ -- Small number of primitive draws; no new textures, canvases or shaders per frame.
+ local r=p.r
+ g.setColor(.015,.036,.037,.67);g.circle("fill",p.x+2,p.y+3,r+4)
+ g.setColor(active and .23 or .09,active and .41 or .17,active and .26 or .19,.92)
+ g.circle("fill",p.x,p.y,r)
+ g.setColor(accent and .89 or .45,accent and .76 or .75,accent and .35 or .72,1)
+ g.setLineWidth(2.4);g.circle("line",p.x,p.y,r-1)
+ g.setColor(.87,.96,.93,.22);g.arc("line","open",p.x,p.y,r-5,math.pi*1.09,math.pi*1.86)
 end
-local function text(g,s,p,size)
- g.setColor(1,1,1,1)
- g.printf(s,p.x-p.r,p.y-size*.5,2*p.r,"center")
+local function words(g,str,p,size)
+ g.setColor(.97,.98,.94,1)
+ g.setFont(size and small or font)
+ g.printf(str,p.x-p.r*1.1,p.y-(size and 6 or 9),p.r*2.2,"center")
 end
-local function markMap(g,world,box,scale)
+-- Original vector glyphs (no copyrighted MOBA UI assets). Draw once per frame,
+-- with no filesystem access, shaders or new Canvas allocations.
+local function glyph(g,kind,p,u,active)
+ g.push()
+ g.translate(p.x,p.y)
+ g.scale(u,u)
+ g.setLineWidth(2.8)
+ if kind=="attack" then
+   g.rotate(-.65)
+   g.setColor(active and 1 or .93,active and .7 or .88,.67,1)
+   g.polygon("fill",-5,-29,5,-29,8,13,-8,13)
+   g.setColor(.21,.33,.31,1)
+   g.polygon("fill",0,-23,3,5,0,15,-3,5)
+   g.setColor(1,.86,.44,1)
+   g.rectangle("fill",-20,10,40,6,2,2)
+   g.rectangle("fill",-3,15,6,14,2,2)
+ elseif kind=="auto" then
+   g.setColor(active and .91 or .67,active and .9 or .82,.48,1)
+   g.arc("line","open",0,0,18,-.3,math.pi*1.37)
+   g.polygon("fill",-17,-12,-20,-1,-9,-6)
+   g.circle("fill",0,0,4)
+ elseif kind=="chat" then
+   g.setColor(.81,.96,.87,1)
+   g.rectangle("line",-21,-17,42,29,8,8)
+   g.polygon("fill",-12,10,-12,22,-1,11)
+   g.circle("fill",-10,-3,2.5);g.circle("fill",0,-3,2.5)
+   g.circle("fill",10,-3,2.5)
+ elseif kind=="ping" then
+   g.setColor(1,.83,.39,1)
+   g.polygon("line",0,-23,21,0,0,23,-21,0)
+   g.rectangle("fill",-2.4,-12,4.8,16,2,2)
+   g.circle("fill",0,11,3)
+ elseif kind=="map" then
+   g.setColor(.71,.9,.78,1)
+   g.polygon("line",-21,-15,-8,-20,7,-13,21,-19,21,17,7,21,-8,15,-21,19)
+   g.line(-8,-20,-8,15);g.line(7,-13,7,21)
+ elseif kind=="ranking" then
+   g.setColor(1,.87,.42,1)
+   g.arc("line","open",0,-10,14,0,math.pi)
+   g.line(-14,-10,-10,2,-4,7,4,7,10,2,14,-10)
+   g.line(-3,8,-3,18);g.line(3,8,3,18)
+   g.line(-13,18,13,18)
+ elseif kind=="pause" then
+   g.setColor(.87,.96,.9,1)
+   g.rectangle("fill",-11,-15,8,30,2,2)
+   g.rectangle("fill",3,-15,8,30,2,2)
+ end
+ g.pop()
+end
+local function map(g,world,b,scale)
  scale=scale or 14400
- g.setColor(.06,.13,.075,.90)
- g.rectangle("fill",box.x,box.y,box.w,box.h,5,5)
- g.setColor(.46,.70,.37,1)
- g.rectangle("line",box.x,box.y,box.w,box.h,5,5)
- local function point(x,y)
-   return box.x+clamp(x/scale,0,1)*box.w,
-      box.y+clamp(y/scale,0,1)*box.h
+ g.setColor(.045,.13,.09,.90);g.rectangle("fill",b.x,b.y,b.w,b.h,7,7)
+ g.setColor(.20,.36,.27,.8)
+ for i=1,5 do
+   local k=i/6
+   g.line(b.x+b.w*k,b.y,b.x+b.w*k,b.y+b.h)
+   g.line(b.x,b.y+b.h*k,b.x+b.w,b.y+b.h*k)
  end
- local p=world and world:localPlayer() or nil
- if p and p.x and p.y then
-   local x,y=point(p.x,p.y);g.setColor(1,1,1);g.circle("fill",x,y,6)
+ g.setColor(.59,.79,.49,.93);g.rectangle("line",b.x,b.y,b.w,b.h,7,7)
+ local function dot(x,y,r,red,green,blue)
+   if type(x)~="number" or type(y)~="number" then return end
+   g.setColor(red,green,blue,1)
+   g.circle("fill",b.x+clamp(x/scale,0,1)*b.w,b.y+clamp(y/scale,0,1)*b.h,r)
  end
+ local player=world and world:localPlayer()
+ if player then dot(player.x,player.y,5,1,1,.81) end
  local mates=world and world.minimapData or {}
- for i=1,#mates-1,2 do
-   if type(mates[i])=="number" and type(mates[i+1])=="number" then
-     local x,y=point(mates[i],mates[i+1])
-     g.setColor(.35,.8,1);g.circle("fill",x,y,4)
-   end
- end
- for _,v in ipairs(world and world.mapPings or {}) do
-   if type(v.x)=="number" and type(v.y)=="number" then
-     local x,y=point(v.x,v.y)
-     g.setColor(1,.8,.24)
-     g.circle("line",x,y,9+(v.scale or 0)*.15)
-   end
- end
+ for i=1,#mates-1,2 do dot(mates[i],mates[i+1],3,.30,.82,1) end
+ for _,p in ipairs(world and world.mapPings or {}) do dot(p.x,p.y,5,1,.81,.24) end
  local marker=world and world.mapMarker
- if marker and marker.x and marker.y then
-   local x,y=point(marker.x,marker.y)
-   g.setColor(1,.9,.25);g.setLineWidth(3)
-   g.line(x-7,y,x+7,y);g.line(x,y-7,x,y+7)
- end
+ if marker then dot(marker.x,marker.y,6,1,.94,.38) end
 end
-local function label(g,s,x,y,w)
- g.setColor(1,1,1,1);g.printf(s,x,y,w,"center")
+function M:drawChat(draft)
+ local g=love.graphics
+ local w,h=g.getDimensions()
+ local l=self:layout(w,h)
+ fonts()
+ local b=l.chatPanel
+ g.push("all")
+ g.setColor(.015,.035,.035,.80)
+ g.rectangle("fill",0,0,w,h)
+ g.setColor(.055,.15,.13,.97)
+ g.rectangle("fill",b.x,b.y,b.w,b.h,12,12)
+ g.setColor(.48,.74,.55,1)
+ g.setLineWidth(2)
+ g.rectangle("line",b.x,b.y,b.w,b.h,12,12)
+ g.setFont(font)
+ g.setColor(.94,.97,.88,1)
+ g.print("CHAT DA PARTIDA",b.x+22*l.u,b.y+13*l.u)
+ g.setColor(.11,.24,.22,.98)
+ g.rectangle("fill",w*.20,h*.275,w*.48,h*.079,8,8)
+ g.setColor(.60,.78,.72,1)
+ g.rectangle("line",w*.20,h*.275,w*.48,h*.079,8,8)
+ g.setFont(font)
+ local text=tostring(draft or "")
+ if #text>75 then text=text:sub(-75) end
+ g.setColor(.96,.98,.96,1)
+ g.print((#text>0 and text or "Digite sua mensagem...")..
+   (#text>0 and "|" or ""),w*.21,h*.293)
+ local send=l.chatSend
+ g.setColor(.29,.58,.37,1)
+ g.rectangle("fill",send.x,send.y,send.w,send.h,8,8)
+ g.setColor(1,1,1,1)
+ g.printf("ENVIAR",send.x,send.y+send.h*.30,send.w,"center")
+ local exit=l.chatCancel
+ g.setColor(.35,.27,.23,1)
+ g.rectangle("fill",exit.x,exit.y,exit.w,exit.h,6,6)
+ g.setColor(.98,.96,.94,1)
+ g.printf("X",exit.x,exit.y+exit.h*.25,exit.w,"center")
+ g.setFont(small)
+ g.setColor(.77,.87,.80,1)
+ g.print("Ate 30 caracteres. ENTER tambem envia.",b.x+22*l.u,b.y+b.h-27*l.u)
+ g.pop()
 end
-function M:draw(world,mapScale)
+function M:draw(world,scale)
  local g=love.graphics
  local w,h=g.getDimensions()
  local l=self:layout(w,h)
  local u=l.u
+ fonts()
  g.push("all")
- if self.mapOpen or self.chatOpen or self.bagOpen then
-   g.setColor(0,0,0,.78);g.rectangle("fill",0,0,w,h)
+ if self.mapOpen or self.rankOpen then
+   g.setColor(0,.012,.012,.83);g.rectangle("fill",0,0,w,h)
    if self.mapOpen then
-     markMap(g,world,l.bigmap,mapScale)
-     label(g,"MARQUE UM PONTO PARA AVISAR O TIME",l.bigmap.x,l.bigmap.y-36*u,l.bigmap.w)
+     map(g,world,l.bigmap,scale)
+     g.setFont(font);g.setColor(.94,.97,.86,1)
+     g.printf("TOQUE NO MAPA PARA MARCAR",l.bigmap.x,l.bigmap.y-29*u,l.bigmap.w,"center")
    else
-     local b=l.modal
-     g.setColor(.09,.16,.12,.97);g.rectangle("fill",b.x,b.y,b.w,b.h,10,10)
-     g.setColor(.63,.81,.44);g.rectangle("line",b.x,b.y,b.w,b.h,10,10)
-     label(g,self.chatOpen and "MENSAGENS RAPIDAS" or "MOCHILA - ESCOLHA UM ITEM",
-       b.x,b.y+15*u,b.w)
-     if self.chatOpen then
-       for i,msg in ipairs(messages) do
-         local col=(i-1)%2;local row=math.floor((i-1)/2)
-         local x=b.x+17*u+col*b.w*.5
-         local y=b.y+57*u+row*b.h/4
-         g.setColor(.23,.34,.27,.97)
-         g.rectangle("fill",x,y,b.w*.47,47*u,5,5)
-         label(g,msg,x,y+12*u,b.w*.47)
+     local b=l.rankPanel
+     g.setColor(.055,.12,.11,.97);g.rectangle("fill",b.x,b.y,b.w,b.h,11,11)
+     g.setColor(.5,.73,.56,1);g.rectangle("line",b.x,b.y,b.w,b.h,11,11)
+     g.setFont(font)
+     g.setColor(.96,.98,.94,1)
+     g.printf("TOP 10  /  "..names[self.rankingCategory],b.x,b.y+15*u,b.w,"center")
+     local cell=(b.w-20*u)/#categories
+     for i,category in ipairs(categories) do
+       local bx=b.x+10*u+(i-1)*cell
+       g.setColor(category==self.rankingCategory and .28 or .12,
+         category==self.rankingCategory and .47 or .23,.24,.95)
+       g.rectangle("fill",bx,b.y+58*u,cell-3*u,36*u,4,4)
+       g.setColor(1,1,1,1);g.setFont(small)
+       g.printf(names[category],bx,b.y+70*u,cell-3*u,"center")
+     end
+     g.setFont(font)
+     local data=world and world.categoryRankings and world.categoryRankings[self.rankingCategory] or {}
+     for i=1,min(10,#data) do
+       local item=data[i];local y=b.y+108*u+(i-1)*36*u
+       if i%2==0 then
+         g.setColor(.18,.27,.24,.8)
+         g.rectangle("fill",b.x+10*u,y-3*u,b.w-20*u,32*u,3,3)
        end
-     else
-       local inv=world and world.inventory or {}
-       for row,items in ipairs({inv.weapons or {},inv.items or {}}) do
-         for col=1,math.min(6,#items) do
-           local x=b.x+(col-1)*b.w/6
-           local y=b.y+57*u+(row-1)*b.h*.34
-           g.setColor(.22,.29,.25,.94)
-           g.rectangle("fill",x+4*u,y,b.w/6-8*u,b.h*.29,5,5)
-           label(g,(row==1 and "ARMA " or "ITEM ")..items[col],
-             x+4*u,y+13*u,b.w/6-8*u)
-         end
-       end
+       g.setColor(.95,.85,.49,1);g.print(i..".",b.x+25*u,y)
+       g.setColor(.96,.97,.94,1);g.print(tostring(item.name or "?"):sub(1,23),b.x+72*u,y)
+       g.printf(tostring(math.floor(item.score or 0)),b.x+b.w-157*u,y,130*u,"right")
+     end
+     if #data==0 then
+       g.setColor(.85,.87,.85,1)
+       g.printf("AGUARDANDO DADOS DO SERVIDOR",b.x,b.y+148*u,b.w,"center")
      end
    end
-   ring(g,l.close,false,.96);text(g,"X",l.close,22*u)
-   g.pop();return
+   ring(g,l.close,false,true);words(g,"X",l.close)
+   g.pop()
+   return
  end
- markMap(g,world,l.minimap,mapScale)
- ring(g,l.pause,false,.75);text(g,"II",l.pause,19*u)
- ring(g,l.chat,false,.75);text(g,"CHAT",l.chat,13*u)
- ring(g,l.move,false,.42)
- local px=self.moveOrigin and self.moveOrigin.x or l.move.x
- local py=self.moveOrigin and self.moveOrigin.y or l.move.y
- g.setColor(.83,.94,.8,.86)
- g.circle("fill",px+self.moveX*l.move.r*.5,py+self.moveY*l.move.r*.5,29*u)
- ring(g,l.run,self.run,.82);text(g,"CORRER",l.run,10*u)
- ring(g,l.auto,self.auto,.94);text(g,"AUTO",l.auto,13*u)
- ring(g,l.fire,self:attacking(),.94);text(g,"ATACAR",l.fire,15*u)
- ring(g,l.aim,self.aimId~=nil,.72);text(g,"MIRA",l.aim,12*u)
- ring(g,l.gather,false,.8);text(g,"COLETA",l.gather,11*u)
- ring(g,l.build,false,.82);text(g,"CONSTR.",l.build,10*u)
- ring(g,l.swap,false,.82);text(g,"TROCAR",l.swap,10*u)
- ring(g,l.bag,false,.82);text(g,"BOLSA",l.bag,10*u)
+ map(g,world,l.minimap,scale)
+ ring(g,l.ping,false,true);glyph(g,"ping",l.ping,u)
+ ring(g,l.mark,false,false);glyph(g,"map",l.mark,u)
+ ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
+ ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
+ ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
+ ring(g,l.move,self.moveId~=nil,false)
+ local x=self.moveOrigin and self.moveOrigin.x or l.move.x
+ local y=self.moveOrigin and self.moveOrigin.y or l.move.y
+ g.setColor(.67,.94,.79,.93)
+ g.circle("fill",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,26*u)
+ g.setColor(.12,.31,.23,1)
+ g.circle("line",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,25*u)
+ ring(g,l.fire,self:attacking(),true)
+ glyph(g,"attack",l.fire,u,self:attacking())
+ ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
+ -- The first four are the exact first four quick slots, not fake cooldown skills.
+ for i,p in ipairs(l.skills) do
+   ring(g,p,false,false)
+   local id,weapon=Slots.at(world,i)
+   local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
+   if item and Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) then
+     g.setColor(.04,.13,.12,.92);g.circle("fill",p.x+p.r*.6,p.y+p.r*.6,10*u)
+     g.setFont(small);g.setColor(1,1,1,1)
+     g.printf(tostring(i),p.x+p.r*.6-10*u,p.y+p.r*.6-6*u,20*u,"center")
+   else
+     words(g,tostring(i),p)
+   end
+ end
+ -- All inventory entries from #5 onward, horizontally in the centre.
+ local total=Slots.total(world)
+ local pageCount=Slots.pages(world,5)
+ self.page=clamp(self.page,1,pageCount)
+ if total>4 then
+   local first=5+(self.page-1)*5
+   local count=min(5,total-first+1)
+   for i=1,count do
+     local p={x=l.strip.x+(i-3)*l.strip.step,y=l.strip.y,r=l.strip.r}
+     ring(g,p,false,false)
+     local id,weapon=Slots.at(world,first+i-1)
+     local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
+     if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.34) end
+   end
+   if pageCount>1 then
+     ring(g,l.stripPrev,false,false);words(g,"<",l.stripPrev)
+     ring(g,l.stripNext,false,false);words(g,">",l.stripNext)
+     g.setColor(1,1,1,1);g.setFont(small)
+     g.printf(self.page.."/"..pageCount,l.strip.x-38*u,h-104*u,76*u,"center")
+   end
+ end
  g.pop()
 end
 return M
