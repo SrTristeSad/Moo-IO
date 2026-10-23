@@ -1,5 +1,5 @@
 -- Moo-IO Android: two independent FLOATING joysticks and a compact survival HUD.
--- Left touch moves; right touch simultaneously aims and attacks. No MOBA skill cluster.
+-- Left touch moves; right floating control aims in the inner zone and attacks in the outer zone.
 -- Buttons remain server-authoritative and never create imaginary abilities.
 local Slots=require("src.mobile.slots")
 local Catalog=require("src.game.catalog")
@@ -25,7 +25,7 @@ local function fonts()
 end
 function M.new()
  return setmetatable({moveId=nil,fireId=nil,moveX=0,moveY=0,
-   moveOrigin=nil,fireOrigin=nil,aimDir=0,fireOffsetX=0,fireOffsetY=0,
+   moveOrigin=nil,fireOrigin=nil,fireActive=false,aimDir=0,fireOffsetX=0,fireOffsetY=0,
    uiScale=1.20,uiOpacity=.90,moveScale=1,fireScale=1,deadzone=.15,
    auto=false,rankOpen=false,mapOpen=false,
    rankRefresh=0,rankingCategory="gold",lastPoint=nil,
@@ -37,7 +37,7 @@ end
 function M:reset()
  self.moveId=nil;self.fireId=nil
  self.moveX=0;self.moveY=0;self.moveOrigin=nil;self.fireOrigin=nil
- self.fireOffsetX=0;self.fireOffsetY=0
+ self.fireOffsetX=0;self.fireOffsetY=0;self.fireActive=false
  self.barTouchId=nil;self.barTouchX=nil;self.barTouchIndex=nil
  self.barTouchMoved=false;self.barTouchDistance=0
  self.barScroll=0;self.barCount=0
@@ -46,7 +46,7 @@ end
 function M:stopForOverlay()
  self.moveId=nil;self.fireId=nil
  self.moveOrigin=nil;self.fireOrigin=nil;self.moveX=0;self.moveY=0
- self.fireOffsetX=0;self.fireOffsetY=0
+ self.fireOffsetX=0;self.fireOffsetY=0;self.fireActive=false
  self.barTouchId=nil;self.barTouchX=nil;self.barTouchIndex=nil
  self.barTouchMoved=false;self.barTouchDistance=0
 end
@@ -137,18 +137,27 @@ function M:movement()
  return 0,0
 end
 function M:aimAngle()return self.aimDir end
-function M:attacking()return self.fireId~=nil end
--- Use the same captured attack pointer for targeting. It keeps control even
--- after the finger leaves the button's visual boundary.
+-- The floating right control is always a single pointer. Aiming does not
+-- imply firing: firing is enabled only after moving past the outer threshold.
+function M:attacking()return self.fireId~=nil and self.fireActive end
+function M:aiming()return self.fireId~=nil end
 function M:attackJoystick(x,y,l)
  local origin=self.fireOrigin or l.fire
  local dx,dy=x-origin.x,y-origin.y
  local distance=sqrt(dx*dx+dy*dy)
- if distance<=12*l.u then
+ local dead=12*l.u
+ -- Hysteresis avoids spamming F(1)/F(0) while the thumb hovers around
+ -- the boundary between aiming and firing.
+ if self.fireActive then
+   if distance<=l.fire.r*.56 then self.fireActive=false end
+ elseif distance>=l.fire.r*.72 then
+   self.fireActive=true
+ end
+ if distance<=dead then
    self.fireOffsetX=0;self.fireOffsetY=0
    return false
  end
- local radius=l.fire.r*.62
+ local radius=l.fire.r*.75
  local factor=min(distance,radius)/distance
  self.fireOffsetX=dx*factor
  self.fireOffsetY=dy*factor
@@ -229,10 +238,10 @@ function M:pressed(id,x,y,w,h,scale,total)
    self:joystick(x,y,l)
    return "move"
  end
- -- Floating ATTACK+MIRA: finger down starts firing at its current position;
- -- drag controls facing direction, and release ends the attack.
+ -- Single floating right control: touch starts aim-only; pull outward
+ -- to attack+aim. Returning inward stops only manual fire, not AUTO.
  if x>w*.68 and y>h*.38 and self.fireId==nil then
-   self.fireId=id;self.fireOrigin={x=x,y=y}
+   self.fireId=id;self.fireActive=false;self.fireOrigin={x=x,y=y}
    self:attackJoystick(x,y,l)
    return "attack"
  end
@@ -260,8 +269,11 @@ function M:moved(id,x,y,w,h)
    return "move"
  end
  if id==self.fireId then
-   self:attackJoystick(x,y,self:layout(w,h))
-   return "aim"
+   local previous=self.fireActive
+   local aimed=self:attackJoystick(x,y,self:layout(w,h))
+   -- Even when the thumb changes direction only, relay aim immediately.
+   -- When crossing the boundary, the client also sends F(1) / F(0).
+   return "aim",previous~=self.fireActive
  end
  return nil
 end
@@ -277,7 +289,7 @@ function M:released(id)
    self.moveId=nil;self.moveOrigin=nil;self.moveX=0;self.moveY=0;return "move"
  end
  if self.fireId==id then
-   self.fireId=nil;self.fireOrigin=nil
+   self.fireId=nil;self.fireOrigin=nil;self.fireActive=false
    self.fireOffsetX=0;self.fireOffsetY=0
    return "attack"
  end
@@ -527,18 +539,32 @@ function M:draw(world,scale)
  end
  if self.fireOrigin then
    local base={x=self.fireOrigin.x,y=self.fireOrigin.y,r=l.fire.r}
-   ring(g,base,true,true)
+   -- Inner cyan radius = precision aim only. Outer gold threshold =
+   -- aim+manual fire. No second combat button is introduced.
+   ring(g,base,self.fireActive,self.fireActive)
+   g.setLineWidth(2*u)
+   g.setColor(.28,.88,.93,.80*self.uiOpacity)
+   g.circle("line",base.x,base.y,base.r*.56)
+   g.setColor(.96,.75,.29,.92*self.uiOpacity)
+   g.circle("line",base.x,base.y,base.r*.72)
    local px=base.x+self.fireOffsetX
    local py=base.y+self.fireOffsetY
    if self.fireOffsetX~=0 or self.fireOffsetY~=0 then
-     g.setColor(.95,.80,.40,.56*self.uiOpacity)
-     g.setLineWidth(4*u);g.line(base.x,base.y,px,py)
+     g.setColor(self.fireActive and .99 or .34,
+       self.fireActive and .67 or .82,
+       self.fireActive and .23 or .93,.77*self.uiOpacity)
+     g.setLineWidth(3*u);g.line(base.x,base.y,px,py)
    end
-   g.setColor(.89,.74,.41,self.uiOpacity)
-   g.circle("fill",px,py,26*u*self.fireScale)
-   g.setColor(.16,.28,.21,1);g.setLineWidth(2*u)
-   g.circle("line",px,py,26*u*self.fireScale)
-   glyph(g,"attack",{x=px,y=py},u*.66,true)
+   g.setColor(self.fireActive and .96 or .38,
+     self.fireActive and .70 or .86,
+     self.fireActive and .31 or .93,self.uiOpacity)
+   g.circle("fill",px,py,23*u*self.fireScale)
+   g.setColor(.12,.27,.25,1);g.setLineWidth(2*u)
+   g.circle("line",px,py,23*u*self.fireScale)
+   glyph(g,"attack",{x=px,y=py},u*.66,self.fireActive)
+   g.setFont(small);g.setColor(1,1,1,self.uiOpacity)
+   g.printf(self.fireActive and "MIRA + ATAQUE" or "SOMENTE MIRA",
+     base.x-75*u,base.y+base.r+8*u,150*u,"center")
  end
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
  g.setColor(.97,.97,.94,1);g.setFont(small)
