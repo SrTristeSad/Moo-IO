@@ -28,10 +28,11 @@ jobs:
           npm install --prefix windows/server --no-audit --no-fund
       - name: Lua syntax
         run: find android -name '*.lua' -print0 | xargs -0 -n1 luac -p
-      - name: Four skill controls, E auto, tactical ping, map and rankings
+      - name: Functional abilities, single-row touch HUD, auto, ping and rankings
         working-directory: android
         run: |
           lua tests/touch_controls_test.lua
+          lua tests/ability_actions_test.lua
           lua tests/category_rankings_test.lua
           lua tests/android_host_test.lua
           lua tests/android_home_bot_test.lua
