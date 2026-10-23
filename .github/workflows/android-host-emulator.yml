@@ -19,7 +19,7 @@ jobs:
         with:
           name: Moo-IO-Android-Servidor-Integrado
           repository: SrTristeSad/Moo-IO
-          run-id: 39884893006
+          run-id: 39886536819
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: dist
       - name: Liberar KVM
@@ -51,7 +51,7 @@ jobs:
             adb shell am force-stop io.srtristesad.mooio
             adb shell run-as io.srtristesad.mooio rm files/mooio-host/server-version.txt
             adb shell am start -n io.srtristesad.mooio/org.love2d.android.MooIOActivity
-            bash -c 'for i in $(seq 1 18); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_REAL_NODE_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -200; exit 1; }
+            bash -c 'for i in $(seq 1 18); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_REAL_NODE_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb shell run-as io.srtristesad.mooio cat files/mooio-data/node-boot.log || true; adb logcat -d -v time | grep -E 'MooIO|AndroidRuntime|libnode|ActivityManager|lmkd|crash|FATAL' | tail -200; exit 1; }
             adb shell pidof io.srtristesad.mooio
             adb shell pidof io.srtristesad.mooio:mooio_node
             echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
