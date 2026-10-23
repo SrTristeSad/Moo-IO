@@ -48,24 +48,35 @@ local menu=Menu.new()
 local home=Home.new()
 local hosted=Host.new()
 local function saveHudSettings()
-  if mobile then mobile:configure(home.hudScale,home.hudOpacity) end
+  if mobile then mobile:configure(home.hudScale,home.hudOpacity,
+    home.moveScale,home.fireScale,home.deadzone) end
   if love.filesystem then
     love.filesystem.write("mooio-hud-v1.cfg",
-      string.format("%.2f %.2f",home.hudScale,home.hudOpacity))
+      string.format("%.2f %.2f %.2f %.2f %.2f",
+        home.hudScale,home.hudOpacity,home.moveScale,home.fireScale,home.deadzone))
   end
 end
 local function loadHudSettings()
   if love.filesystem then
     local content=love.filesystem.read("mooio-hud-v1.cfg")
     if type(content)=="string" then
-      local size,opacity=content:match("^(%d+%.?%d*)%s+(%d+%.?%d*)$")
-      if size and opacity then
-        home.hudScale=math.max(.85,math.min(1.55,tonumber(size)))
-        home.hudOpacity=math.max(.50,math.min(1,tonumber(opacity)))
+      local values={}
+      for number in content:gmatch("%d+%.?%d*") do
+        values[#values+1]=tonumber(number)
+      end
+      if #values>=2 then
+        home.hudScale=math.max(.85,math.min(1.55,values[1]))
+        home.hudOpacity=math.max(.50,math.min(1,values[2]))
+      end
+      if #values>=5 then
+        home.moveScale=math.max(.75,math.min(1.50,values[3]))
+        home.fireScale=math.max(.75,math.min(1.50,values[4]))
+        home.deadzone=math.max(.05,math.min(.30,values[5]))
       end
     end
   end
-  if mobile then mobile:configure(home.hudScale,home.hudOpacity) end
+  if mobile then mobile:configure(home.hudScale,home.hudOpacity,
+    home.moveScale,home.fireScale,home.deadzone) end
 end
 local pause=Pause.new()
 local sessionIsHost=false
