@@ -33,7 +33,7 @@ distinguir arquitetura, versão Android e falta de espaço.
 
 ## HUD de sobrevivência — joysticks flutuantes
 
-O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; o toque à direita inicia ataque e mira no mesmo dedo. A barra inferior é **uma única linha de atalhos progressivos**, inicialmente curta: novas opções são acrescentadas apenas após escolhas de evolução confirmadas pelo servidor. Ela se recentraliza enquanto couber na tela. Quando ficar comprida, o jogador desliza a própria linha na horizontal; **não existem páginas de inventário nem botões artificiais de habilidades**.
+O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; à direita, **um único joystick flutuante** oferece mira sem disparar na zona interna e mira + ataque na zona externa. A barra inferior é **uma única linha de atalhos progressivos**, inicialmente curta: novas opções são acrescentadas apenas após escolhas de evolução confirmadas pelo servidor. Ela se recentraliza enquanto couber na tela. Quando ficar comprida, o jogador desliza a própria linha na horizontal; **não existem páginas de inventário nem botões artificiais de habilidades**.
 
 Os botões maiores de LOJA, CLÃ e TRIBO abrem, respectivamente, os sistemas existentes de compra/equipamentos, clãs permanentes e alianças temporárias da partida. Clãs de conta e Tribes são mecanismos diferentes. Os botões Loja, Clã, Tribo, Chat, TOP e Menu estão na faixa superior. As ofertas de evolução aparecem abaixo desses atalhos, mesmo com a escala máxima do HUD.
 
@@ -73,7 +73,7 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 | Controle | Função |
 |---|---|
 | Parte inferior esquerda (livre) | o joystick de movimento surge onde o dedo toca; arraste para mover |
-| Parte inferior direita (livre) | o joystick de ataque e mira surge onde o dedo toca; segurar ataca, arrastar mira e soltar interrompe |
+| Parte inferior direita (livre) | o joystick único surge no toque: até 56% do raio, apenas mira; a partir de 72%, começa mira + ataque; voltar até 56% interrompe o tiro manual; soltar finaliza o gesto |
 | Linha de atalhos inferior | cresce com armas, ferramentas, estruturas e consumíveis desbloqueados durante a evolução real do MooMoo.io |
 | Deslizar horizontalmente na linha | revela opções fora da área visível, sem trocar de página nem equipar durante o gesto |
 | Toque simples em um atalho | seleciona a opção correspondente após soltar o dedo; o servidor valida o equipamento |
@@ -92,7 +92,7 @@ Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removi
 ### Ajustes de estabilidade
 
 - Layout dos controles calculado pela resolução e pelos ajustes individuais, reutilizado durante desenho e movimento.
-- Toques independentes por identificador, com origem flutuante para cada polegar. Um dedo não assume o controle do outro; manter o ataque enquanto desliza controla a mira, e soltá-lo termina o ataque.
+- Toques independentes por identificador, com origem flutuante para cada polegar. Um dedo não assume o controle do outro; o joystick direito começa **somente mirando**. Ao arrastar para fora de 72% do raio, passa a atirar enquanto mira; voltando para dentro de 56%, para de atirar, mantendo a mira. Essa diferença entre 56% e 72% impede disparos intermitentes perto do limite. Soltar interrompe o ataque manual e encerra o gesto, preservando a direção escolhida.
 - Renderização de estruturas otimizada com classificação por camadas reaproveitável, preservando a ordem original.
 - Prévia de fundo do menu Android desenhada em resolução reduzida e atualizada com menor frequência.
 - Intervalos de animação visual limitados após engasgos, sem alterar o tempo de rede do servidor.
@@ -116,6 +116,10 @@ A criação de sala passa a quantidade de bots selecionada (0–8) para o proces
 - A confirmação de sala pronta exige que o status do processo Node informe também a quantidade real de bots. A resposta sem esse campo não autoriza a interface a dizer que a sala está pronta.
 - Se a solicitação de encerramento nativo falhar, o cliente mostra erro e não declara que a RAM foi liberada. Essa confirmação indica o aceite do controle nativo; a verificação de morte do processo continua coberta pelo teste de emulador.
 - Testes de regressão acrescentados para encerramento não confirmado e resposta incompleta do servidor.
+
+## Controle único de combate: mira interna e ataque externo
+
+O joystick direito não foi duplicado. Sua base aparece **sob o dedo**, e dois anéis mostram as zonas: o interno (ciano) permite mirar sem atacar; ultrapassar o externo (dourado) dispara também, com direção `D` e ataque `F(1)` transmitidos ao servidor. Regressar à região interna envia `F(0)` apenas se o ataque manual estava ativo, e soltar encerra o toque. As mudanças de direção `D` continuam sendo transmitidas enquanto se usa **somente mira**, com atualização limitada para não sobrecarregar a rede. AUTO permanece um modo independente, sem comando `K` emitido por esse gesto.
 
 ## Linha de habilidades funcionais e otimização do Android
 
