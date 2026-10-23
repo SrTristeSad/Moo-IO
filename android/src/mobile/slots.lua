@@ -32,7 +32,7 @@ function S.total(world)
   return #(inv.weapons or {})+#(inv.items or {})
 end
 function S.pages(world,perPage)
-  perPage=perPage or 5
+  perPage=perPage or 6
   return math.max(1,math.ceil(S.total(world)/perPage))
 end
 return S
