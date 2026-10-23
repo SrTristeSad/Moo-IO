@@ -15,7 +15,7 @@ local categories={"gold","health","food","wood","stone","kills","points"}
 local names={gold="OURO",health="VIDA",food="COMIDA",wood="MADEIRA",stone="PEDRA",kills="ABATES",points="PONTOS"}
 M.categories=categories
 M.rankingNames=names
-local font=nil,small=nil
+local font,small=nil,nil
 local function fonts()
  if not font then
    font=love.graphics.newFont(17)
