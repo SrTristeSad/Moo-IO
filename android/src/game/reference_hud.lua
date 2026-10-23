@@ -9,7 +9,7 @@ local Assets=require("src.game.reference_assets")
 local Upgrades=require("src.game.reference_upgrades")
 local ItemInfo=require("src.game.reference_item_info")
 local H={}
-local mobile=love.system and love.system.getOS and love.system.getOS()=="Android"
+local mobile=love.system and love.system.getOS and love.system.getOS()=="Android" or os.getenv("MOO_IO_FORCE_ANDROID_E2E")=="1"
 local fontSmall,fontMedium,fontLarge
 local function fonts()
   if not fontSmall then
