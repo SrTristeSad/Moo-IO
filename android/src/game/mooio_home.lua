@@ -140,7 +140,12 @@ function Home:click(sx,sy)
     if inside(x,y,boxes.nickname) then self.focus="nickname";return "focus" end
     if inside(x,y,boxes.joinIP) then self.focus="invite";return "focus" end
     if inside(x,y,boxes.joinCode) then self.focus="joinCode";return "focus" end
-    if not isAndroid and not self.hosting and not self.starting then
+    if isAndroid and not self.hosting and not self.starting then
+      if inside(x,y,boxes.createLan) then
+        self.focus=nil
+        return "create"
+      end
+    elseif not isAndroid and not self.hosting and not self.starting then
       if inside(x,y,boxes.modeLan) then self.serverMode="lan";self.focus=nil;return "mode_lan" end
       if inside(x,y,boxes.modeVpn) then self.serverMode="vpn";self.focus=nil;return "mode_vpn" end
       if self.serverMode=="vpn" and inside(x,y,boxes.vpnIP) then
@@ -303,12 +308,11 @@ function Home:draw(state,detail,showWorld)
       panel(672,194,477,402,C.panel,0)
       printText("01  CRIAR MINHA SALA",155,204,19,C.green)
       field("nickname",self.nickname,"Seu apelido",self.focus=="nickname")
-      if isAndroid then
-        printText("CLIENTE ANDROID",155,315,22,C.green)
-        printText("Seu apelido fica no campo acima.",155,366,16,C.white)
-        printText("Para jogar, informe IP e convite",155,419,16,C.muted)
-        printText("no painel da direita.",155,447,16,C.muted)
-        printText("Salas sao hospedadas no Windows.",155,485,15,C.amber)
+      if isAndroid and not self.hosting and not self.starting then
+        printText("SERVIDOR NO CELULAR",155,316,22,C.green)
+        printText("Partida solo sem internet ou PC.",155,371,16,C.white)
+        printText("Na rede Wi-Fi, amigos tambem podem entrar.",155,405,16,C.muted)
+        button("createLan","CRIAR MINHA SALA",true)
       elseif self.hosting then
         printText(self.botsEnabled and self.botCount>0 and
           ("Sala criada - "..self.botCount.." bots ativos.")
@@ -318,7 +322,7 @@ function Home:draw(state,detail,showWorld)
         printText(invite,170,365,16,C.white,432,"center")
         button("roomCopy","COPIAR CONVITE",false)
         button("roomEnter","JOGAR AGORA",true)
-        button("roomStop","ENCERRAR",false)
+        button("roomStop",isAndroid and "SAIR DA SALA" or "ENCERRAR",false)
       elseif self.starting then
         printText("Preparando sua sala...",155,331,18,C.green)
         printText("Voce escolheu criar esta sala.",155,383,16,C.muted)
