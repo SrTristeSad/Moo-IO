@@ -17,6 +17,7 @@ local Death=require("src.game.reference_death")
 local Notices=require("src.game.reference_notices")
 local Profile=require("src.game.reference_profile")
 local Upgrades=require("src.game.reference_upgrades")
+local Abilities=require("src.mobile.ability_actions")
 local Assets=require("src.game.reference_assets")
 local Camera=require("src.camera")
 local Input=require("src.input")
@@ -1157,6 +1158,7 @@ local function mobileSelect(kind,slot)
   end
 end
 local function mobileAction(action,payload)
+  if action=="top_toggle" then return end
   if action=="pause" then love.keypressed("escape");return end
   if action=="shop_open" or action=="clan_open" or action=="tribe_open" then
     mobileStop()
@@ -1202,12 +1204,22 @@ local function mobileAction(action,payload)
       mobile.auto=not mobile.auto
       latestEvent="Ataque automatico indisponivel: "..tostring(err)
     end
-  elseif action=="skill" then
-    -- Legacy action only; the current dynamic hotbar uses "slot" for all items.
-    local itemId,isWeapon=require("src.mobile.slots").at(world,payload)
-    if itemId~=nil then
-      client:send("z",{itemId,isWeapon})
-    else latestEvent="Atalho "..tostring(payload).." ainda sem item." end
+  elseif action=="skill" or action=="slot" then
+    -- The bottom row is a set of real ACTIONS, not a paginated inventory.
+    -- A touch selects weapons; food and structures execute using the
+    -- authoritative Node z/F protocol. Do not change the AUTO K toggle.
+    local now=love.timer.getTime()
+    if not mobileAbilitySentAt or now-mobileAbilitySentAt>=.17 then
+      mobileAbilitySentAt=now
+      local ok,why=Abilities.activate(world,payload,currentAttackDir(),
+        function(packet,args) return client:send(packet,args) end,
+        Pack.null,mobile:attacking())
+      if ok then
+        mobile:abilityFeedback(payload,now)
+      else
+        latestEvent="Habilidade nao executada: "..tostring(why)
+      end
+    end
   elseif action=="attack" then
     local active=mobile:attacking()
     if active~=mobileAttackSent then
@@ -1215,9 +1227,6 @@ local function mobileAction(action,payload)
         active and currentAttackDir() or Pack.null})
       if ok then mobileAttackSent=active end
     end
-  elseif action=="slot" then
-    local id,isWeapon=require("src.mobile.slots").at(world,payload)
-    if id~=nil then client:send("z",{id,isWeapon}) end
   elseif action=="ping" and payload then
     local ok,err=client:send("U",{payload.x,payload.y})
     if ok then world.mapMarker={x=payload.x,y=payload.y}
