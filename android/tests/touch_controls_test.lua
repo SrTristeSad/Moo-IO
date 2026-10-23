@@ -95,7 +95,7 @@ local picked,index=m:released(25)
 eq(picked,"slot");eq(index,10)
 local middleX=bar.clipX+bar.clipW*.5
 eq(m:pressed(26,middleX,l.hotbar.y,w,h,14400,10),"bar_hold")
-eq(m:moved(26,middleX+150,l.hotbar.y,w,h),"bar_scroll")
+eq(m:moved(26,middleX+400,l.hotbar.y,w,h),"bar_scroll")
 local scrolled=m:hotbar(10,w,h)
 assert(scrolled[1].x>shown[1].x,"swipe must reveal earlier options")
 eq(m:released(26),"bar_release")
