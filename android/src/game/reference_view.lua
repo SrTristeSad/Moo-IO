@@ -461,9 +461,10 @@ local function labels(world,camera,w,h,players,animals)
   end
 end
 function View.draw(world,camera,dt,options)
-  -- Generate at most three expensive new object sprites per frame.
-  -- They are cached permanently; deferred sprites show next frame.
-  Objects.beginFrame(3)
+  -- Gameplay draws every frame, so distribute cold sprites across frames.
+  -- The menu background is a cached Canvas redrawn infrequently; permit
+  -- enough sprites there to avoid leaving placeholder gaps until refresh.
+  Objects.beginFrame(options and options.localAim~=nil and 3 or 64)
   local w,h=love.graphics.getDimensions()
   -- Aiming is local presentation only. The actual attack and target
   -- direction are still transmitted via the original D/F Node packets.
