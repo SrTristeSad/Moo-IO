@@ -1,7 +1,7 @@
 name: Moo IO Android autonomo - APK com servidor
 on:
   push:
-    branches: [feature/android-offline-host, feature/android-moba-hud, feature/android-attack-aim-joystick, fix/android-beta-install-real-hud, main]
+    branches: [feature/android-offline-host, feature/android-moba-hud, feature/android-attack-aim-joystick, fix/android-beta-install-real-hud, fix/android-server-lifecycle, main]
     paths:
       - "android/**"
       - "windows/server/src/**"
