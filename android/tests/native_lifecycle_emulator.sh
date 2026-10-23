@@ -24,11 +24,12 @@ if [ "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:28082/start)" !
   echo "FAIL: remote app can start server without private token" >&2; exit 1
 fi
 start() {
+  local requested="${1:-0}"
   local value
-  value=$(curl -fsS --max-time 4 "http://127.0.0.1:28082/start/$token")
+  value=$(curl -fsS --max-time 4 "http://127.0.0.1:28082/start/$token/$requested")
   test "$value" = started
   for _ in $(seq 1 25); do
-    if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q '"project":"Moo-IO"'; then
+    if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q "\"bots\":$requested"; then
       adb shell pidof "$pkg:mooio_node"
       echo "MOOIO_ANDROID_HOST_STARTED_PASS"
       return
@@ -51,9 +52,9 @@ stop() {
   echo "FAIL: Node process survived stopping the room" >&2
   return 1
 }
-start
+start 0
 stop
-start
+start 5
 stop
 adb shell pidof "$pkg"
 adb shell am force-stop "$pkg"
