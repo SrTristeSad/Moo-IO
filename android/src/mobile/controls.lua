@@ -52,27 +52,29 @@ function M:layout(w,h)
  -- Left thumb moves. The ATACAR circle controls both direction and hits.
  -- The strip for slots 5+ sits BETWEEN the two thumb joysticks.
  local stripX=w*.50
+ -- Larger real hit regions, laid out with gap between neighbouring controls.
+ -- All radii are also the on-screen visual radii, so touch and artwork agree.
  local skills={
-   {x=w-279*u,y=h-104*u,r=35*u},
-   {x=w-342*u,y=h-191*u,r=35*u},
-   {x=w-261*u,y=h-276*u,r=35*u},
-   {x=w-143*u,y=h-315*u,r=35*u}
+   {x=w-279*u,y=h-104*u,r=44*u},
+   {x=w-342*u,y=h-191*u,r=44*u},
+   {x=w-261*u,y=h-276*u,r=44*u},
+   {x=w-143*u,y=h-315*u,r=44*u}
  }
- local l={u=u,move={x=137*u,y=h-137*u,r=77*u},
-   fire={x=w-108*u,y=h-125*u,r=64*u},
-   auto={x=w-155*u,y=h-223*u,r=36*u},
-   skills=skills,chat={x=w-276*u,y=49*u,r=37*u},
-   rank={x=w-155*u,y=49*u,r=35*u},
-   pause={x=w-48*u,y=49*u,r=30*u},
-   ping={x=220*u,y=77*u,r=30*u},
-   mark={x=220*u,y=158*u,r=30*u},
+ local l={u=u,move={x=142*u,y=h-132*u,r=96*u},
+   fire={x=w-99*u,y=h-119*u,r=78*u},
+   auto={x=w-163*u,y=h-225*u,r=40*u},
+   skills=skills,chat={x=w-276*u,y=49*u,r=44*u},
+   rank={x=w-155*u,y=49*u,r=42*u},
+   pause={x=w-48*u,y=49*u,r=35*u},
+   ping={x=230*u,y=77*u,r=36*u},
+   mark={x=230*u,y=158*u,r=36*u},
    minimap={x=21*u,y=20*u,w=167*u,h=167*u},
    bigmap={x=(w-board)/2,y=(h-board)/2,w=board,h=board},
-   close={x=w-52*u,y=45*u,r=30*u},
+   close={x=w-52*u,y=45*u,r=35*u},
    rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
-   strip={x=stripX,y=h-48*u,r=28*u,step=60*u},
-   stripPrev={x=stripX-181*u,y=h-47*u,r=23*u},
-   stripNext={x=stripX+181*u,y=h-47*u,r=23*u},
+   strip={x=stripX,y=h-48*u,r=34*u,step=72*u},
+   stripPrev={x=stripX-214*u,y=h-48*u,r=27*u},
+   stripNext={x=stripX+214*u,y=h-48*u,r=27*u},
    chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
    chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
    chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
