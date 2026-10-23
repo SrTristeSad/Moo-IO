@@ -60,14 +60,28 @@ public final class MooIOHostControl implements AutoCloseable {
                 // Secret resides in the app-private sandbox and is never
                 // exposed by the control API. Other Android apps cannot toggle
                 // our local room merely by opening loopback TCP connections.
-                String path = request.startsWith("GET /start/" + token + " ") ? "/start"
-                    : request.startsWith("GET /stop/" + token + " ") ? "/stop"
-                    : request.startsWith("GET /status/" + token + " ") ? "/status" : "";
+                String startPrefix = "GET /start/" + token + "/";
+                int botCount = 0;
+                String path = "";
+                if (request.startsWith(startPrefix)) {
+                    int space = request.indexOf(' ', startPrefix.length());
+                    String count = space > startPrefix.length()
+                        ? request.substring(startPrefix.length(), space) : "";
+                    if (count.matches("[0-8]")) {
+                        path = "/start";
+                        botCount = Integer.parseInt(count);
+                    }
+                } else if (request.startsWith("GET /stop/" + token + " ")) {
+                    path = "/stop";
+                } else if (request.startsWith("GET /status/" + token + " ")) {
+                    path = "/status";
+                }
                 int code = 200;
                 String body;
                 if ("/start".equals(path)) {
                     try {
                         Intent intent = new Intent(activity, MooIOServerService.class);
+                        intent.putExtra("mooio.bot_count", botCount);
                         if (Build.VERSION.SDK_INT >= 26)
                             activity.startForegroundService(intent);
                         else activity.startService(intent);
