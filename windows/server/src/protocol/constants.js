@@ -25,10 +25,10 @@ export const BASE_S2C_COUNT = 39;
 export const TABLE_SIZE = 128;
 
 // [ic] client -> server packet names (table order matters: it is what gets shuffled).
-export const C2S_PACKETS = ["M", "D", "9", "e", "F", "z", "H", "K", "L", "N", "b", "P", "Q", "c", "6", "S", "0", "T", "R", "A", "V", "I", "U"];
+export const C2S_PACKETS = ["M", "D", "9", "e", "F", "z", "H", "K", "L", "N", "b", "P", "Q", "c", "6", "S", "0", "T", "R", "A", "V", "I", "U", "Y"];
 
 // [sc] server -> client packet names.
-export const S2C_PACKETS = ["A", "B", "C", "D", "E", "a", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z", "g", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "W", "F", "p", "q", "r", "m"];
+export const S2C_PACKETS = ["A", "B", "C", "D", "E", "a", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z", "g", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "W", "F", "p", "q", "r", "m", "n"];
 
 // io-init field 5 [k[5]]: how the code seal is used.
 //   0 off
@@ -65,7 +65,7 @@ export const PACKET_NAMES = {
     c2s: {
         M: "spawn", D: "aim", 9: "move", e: "resetMove", F: "mouse", z: "selectItem", H: "upgrade",
         K: "toggle (0 = lock rotation, 1 = auto gather)", L: "createTribe", N: "leaveTribe", b: "requestJoin",
-        P: "answerJoinRequest", Q: "kickMember", c: "store", 6: "chat", S: "mapPing", U: "mapPointPing", 0: "ping",
+        P: "answerJoinRequest", Q: "kickMember", c: "store", 6: "chat", S: "mapPing", U: "mapPointPing", Y: "categoryRankingRequest", 0: "ping",
         T: "telemetry (anti-tamper flags, untrusted events, probe result, seal, probe salt, c2s seq, frame ledger)", R: "report / staff action",
         A: "admin command", V: "watch stats (+ in-game profile)", I: "anonymous mode"
     },
@@ -76,6 +76,6 @@ export const PACKET_NAMES = {
         S: "itemCount", T: "age", U: "upgrades", V: "items", X: "addProjectile", Y: "removeProjectile",
         Z: "shutdownNotice", g: "addTribe", 1: "deleteTribe", 2: "joinRequest", 3: "setTribe", 4: "tribeMembers",
         5: "storeUpdate", 6: "chat", 7: "minimap", 8: "showText", 9: "mapPing", 0: "pong", W: "effect", F: "stats",
-        p: "profile (answer to V)", q: "integrity probes", r: "update countdown", m: "player dive"
+        p: "profile (answer to V)", q: "integrity probes", r: "update countdown", m: "player dive", n: "category leaderboard"
     }
 };
