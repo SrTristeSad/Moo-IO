@@ -82,8 +82,8 @@ function M:layout(w,h)
    bigmap={x=(w-board)/2,y=(h-board)/2,w=board,h=board},
    close={x=w-52*u,y=45*u,r=30*u},
    rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
-   stripPrev={x=barX-240*u,y=h-76*u,r=26*u},
-   stripNext={x=barX+240*u,y=h-76*u,r=26*u},
+   stripPrev={x=barX-265*u,y=h-76*u,r=26*u},
+   stripNext={x=barX+265*u,y=h-76*u,r=26*u},
    chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
    chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
    chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
@@ -94,10 +94,10 @@ end
 function M:hotbar(total,w,h)
  local l=self:layout(w,h)
  total=max(0,math.floor(tonumber(total) or 0))
- local pages=max(1,math.ceil(total/5))
+ local pages=max(1,math.ceil(total/6))
  self.page=clamp(self.page,1,pages)
- local first=(self.page-1)*5+1
- local count=max(0,min(5,total-first+1))
+ local first=(self.page-1)*6+1
+ local count=max(0,min(6,total-first+1))
  local slots={}
  for i=1,count do
    slots[i]={x=l.hotbar.x+(i-(count+1)/2)*l.hotbar.step,
@@ -175,7 +175,7 @@ function M:pressed(id,x,y,w,h,scale,total)
    self:stopForOverlay();self.mapOpen=true
    return "map_open"
  end
- -- The complete inventory is one centered row (five items per page).
+ -- The complete inventory is one centered row (six items per page).
  -- Controls below are handled BEFORE generic movement/attack zones.
  local slots,pages=self:hotbar(total,w,h)
  if pages>1 and near(x,y,l.stripPrev) then
@@ -422,6 +422,10 @@ function M:draw(world,scale)
  map(g,world,l.minimap,scale)
  ring(g,l.ping,false,true);glyph(g,"ping",l.ping,u)
  ring(g,l.mark,false,false);glyph(g,"map",l.mark,u)
+ -- Keep the actual map and ping actions visible next to the minimap.
+ g.setFont(small);g.setColor(.97,.97,.94,self.uiOpacity)
+ g.printf("PING",l.ping.x-31*u,l.ping.y+29*u,62*u,"center")
+ g.printf("MAPA",l.mark.x-31*u,l.mark.y+29*u,62*u,"center")
  ring(g,l.shop,false,true);glyph(g,"shop",l.shop,u)
  ring(g,l.clan,false,false);glyph(g,"clan",l.clan,u)
  ring(g,l.tribe,false,false);glyph(g,"tribe",l.tribe,u)
@@ -432,6 +436,10 @@ function M:draw(world,scale)
  ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
  ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
  ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
+ g.setFont(small);g.setColor(.97,.97,.94,self.uiOpacity)
+ g.printf("CHAT",l.chat.x-35*u,l.chat.y+25*u,70*u,"center")
+ g.printf("TOP",l.rank.x-35*u,l.rank.y+25*u,70*u,"center")
+ g.printf("MENU",l.pause.x-35*u,l.pause.y+25*u,70*u,"center")
  -- No anchored joystick circles: bases are created at the finger-down points.
  if self.moveOrigin then
    local base={x=self.moveOrigin.x,y=self.moveOrigin.y,r=l.move.r}
@@ -460,37 +468,58 @@ function M:draw(world,scale)
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
  g.setColor(.97,.97,.94,1);g.setFont(small)
  g.printf(self.auto and "AUTO ON" or "AUTO",l.auto.x-41*u,l.auto.y+43*u,82*u,"center")
- -- HUD status from actual authoritative world state, not guessed counters.
+ -- Authoritative health and level/XP, side by side above the item row.
  local player=world and world.localPlayer and world:localPlayer()
- local life=math.max(0,tonumber(player and player.health) or 0)
- local maxLife=math.max(1,tonumber(player and player.maxHealth) or 100)
- local xp=math.max(0,tonumber(world and world.xp) or 0)
- local maxXP=math.max(1,tonumber(world and world.maxXP) or 300)
- local level=math.floor(tonumber(world and world.age) or 1)
- local barW=320*u
- local barX=(w-barW)/2
- local hpY=h-210*u
- g.setColor(.025,.10,.085,.84*self.uiOpacity)
- g.rectangle("fill",barX+20*u,hpY,barW-40*u,17*u,7*u,7*u)
- g.setColor(.30,.85,.44,self.uiOpacity)
- g.rectangle("fill",barX+22*u,hpY+2*u,
-   (barW-44*u)*clamp(life/maxLife,0,1),13*u,6*u,6*u)
- g.setFont(small);g.setColor(.96,.98,.96,1)
- g.printf("VIDA "..math.floor(life).."/"..math.floor(maxLife),barX+20*u,hpY+1*u,barW-40*u,"center")
- -- This is the LEVEL/XP indicator requested above the items (not a heart).
- local xpY=h-178*u
- g.setColor(.025,.10,.085,.89*self.uiOpacity)
- g.rectangle("fill",barX,xpY,barW,36*u,10*u,10*u)
- g.setColor(.16,.31,.30,.97*self.uiOpacity)
- g.rectangle("fill",barX+4*u,xpY+4*u,(barW-8*u)*clamp(xp/maxXP,0,1),28*u,7*u,7*u)
- g.setColor(.97,.88,.45,1);g.setFont(font)
- g.printf("NIVEL "..level,barX,xpY+8*u,barW,"center")
+ local life=max(0,tonumber(player and player.health) or 0)
+ local maxLife=max(1,tonumber(player and player.maxHealth) or 100)
+ local xp=max(0,tonumber(world and world.xp) or 0)
+ local maxXP=max(1,tonumber(world and world.maxXP) or 300)
+ local level=max(1,math.floor(tonumber(world and world.age) or 1))
+ local hpW=355*u
+ local xpW=204*u
+ local gap=14*u
+ local hpX=(w-hpW-xpW-gap)/2
+ local statusY=h-170*u
+ local statusH=37*u
+ g.setColor(.025,.085,.08,.91*self.uiOpacity)
+ g.rectangle("fill",hpX,statusY,hpW,statusH,10*u,10*u)
+ g.setColor(.95,.27,.29,self.uiOpacity)
+ g.rectangle("fill",hpX+5*u,statusY+5*u,
+   (hpW-10*u)*clamp(life/maxLife,0,1),statusH-10*u,7*u,7*u)
+ g.setColor(.97,.97,.96,1);g.setFont(font)
+ g.printf(math.floor(life).."/"..math.floor(maxLife),
+   hpX,statusY+10*u,hpW,"center")
+ -- Heart is merely the icon for the health bar, not the level indicator.
+ local hx=hpX-18*u
+ local hy=statusY+statusH/2
+ g.setColor(.97,.27,.34,self.uiOpacity)
+ g.circle("fill",hx-7*u,hy-4*u,8*u)
+ g.circle("fill",hx+7*u,hy-4*u,8*u)
+ g.polygon("fill",hx-15*u,hy-3*u,hx+15*u,hy-3*u,hx,hy+17*u)
+ local xpX=hpX+hpW+gap
+ g.setColor(.025,.085,.08,.90*self.uiOpacity)
+ g.rectangle("fill",xpX,statusY,xpW,statusH,10*u,10*u)
+ local progX=xpX+84*u
+ local progW=xpW-93*u
+ g.setColor(.96,.78,.35,self.uiOpacity)
+ g.rectangle("fill",progX,statusY+14*u,
+   progW*clamp(xp/maxXP,0,1),9*u,4*u,4*u)
+ g.setColor(.95,.88,.51,1);g.setFont(font)
+ g.printf("Nv "..level,xpX+3*u,statusY+9*u,82*u,"center")
  -- The auto-gather/attack mode is an independent toggle: a held manual
  -- attack and opening an overlay never change the active auto state.
  local slots,pages=self:hotbar(Slots.total(world),w,h)
  for _,p in ipairs(slots) do
-   ring(g,p,false,false)
    local id,weapon=Slots.at(world,p.index)
+   local selected=false
+   if player and type(player.buildIndex)=="number" then
+     if player.buildIndex>=0 then
+       selected=not weapon and id==player.buildIndex
+     else
+       selected=weapon and id==player.weaponIndex
+     end
+   end
+   ring(g,p,selected,selected)
    local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
    if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) end
    g.setColor(.96,.98,.96,1);g.setFont(small)
