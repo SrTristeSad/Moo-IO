@@ -89,8 +89,9 @@ jobs:
           mkdir -p "$staging/server/src"
           cp windows/server/src/offline.mjs "$staging/server/src/offline.mjs"
           (cd "$staging" && zip -q -r "$RUNNER_TEMP/mooio-server.zip" server)
+          mkdir -p "$RUNNER_TEMP/love-android/app/src/main/assets"
           cp "$RUNNER_TEMP/mooio-server.zip" "$RUNNER_TEMP/love-android/app/src/main/assets/mooio-server.zip"
-          unzip -p "$RUNNER_TEMP/mooio-server.zip" server/src/offline.mjs | head -c 64
+          unzip -tq "$RUNNER_TEMP/mooio-server.zip"
       - name: Compile standalone Android APK (ARM64 and emulator)
         shell: bash
         run: |
