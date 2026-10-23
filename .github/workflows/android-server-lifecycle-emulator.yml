@@ -49,7 +49,7 @@ jobs:
               echo "FAIL: Node launched before user clicked create room"; exit 1
             fi
             echo "MOOIO_ANDROID_IDLE_HOST_NOT_RUNNING_PASS"
-            token=$(adb shell run-as "$pkg" cat files/mooio-control-token.txt | tr -d '\r\n')
+            token=$(adb shell run-as "$pkg" cat files/mooio-control-token.txt | tr -d '\\r\\n')
             test "${#token}" -eq 48
             unauth=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:28082/start)
             test "$unauth" = 404
