@@ -1,7 +1,7 @@
 name: Moo IO Android offline host - emulador
 on:
   push:
-    branches: [feature/android-offline-host]
+    branches: [feature/android-offline-host, feature/android-moba-hud]
     paths:
       - ".github/workflows/android-host-emulator.yml"
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
         with:
           name: Moo-IO-Android-Servidor-Integrado
           repository: SrTristeSad/Moo-IO
-          run-id: 39887279666
+          run-id: 39896513559
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: dist
       - name: Liberar KVM
