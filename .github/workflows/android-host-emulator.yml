@@ -48,7 +48,7 @@ jobs:
             set -e
             adb install -r dist/legacy/Moo-IO-Android-Servidor-Integrado.apk
             adb install -r dist/beta/Moo-IO-Android-Servidor-Integrado.apk
-            adb shell pm list packages | grep '^package:io.srtristesad.mooio
+            adb shell pm path io.srtristesad.mooio
             adb forward tcp:28081 tcp:8081
             echo "=== FASE 1: PROVA DO MOTOR NODE NATIVO, SEM JOGO ==="
             adb push android/tests/node-mobile-probe.mjs /data/local/tmp/mooio-probe.mjs
@@ -66,7 +66,7 @@ jobs:
             adb shell pidof io.srtristesad.mooio.beta:mooio_node
             echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
 
-            adb shell pm list packages | grep '^package:io.srtristesad.mooio.beta
+            adb shell pm path io.srtristesad.mooio.beta
             adb forward tcp:28081 tcp:8081
             echo "=== FASE 1: PROVA DO MOTOR NODE NATIVO, SEM JOGO ==="
             adb push android/tests/node-mobile-probe.mjs /data/local/tmp/mooio-probe.mjs
