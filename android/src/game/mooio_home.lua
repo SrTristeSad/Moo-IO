@@ -2,7 +2,7 @@
 -- Moo IO: personal play rooms are separate from dedicated server providers.
 -- Gameplay authority remains in the existing Node process; no bots or fake world.
 local Network=require("src.net.mooio_network")
-local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Android"
+local isAndroid=love.system and love.system.getOS and love.system.getOS()=="Android" or os.getenv("MOO_IO_FORCE_ANDROID_E2E")=="1"
 local Home={}
 Home.__index=Home
 
