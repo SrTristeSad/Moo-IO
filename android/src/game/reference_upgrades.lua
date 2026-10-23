@@ -10,7 +10,14 @@ local GAP=10
 local TOP=10
 local MOBILE=love.system and love.system.getOS and love.system.getOS()=="Android"
   or os.getenv("MOO_IO_FORCE_ANDROID_E2E")=="1"
-local function topFor() return MOBILE and 113 or TOP end
+local function topFor()
+  if not MOBILE then return TOP end
+  local w,h=love.graphics.getDimensions()
+  -- Allow room for the entire top-row touch targets even at maximum HUD scale.
+  -- Upgrade choices stay below the Clã/Loja/Chat/TOP/Menu buttons.
+  local maxScale=math.max(.50,math.min(2.15,math.min(w/1280,h/720)*1.55))
+  return math.ceil(103*maxScale)
+end
 
 local function owns(entries,id)
   for _,v in ipairs(entries or {}) do
