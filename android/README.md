@@ -40,3 +40,29 @@ Nenhum botão cria recursos, estruturas ou dano localmente. O pacote de marcaç�
 ### Limitações
 
 A interface e os controles móveis precisam ser testados em celulares reais (resoluções, desempenho, teclado do chat e sensibilidade da mira). **Passar nos testes de CI não confirma que APK, conexão entre aparelhos físicos e desempenho estão perfeitos.** Não abra a sala na internet pública; use LAN/VPN privada. O projeto conserva o Windows original em sua própria pasta, sem apagar funções. O APK debug usa chave de teste e não deve ser publicado como release comercial.
+
+## Hospedagem local no proprio Android (experimental)
+
+**Objetivo:** o celular cria sua propria sala sem PC, VPS ou outro jogador. O APK integrado inclui
+o jogo Lua/LÖVE e o mesmo servidor Node.js presente no Windows, compilado com Node.js Mobile
+(libnode.so) e iniciado numa thread nativa do aplicativo.
+
+- Abra o jogo, toque em JOGAR e em CRIAR MINHA SALA.
+- Depois da confirmacao real do Node.js, toque em JOGAR AGORA.
+- Sem rede Wi-Fi o servidor usa loopback 127.0.0.1 para jogo solo.
+- Com Wi-Fi/hotspot privado, o servidor escuta no endereco IPv4 privado do aparelho;
+  amigos Windows e Android podem entrar com IP:8080 e codigo de convite.
+- O codigo e gerado e armazenado com seguranca no armazenamento privado do app.
+- Os dados do servidor sao persistentes e sobrevivem a reinicializacao do aplicativo.
+- Ao sair da sala o servidor continua em memoria enquanto o aplicativo estiver aberto,
+  porque o Node/V8 integrado nao deve ser reiniciado no mesmo processo.
+- Se trocar de rede Wi-Fi, feche e reabra o aplicativo para reassociar o IP.
+
+**Build correto para esta funcao:** action 'Moo IO Android autonomo - APK com servidor',
+arquivo 'Moo-IO-Android-Servidor-Integrado.apk'. A action Android APK anterior produz
+somente cliente e NAO atende a este requisito. O servidor integrado precisa passar
+na compilacao nativa e num teste de inicializacao no dispositivo antes de ser dado
+como comprovadamente funcional. Nao confunda APK gerado com servidor validado.
+
+Requisitos de rede: nenhuma internet para jogar solo. Para multiplayer sem internet
+externa, Wi-Fi/hotspot local com TCP/8080 acessivel entre os aparelhos.
