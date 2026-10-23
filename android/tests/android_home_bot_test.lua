@@ -16,8 +16,8 @@ assert(home:click(220,496)=="bots_count" and home.botCount==2)
 assert(home:click(176,559)=="create",
   "Creating a local Android room must honor user-selectable bots")
 home.hosting=true
-assert(home:click(175,439)==nil,
-  "Changing bots during a running room must require re-creating the room")
+assert(home:click(175,439)=="copy" and home.botCount==2,
+  "The running-room invite replaces bot controls without changing active bots")
 home.hosting=false
 home.screen="home"
 assert(home:click(190,480)=="settings_tab")
