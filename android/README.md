@@ -33,7 +33,7 @@ distinguir arquitetura, versão Android e falta de espaço.
 
 ## HUD de sobrevivência — joysticks flutuantes
 
-O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; o toque à direita inicia ataque e mira no mesmo dedo. Os equipamentos, ferramentas e itens consumíveis reais aparecem em uma única barra inferior com até seis slots visíveis por página. Ela se recentraliza a cada alteração de inventário, sem habilidades inventadas.
+O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; o toque à direita inicia ataque e mira no mesmo dedo. A barra inferior é **uma única linha de atalhos progressivos**, inicialmente curta: novas opções são acrescentadas apenas após escolhas de evolução confirmadas pelo servidor. Ela se recentraliza enquanto couber na tela. Quando ficar comprida, o jogador desliza a própria linha na horizontal; **não existem páginas de inventário nem botões artificiais de habilidades**.
 
 Os botões maiores de LOJA, CLÃ e TRIBO abrem, respectivamente, os sistemas existentes de compra/equipamentos, clãs permanentes e alianças temporárias da partida. Clãs de conta e Tribes são mecanismos diferentes. Os botões Loja, Clã, Tribo, Chat, TOP e Menu estão na faixa superior. As ofertas de evolução aparecem abaixo desses atalhos, mesmo com a escala máxima do HUD.
 
@@ -42,7 +42,7 @@ Os botões maiores de LOJA, CLÃ e TRIBO abrem, respectivamente, os sistemas exi
 - **MAP**: abre o mapa completo; toque num ponto para enviar `U(x,y)` aos aliados. O servidor valida coordenadas e cooldown.
 - **TOP10**: abre um ranking com abas **OURO, VIDA, COMIDA, MADEIRA, PEDRA, ABATES e PONTOS**. As classificações vêm exclusivamente do servidor (pacote de pedido `Y`, resposta `n`), até dez jogadores por categoria e ocultação de identidades anônimas.
 - A coluna esquerda usa apenas os **ícones originais de food, wood e stone** e suas quantidades recebidas do servidor, sem inventar nomes de recursos; os botões **PING** e **MAPA** continuam visíveis ao lado do minimapa.
-- **Vida** aparece em barra vermelha acima do inventário; **nível e XP** ficam ao lado da vida, com valores autoritativos.
+- **Vida** aparece em barra vermelha acima da linha de atalhos; **nível e XP** ficam ao lado da vida, com valores autoritativos.
 - **AUTO** continua ativo ao abrir Loja, Clã, Tribo, Chat, TOP, mapa e configurações. Ataque manual não altera o toggle automático. Só AUTO ou a tecla E enviam o toggle `K(1)`.
 
 O APK Beta com servidor integrado precisa ser gerado pela Action **Moo IO Android autonomo - APK com servidor**. O workflow recompila o servidor Node a partir dos módulos atuais antes de incorporá-lo ao APK; evita Top 10 antigo/ausente em salas hospedadas no próprio Android.
@@ -74,8 +74,9 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 |---|---|
 | Parte inferior esquerda (livre) | o joystick de movimento surge onde o dedo toca; arraste para mover |
 | Parte inferior direita (livre) | o joystick de ataque e mira surge onde o dedo toca; segurar ataca, arrastar mira e soltar interrompe |
-| Barra central inferior | mostra todos os equipamentos e consumíveis reais, até seis slots por página, recentralizando automaticamente |
-| Setas laterais | percorrem páginas adicionais sem inventar itens |
+| Linha de atalhos inferior | cresce com armas, ferramentas, estruturas e consumíveis desbloqueados durante a evolução real do MooMoo.io |
+| Deslizar horizontalmente na linha | revela opções fora da área visível, sem trocar de página nem equipar durante o gesto |
+| Toque simples em um atalho | seleciona a opção correspondente após soltar o dedo; o servidor valida o equipamento |
 | LOJA | abre o Shop real do servidor, com compras e equipamentos |
 | CLÃ | abre a interface de clãs permanentes da conta |
 | TRIBO | abre as alianças temporárias da partida |
@@ -86,7 +87,7 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 | TOP10 | tabela por recurso, pontuação, vida e abates |
 | II | menu de pausa |
 
-Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removidos. A seleção de armas e estruturas fica no inventário horizontal real, sem menus artificiais. Todos os atalhos são itens e armas reais do inventário; habilidades especiais novas não estão implementadas.
+Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removidos. A seleção de armas e estruturas fica na linha contínua de atalhos, sem inventário paginado ou menus artificiais. O jogo não ganha habilidades inexistentes: os desbloqueios são os permitidos pelo servidor do MooMoo.io.
 
 ### Ajustes de estabilidade
 
