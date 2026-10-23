@@ -23,7 +23,8 @@ local function getStatus()
   if not body:find('"project"%s*:%s*"Moo%-IO"') then return nil end
   local host=body:match('"host"%s*:%s*"([%d%.]+)"')
   if not host then return nil end
-  return host
+  local count=body:match('"bots"%s*:%s*(%d+)')
+  return host,count and tonumber(count) or nil
 end
 -- The loopback lifecycle port belongs to the Android LÖVE Activity, not Node.
 -- It is only called from the explicit create/stop actions; never in the main
@@ -82,8 +83,14 @@ function Host:update(dt)
   self.check=self.check+(dt or 0)
   if self.check<.7 then return end
   self.check=0
-  local ip=self.readStatus()
+  local ip,actualBots=self.readStatus()
   local code=self.readSessionCode()
+  if ip and code and actualBots~=nil and actualBots~=self.botCount then
+    self.controlServer("stop")
+    self.state="failed"
+    self.error="O servidor iniciou com quantidade diferente de bots."
+    return
+  end
   if ip and code then
     self.hostIP=ip
     self.code=code
