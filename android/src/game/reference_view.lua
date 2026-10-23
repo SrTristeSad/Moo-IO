@@ -111,15 +111,26 @@ local function boundaries(camera,w,h)
   if y1<h then love.graphics.rectangle("fill",0,math.max(0,y1),w,h-math.max(0,y1)) end
 end
 
-local function drawObjectLayer(orderedObjects,camera,w,h,layer)
-  -- JS prepareObjectRenderLists fills buckets in objectManager ARRAY order.
-  -- No pairs(): that reorders overlapping sprites unpredictably in Lua.
-  for _,o in ipairs(orderedObjects) do
-    if Objects.layer(o)==layer and see(o,camera,w,h,tonumber(o.scale) or 100) then
-      local x,y=camera:worldToScreen(o.x,o.y)
-      Objects.draw(o,x+(o.wiggleX or 0)*camera.zoom,
-        y+(o.wiggleY or 0)*camera.zoom,camera.zoom)
+-- Reuse five render buckets instead of checking every structure five times.
+-- Preserve the authoritative object paint order within each layer.
+local buckets={[-1]={},[0]={},[1]={},[2]={},[3]={}}
+local function prepareLayers(objects,camera,w,h)
+  for _,list in pairs(buckets) do
+    for i=#list,1,-1 do list[i]=nil end
+  end
+  for i=1,#objects do
+    local o=objects[i]
+    local target=buckets[Objects.layer(o)]
+    if target and see(o,camera,w,h,tonumber(o.scale) or 100) then
+      target[#target+1]=o
     end
+  end
+end
+local function drawObjectLayer(camera,layer)
+  for _,o in ipairs(buckets[layer]) do
+    local x,y=camera:worldToScreen(o.x,o.y)
+    Objects.draw(o,x+(o.wiggleX or 0)*camera.zoom,
+      y+(o.wiggleY or 0)*camera.zoom,camera.zoom)
   end
 end
 -- Packet X includes the projectile TYPE, not an image name or diameter.
@@ -466,11 +477,12 @@ function View.draw(world,camera,dt,options)
   -- This makes the imminent boss hit visible without changing collisions.
   BossEffects.draw(world.bossEffects,camera)
   local objects=world:orderedObjects()
+  prepareLayers(objects,camera,w,h)
   -- The JS engine iterates the same players[] and ais[] arrays for each
   -- rendering pass, preserving overlap and zIndex across frames.
   local players=world:orderedPlayers()
   local animals=world:orderedAnimals()
-  drawObjectLayer(objects,camera,w,h,-1)
+  drawObjectLayer(camera,-1)
   drawProjectiles(world,camera,w,h,0)
   for _,p in ipairs(players) do
     if (p.zIndex or 0)==0 and p.x and p.y and p.invisible~=1
@@ -480,15 +492,15 @@ function View.draw(world,camera,dt,options)
     local kind=world and world:animalKind(a.index) or Animals.byId(a.index)
     if kind and a.x and a.y then renderAnimal(a,camera,world) end
   end
-  drawObjectLayer(objects,camera,w,h,0)
+  drawObjectLayer(camera,0)
   drawProjectiles(world,camera,w,h,1)
-  drawObjectLayer(objects,camera,w,h,1)
+  drawObjectLayer(camera,1)
   for _,p in ipairs(players) do
     if (p.zIndex or 0)==1 and p.x and p.y and p.invisible~=1
       then drawPlayer(p,camera,dt or 0,aimFor(p)) end
   end
-  drawObjectLayer(objects,camera,w,h,2)
-  drawObjectLayer(objects,camera,w,h,3)
+  drawObjectLayer(camera,2)
+  drawObjectLayer(camera,3)
   boundaries(camera,w,h)
   -- The JS reference composites this violet-blue tint after game objects
   -- and before world labels, not over the HTML/CSS HUD.
