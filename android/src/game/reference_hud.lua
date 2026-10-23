@@ -9,6 +9,7 @@ local Assets=require("src.game.reference_assets")
 local Upgrades=require("src.game.reference_upgrades")
 local ItemInfo=require("src.game.reference_item_info")
 local H={}
+local mobile=love.system and love.system.getOS and love.system.getOS()=="Android"
 local fontSmall,fontMedium,fontLarge
 local function fonts()
   if not fontSmall then
@@ -196,10 +197,10 @@ local function actionBar(world,w,h)
   local entries=actionBarEntries(world)
   local count=#entries
   if count==0 then return end
-  local slot,space=66,10
+  local slot,space=mobile and 48 or 66,mobile and 6 or 10
   local width=count*(slot+space)-space
   local origin=(w-width)/2
-  local y=h-83
+  local y=mobile and h-63 or h-83
   for i,entry in ipairs(entries) do
     local x=origin+(i-1)*(slot+space)
     box(x,y,slot,slot)
@@ -247,9 +248,9 @@ function H.hitTest(world,w,h,x,y)
   if type(x)~="number" or type(y)~="number" then return nil end
   local entries=actionBarEntries(world)
   if #entries==0 then return nil end
-  local slot,space=66,10
+  local slot,space=mobile and 48 or 66,mobile and 6 or 10
   local origin=(w-(#entries*(slot+space)-space))/2
-  local top=h-83
+  local top=mobile and h-63 or h-83
   if y<top or y>=top+slot then return nil end
   for i,entry in ipairs(entries) do
     local left=origin+(i-1)*(slot+space)
@@ -282,9 +283,42 @@ function H.hoveredItem(world,w,h,x,y)
   end
   return nil
 end
+local function mobileStats(world,w,h)
+  local g=love.graphics
+  local p=world:localPlayer()
+  local health=p and p.health or 0
+  local food=world.resources.food or 0
+  g.push("all")
+  g.setColor(.04,.12,.09,.72)
+  g.rectangle("fill",16,16,270,118,8,8)
+  g.setFont(fontMedium)
+  g.setColor(1,1,1,1)
+  g.print(p and p.name or "Moo IO",28,24)
+  local function bar(y,value,maxVal,r,c,b)
+    g.setColor(.14,.2,.17,1);g.rectangle("fill",30,y,230,18,3,3)
+    local portion=math.min(1,math.max(0,(tonumber(value) or 0)/maxVal))
+    g.setColor(r,c,b,1);g.rectangle("fill",30,y,230*portion,18,3,3)
+    g.setColor(1,1,1,1)
+    g.setFont(fontSmall)
+    g.print(tostring(math.floor(value or 0)),35,y+2)
+  end
+  bar(56,health,100,.82,.22,.20)
+  bar(81,food,100,.88,.70,.23)
+  g.setFont(fontSmall)
+  g.setColor(.86,.92,.85,1)
+  g.print("Madeira "..(world.resources.wood or 0)..
+    "   Pedra "..(world.resources.stone or 0),28,107)
+  g.pop()
+end
 function H.draw(world,chatActive,chatText,suppressItemInfo)
   fonts()
   local w,h=love.graphics.getDimensions()
+  if mobile then
+    mobileStats(world,w,h)
+    actionBar(world,w,h)
+    Upgrades.draw(world,w)
+    return
+  end
   leaderboard(world,w)
   kills(world,w)
   resource("food","food",world.resources.food,w-20,h-175,
