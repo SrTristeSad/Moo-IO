@@ -19,7 +19,7 @@ local function native(action,bots)
   error("unexpected control action")
 end
 local h=Host.new({
-  readStatus=function() return active and address or nil end,
+  readStatus=function() return active and address or nil, active and lastBots or nil end,
   readSessionCode=function() return active and code or nil end,
   controlServer=native
 })
@@ -69,4 +69,26 @@ assert(dead.state=="failed" and type(dead.error)=="string" and timeoutStop==1,
   "startup timeout must stop the native foreground service")
 dead:stop()
 assert(timeoutStop==1,"no second shutdown needed after timeout")
+-- Shutdown must never pretend the native Node process stopped if transport fails.
+local shutdownFailure=Host.new({
+  readStatus=function() return "127.0.0.1",0 end,
+  readSessionCode=function() return "testcode123" end,
+  controlServer=function(action) return action=="start" end
+})
+assert(shutdownFailure:start("lan",nil,0))
+shutdownFailure:update(.8)
+assert(shutdownFailure.state=="ready")
+local stopped,why=shutdownFailure:stop()
+assert(stopped==false and shutdownFailure.state=="failed" and why,
+  "failed native shutdown must be surfaced rather than reporting RAM freed")
+-- A status without the effective bot count must never confirm readiness.
+local noBotStatus=Host.new({
+  readStatus=function() return "127.0.0.1" end,
+  readSessionCode=function() return "testcode123" end,
+  controlServer=function() return true end
+})
+assert(noBotStatus:start("lan",nil,0))
+noBotStatus:update(.8)
+assert(noBotStatus.state=="starting",
+  "legacy status without bot count must not confirm a room")
 print("MOO IO ANDROID HOST LIFECYCLE PASS")
