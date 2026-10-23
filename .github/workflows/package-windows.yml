@@ -2,10 +2,11 @@ name: Moo IO - Windows pronto sem downloads
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feature/android-touch-ff]
     paths:
       - .github/workflows/package-windows.yml
       - windows/**
+      - android/**
 permissions:
   contents: write
 jobs:
@@ -174,6 +175,7 @@ jobs:
             New-Item -ItemType Directory -Path $data -Force | Out-Null
           }
       - name: Publicar servidor local pronto no codigo-fonte do Windows
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

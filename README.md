@@ -1,17 +1,25 @@
 # Moo-IO
 
-O codigo atualmente desenvolvido e **um projeto Windows completo**. Ele inclui o cliente Lua/LÖVE, o servidor Node.js local usado para hospedar partidas, assets, scripts, testes e geracao do ZIP offline. Esses componentes permanecem **juntos**, sem criar um servidor dedicado separado.
+Jogo de sobrevivência e combate 2D com um mundo multiplayer compartilhado por **Windows e Android**. Ambos utilizam Lua/LÖVE e se conectam ao mesmo servidor de partida Node.js; o servidor local continua dentro de `windows/`.
 
 ## Plataformas
 
-- [Windows — projeto atual](windows/README.md) — toda a implementacao existente, inclusive o servidor local que pertence ao cliente Windows.
-- [Android](android/README.md) — reservado para desenvolvimento futuro; **nenhum cliente Android implementado**.
-- [Servidor independente](servidor/README.md) — reservado para desenvolvimento futuro; **nenhum produto de servidor independente implementado**.
+- [Windows](windows/README.md) — cliente completo, servidor local, bots, salas LAN/VPN, convites e ZIP offline.
+- [Android — teste](android/README.md) — cliente Lua/LÖVE adaptado ao touchscreen, mira por arrasto, joystick, ataque manual/automático, mapa de marcação, atalhos de inventário e chat; build APK debug.
+- [Servidor independente](servidor/README.md) — reservado para um futuro produto de hospedagem, **não implementado**.
 
-## Abrir ou distribuir o Windows
+## Builds para testes
 
-- Para editar o codigo-fonte, entre em [windows/](windows/) e execute `windows/MOO-IO.vbs` com LÖVE instalado, ou use os comandos indicados em [windows/README.md](windows/README.md).
-- Para obter um pacote que ja inclua LÖVE e Node, use **Actions > Moo IO - Windows pronto sem downloads** e o artefato `Moo-IO-Windows-Pronto.zip`.
-- O pacote distribuivel mantem a estrutura que o jogo ja utiliza. **Nao foi reescrito o motor do cliente nem foi separado seu servidor local**.
+No menu **Actions** deste repositório, escolha:
 
-Os workflows do GitHub permanecem em `.github/workflows/` na raiz porque essa e a pasta obrigatoria do GitHub Actions. Documentos gerais de licenca e seguranca tambem ficam disponiveis na raiz.
+- **Moo IO - Windows pronto sem downloads**: artefato `Moo-IO-Windows-Pronto.zip`; extrair completamente, executar `MOO-IO.vbs`.
+- **Moo IO - Android APK**: artefato `Moo-IO-Android-APK-Teste` com `Moo-IO-Android-Teste.apk`; APK de desenvolvimento do LÖVE 11.5a.
+- **Moo IO - Android LÖVE (teste)**: `Moo-IO-Android-Teste.love` para o LÖVE no Android.
+
+Ambos podem entrar na **mesma sala LAN/VPN privada** criada pelo cliente Windows, usando IP e código de convite. Para o marcador tático por coordenadas, utilize versões do Android e do servidor Windows construídas a partir desta revisão ou posterior. Testes automatizados de protocolo e de entrada Lua/Node passaram; conexão entre aparelhos físicos ainda deve ser validada.
+
+## Organização
+
+As pastas `android/`, `windows/` e `servidor/` são separadas; criar o Android **não apagou nem reescreveu o jogo Windows**. A pasta `servidor/` ainda é só reserva, não o Node.js embutido, que permanece em `windows/server/`.
+
+**Segurança:** versão LAN/VPN privada de teste, sem segurança adequada para hospedar publicamente na internet. Consulte [SECURITY.md](SECURITY.md).

@@ -1,0 +1,38 @@
+name: Moo IO - Android LÖVE (teste)
+on:
+  push:
+    branches: [main, feature/android-touch-ff]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-love.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-love:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar interpretador Lua para checagens
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.4 zip
+      - name: Conferir sintaxe do cliente completo
+        working-directory: android
+        run: |
+          set -e
+          find . -type f -name '*.lua' -print0 | xargs -0 -n1 luac -p
+      - name: Testar controles com multiplos dedos e marcacao
+        working-directory: android
+        run: lua tests/touch_controls_test.lua
+      - name: Empacotar jogo LÖVE para testes Android
+        working-directory: android
+        run: |
+          set -e
+          test -f assets/custom/img/weapons/hammer_1.png
+          zip -q -r "$RUNNER_TEMP/Moo-IO-Android-Teste.love" main.lua conf.lua src assets
+          test -s "$RUNNER_TEMP/Moo-IO-Android-Teste.love"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moo-IO-Android-Teste
+          path: ${{ runner.temp }}/Moo-IO-Android-Teste.love
+          if-no-files-found: error

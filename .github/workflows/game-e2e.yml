@@ -97,6 +97,20 @@ jobs:
           set -o pipefail
           timeout 55s xvfb-run -a love . 2>&1 | tee "$RUNNER_TEMP/mooio-client.log"
           grep -F 'MOO IO E2E PASS:' "$RUNNER_TEMP/mooio-client.log"
+      - name: Android Lua client joins the SAME authoritative room as Windows
+        env:
+          MOO_IO_E2E: '1'
+          MOO_IO_FORCE_ANDROID_E2E: '1'
+          MOO_IO_HOST: '127.0.0.1'
+          MOO_IO_PORT: '8080'
+          MOO_IO_ROOM_CODE: 'lanroom98765'
+          SDL_AUDIODRIVER: dummy
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -o pipefail
+          timeout 55s xvfb-run -a love ../android 2>&1 | tee "$RUNNER_TEMP/mooio-android-client.log"
+          grep -F 'MOO IO E2E PASS:' "$RUNNER_TEMP/mooio-android-client.log"
+          grep -F 'spawn sid' "$RUNNER_TEMP/mooio-server.log" | tail -2
       - name: Logs em caso de falha
         if: failure()
         run: |
