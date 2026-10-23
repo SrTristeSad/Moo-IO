@@ -38,10 +38,25 @@ public final class MooIOServerService extends android.app.Service {
         new Thread(this::runServer, "MooIO-Node").start();
     }
     @Override public int onStartCommand(android.content.Intent intent,int flags,int startId) {
-        return START_STICKY;
+        return START_NOT_STICKY; // Do not resurrect a room after Android kills its app.
     }
     @Override public android.os.IBinder onBind(android.content.Intent intent) {
         return null;
+    }
+    @Override public void onTaskRemoved(android.content.Intent rootIntent) {
+        // Player dismissed the app from recents: free RAM, sockets and notification.
+        stopSelf();
+        super.onTaskRemoved(rootIntent);
+    }
+    @Override public void onDestroy() {
+        started = false;
+        stopForeground(true);
+        super.onDestroy();
+        // node::Start is an uninterruptible native event loop. This service
+        // runs in :mooio_node, so killing THIS pid never kills LÖVE's process.
+        // Graceful stopService alone would leave libuv and Node threads alive.
+        Log.i("MooIO-Host", "Offline room stopped; releasing native Node process");
+        android.os.Process.killProcess(android.os.Process.myPid());
     }
     private void runServer() {
         try {
@@ -73,9 +88,11 @@ public final class MooIOServerService extends android.app.Service {
                 "MOO_IO_BOT_COUNT=0","DATA_DIR="+data.getAbsolutePath(),
                 "PROTOCOL_BUILD_FILE="+new File(data,"protocol-build.json").getAbsolutePath()};
             int exit=MooIONodeBridge.start(args,vars,root.getAbsolutePath());
-            Log.e("MooIO-Host","Embedded Node exited: "+exit);
+            Log.i("MooIO-Host","Embedded Node exited: "+exit);
+            stopSelf();
         } catch(Throwable ex) {
             Log.e("MooIO-Host","Host initialization error",ex);
+            stopSelf();
         }
     }
     private static String localIPv4() throws SocketException {

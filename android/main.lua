@@ -668,10 +668,12 @@ homeAction=function(action)
     else home:setStatus("A sala ainda nao esta pronta.",true) end
   elseif action=="stop" then
     if isAndroid then
+      -- Stop Node's isolated Android service NOW, even if the game stays open.
+      if client then client:close();client=nil end
       hosted:stop()
       home.hosting=false;home.starting=false
       home.hostAddress="";home.hostCode=""
-      home:setStatus("A sala integrada continua ativa ate fechar o aplicativo.")
+      home:setStatus("Sala encerrada. Servidor desligado; memoria liberada.")
       return
     end
     -- Even from the main menu, the owner must confirm disconnecting
@@ -752,9 +754,7 @@ local function stopGameplay(owned)
   panels:reset();clans:close();profile:close()
   phase="menu";died=false
   home.screen="play"
-  home:setStatus(owned and (isAndroid
-      and "Voce saiu. O servidor continua ativo enquanto o aplicativo estiver aberto."
-      or "Sala encerrada. Os participantes foram desconectados.")
+  home:setStatus(owned and "Sala encerrada. Servidor desligado; participantes desconectados."
     or "Voce saiu da partida. A sala do anfitriao continua online.")
 end
 local function stopPlayerControls()

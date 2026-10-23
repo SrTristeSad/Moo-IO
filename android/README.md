@@ -43,13 +43,24 @@ O layout Android é original, inspirado na organização funcional de MOBAs mobi
 
 O APK Beta com servidor integrado precisa ser gerado pela Action **Moo IO Android autonomo - APK com servidor**. O workflow recompila o servidor Node a partir dos módulos atuais antes de incorporá-lo ao APK; evita Top 10 antigo/ausente em salas hospedadas no próprio Android.
 
+## Vida útil do servidor e uso de memória
+
+- **Ao abrir o Moo IO Beta ou navegar pelos menus:** o servidor Node.js **não** é iniciado; nenhuma notificação persistente de hospedagem deve aparecer.
+- **Criar minha sala:** o cliente solicita ao Android que ligue o serviço Node.js isolado. Somente depois que a API do servidor responder e o código de sala estiver pronto a interface declara a sala aberta.
+- **Sair/encerrar sala:** o cliente desliga o serviço nativo, remove a notificação e encerra o processo `:mooio_node` para liberar a RAM. Convidados conectados à sala são desconectados.
+- **Fechar a janela ou remover o aplicativo dos recentes:** o serviço de hospedagem é encerrado com o aplicativo, mesmo se uma sala estava ativa.
+- **Deixar o aplicativo em segundo plano com sala explicitamente aberta:** a sala pode continuar hospedada e a notificação informa isso. Para liberar a memória, encerre a sala ou feche o aplicativo.
+- **Criar nova sala após encerrar:** um novo processo Node é criado do zero. Não se tenta reiniciar `node::Start` dentro do processo nativo anterior.
+
+O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token aleatório guardado no armazenamento privado do aplicativo. Ele não é uma API pública de rede. A hospedagem e o jogo continuam nos protocolos originais do Moo-IO.
+
 ## Modo solo e multiplayer
 
 1. Instale o `Moo-IO-Android-Beta-Instalavel.apk` gerado pela action **Moo IO Android autonomo - APK com servidor**.
 2. Abra o aplicativo, escolha **Jogar → Criar minha sala**. A interface só apresenta a sala como pronta após receber resposta real do servidor Node.
 3. Clique **Jogar agora**. Sem Wi-Fi, o servidor usa `127.0.0.1`; a partida solo não exige internet.
 4. Para receber amigos, conecte o telefone a uma rede Wi-Fi/hotspot privado e compartilhe o IP:8080 e o código da sala. Os convidados Windows ou Android escolhem **Entrar em outra sala** e digitam essas informações.
-5. Se mudar de rede, feche e abra novamente o aplicativo para atualizar o endereço do servidor. O serviço pode permanecer ativo enquanto o aplicativo está aberto.
+5. Se mudar de rede, feche e abra novamente o aplicativo para atualizar o endereço do servidor. O serviço permanece ativo apenas enquanto a sala estiver explicitamente hospedada; sair da sala o encerra.
 
 **O Node é o responsável real pela simulação, jogadores, dano, recursos, animais, estruturas e validações.** O celular não inventa entidades.
 
@@ -98,6 +109,6 @@ A build Android faz um ajuste específico de compatibilidade nas expressões reg
 
 O APK com servidor integrado **compilou** e o emulador confirmou inicialização do Node Mobile, inicialização do servidor completo, resposta real na porta de controle e dois processos Android ativos. O pacote offline de servidor também passou em testes HTTP no Linux. **Ainda não foram comprovadas a entrada no mundo, combate e estabilidade em celulares físicos**; trate-o como beta e reporte erros do aparelho.
 
-O serviço de hospedagem fica em primeiro plano com uma notificação para cumprir as regras de execução Android. Em caso de falha, `files/mooio-data/node-boot.log` (armazenamento privado) registra diagnósticos do Node. A versão antiga `Moo-IO-Android-Teste.apk` e o arquivo `.love` não incluem o servidor.
+Somente durante a hospedagem o serviço de Node opera em primeiro plano com uma notificação; ao encerrar a sala ou fechar o app, essa notificação é removida e o processo isolado é finalizado. Em caso de falha, `files/mooio-data/node-boot.log` (armazenamento privado) registra diagnósticos do Node. A versão antiga `Moo-IO-Android-Teste.apk` e o arquivo `.love` não incluem o servidor.
 
 Use apenas LAN, hotspot ou VPN privada confiável, sem encaminhar a porta diretamente para a internet.
