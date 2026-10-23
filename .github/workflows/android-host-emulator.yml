@@ -41,4 +41,8 @@ jobs:
             adb install -r dist/Moo-IO-Android-Servidor-Integrado.apk
             adb shell am start -n io.srtristesad.mooio/org.love2d.android.MooIOActivity
             adb forward tcp:28081 tcp:8081
-            bash -c 'for i in $(seq 1 50); do if curl -fsS --max-time 2 http://127.0.0.1:28081/status | grep -q "\"project\":\"Moo-IO\""; then echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"; exit 0; fi; sleep 2; done; exit 1' || { adb logcat -d -s MooIO-Host:I MooIO-Host:E | tail -100; exit 1; }
+            bash -c 'for i in $(seq 1 20); do curl -fsS --max-time 2 http://127.0.0.1:28081/status >/tmp/mooio-status 2>/dev/null && break; sleep 2; done; exit 0'
+            adb shell pidof io.srtristesad.mooio || true
+            adb logcat -d -v time -s MooIO-Host:V AndroidRuntime:E linker:E | tail -160
+            bash -c 'curl -fsS --max-time 5 http://127.0.0.1:28081/status | grep -q "\"project\":\"Moo-IO\""'
+            echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
