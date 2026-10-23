@@ -18,14 +18,26 @@ for i=1,10 do
 end
 eq(Slots.pages(world,5),2)
 eq(m:movement(),0)
--- Tap attack: NEVER claims a movement pointer, even while dragging leftward.
+-- ATACAR is itself the aim joystick: drag the SAME finger to rotate the
+-- weapon while continuously attacking. It never changes the movement input.
 local action=m:pressed(1,l.fire.x,l.fire.y,w,h,14400,10)
 eq(action,"attack");assert(m:attacking())
 eq(m.moveId,nil)
-m:moved(1,145,h-130,w,h)
-eq(m:movement(),0)
+eq(m:aimAngle(),0)
+eq(m:moved(1,l.fire.x,l.fire.y-60,w,h),"aim")
+assert(math.abs(m:aimAngle()+math.pi/2)<.001,"drag up must attack upwards")
+assert(m.fireOffsetY<0 and m.fireOffsetX==0,"thumb follows attack direction")
+assert(m:attacking() and m:movement()==0)
+eq(m:moved(1,l.fire.x-100,l.fire.y,w,h),"aim")
+assert(math.abs(math.abs(m:aimAngle())-math.pi)<.001,
+  "drag left must rotate the attack to the left")
+m:moved(1,l.fire.x+500,l.fire.y,w,h)
+assert(m.fireOffsetX>0 and m.fireOffsetX<=l.fire.r*.62,
+  "aim joystick must clamp its visual thumb, retaining pointer ownership outside")
+assert(math.abs(m:aimAngle())<.001)
 eq(m:released(1),"attack")
-assert(not m:attacking())
+assert(not m:attacking() and m.fireOffsetX==0 and m.fireOffsetY==0)
+assert(math.abs(m:aimAngle())<.001,"released attack keeps last weapon direction")
 -- Left stick must work even if right attack is simultaneously held.
 eq(m:pressed(2,l.move.x,l.move.y,w,h,14400,10),"move")
 m:moved(2,l.move.x+55,l.move.y,w,h)
@@ -33,17 +45,22 @@ local dx,dy=m:movement()
 assert(dx>.95 and math.abs(dy)<.01)
 eq(m:pressed(3,l.fire.x,l.fire.y,w,h,14400,10),"attack")
 assert(m.moveId==2 and m.fireId==3)
+eq(m:moved(3,l.fire.x,l.fire.y+70,w,h),"aim")
+assert(math.abs(m:aimAngle()-math.pi/2)<.001,
+  "right thumb attack joystick aims downward while left thumb moves")
+dx,dy=m:movement()
+assert(dx>.95 and math.abs(dy)<.01,"attack drag must not change left joystick")
 eq(m:released(3),"attack")
 m:moved(2,w-100,h-130,w,h) -- pointer crossing onto attack NEVER changes owner
 assert(m.moveId==2 and not m:attacking())
 eq(m:released(2),"move")
 dx,dy=m:movement();eq(dx,0);eq(dy,0)
--- Right-side free aim does not generate movement or trigger an attack.
-eq(m:pressed(4,w*.77,h*.49,w,h,14400,10),"aim")
-m:moved(4,w*.82,h*.49,w,h)
-assert(math.abs(m:aimAngle())<.001)
+-- No second invisible right-side aim area.
+eq(m:pressed(4,w*.77,h*.49,w,h,14400,10),nil)
+eq(m:moved(4,w*.82,h*.49,w,h),nil)
+assert(math.abs(m:aimAngle()-math.pi/2)<.001)
 assert(not m:attacking() and m.moveId==nil)
-eq(m:released(4),"aim")
+eq(m:released(4),nil)
 -- Four first slots use original items, extra slots are in the middle.
 for i,p in ipairs(l.skills) do
   local a,num=m:pressed(10+i,p.x,p.y,w,h,14400,10)
