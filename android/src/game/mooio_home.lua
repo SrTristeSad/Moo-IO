@@ -62,6 +62,10 @@ local boxes={
   hudSmaller={355,391,120,54},hudBigger={805,391,120,54},
   opacityLess={355,467,120,54},opacityMore={805,467,120,54},
   hudReset={529,537,222,51},
+  moveMinus={355,245,120,54},movePlus={805,245,120,54},
+  attackMinus={355,326,120,54},attackPlus={805,326,120,54},
+  deadzoneMinus={355,407,120,54},deadzonePlus={805,407,120,54},
+  controlsReset={529,509,222,52},
   overlayCopy={478,395,322,55},overlayClose={880,177,55,43}
 }
 local function button(id,text,primary)
@@ -111,7 +115,8 @@ function Home.new()
     hostAddress="",hostCode="",connectionState="idle",serverLog="",
     showGrid=true,fullscreen=false,sessionTitle="",
     roomOverlay=false,botsEnabled=false,botCount=2,
-    hudScale=1.20,hudOpacity=.90
+    hudScale=1.20,hudOpacity=.90,
+    moveScale=1,fireScale=1,deadzone=.15
   },Home)
 end
 function Home:scale(x,y)
@@ -130,7 +135,8 @@ end
 function Home:click(sx,sy)
   local x,y=self:scale(sx,sy)
   if self.screen~="home" and inside(x,y,boxes.back) then
-    self.screen="home";self.focus=nil;return "back"
+    self.screen=self.screen=="controls" and "settings" or "home"
+    self.focus=nil;return "back"
   end
   if self.screen=="home" then
     if inside(x,y,boxes.homePlay) then
@@ -221,7 +227,36 @@ function Home:click(sx,sy)
       return "hud_changed"
     end
     if inside(x,y,boxes.hudReset) then
-      self.hudScale=1.20;self.hudOpacity=.90;return "hud_changed"
+      self.screen="controls";return "controls_tab"
+    end
+  elseif self.screen=="controls" then
+    if inside(x,y,boxes.moveMinus) then
+      self.moveScale=math.max(.75,math.floor((self.moveScale-.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.movePlus) then
+      self.moveScale=math.min(1.50,math.floor((self.moveScale+.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.attackMinus) then
+      self.fireScale=math.max(.75,math.floor((self.fireScale-.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.attackPlus) then
+      self.fireScale=math.min(1.50,math.floor((self.fireScale+.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.deadzoneMinus) then
+      self.deadzone=math.max(.05,math.floor((self.deadzone-.05)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.deadzonePlus) then
+      self.deadzone=math.min(.30,math.floor((self.deadzone+.05)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.controlsReset) then
+      self.moveScale=1;self.fireScale=1;self.deadzone=.15
+      return "hud_changed"
     end
   end
   return nil
@@ -232,7 +267,10 @@ local function removeLast(s)
   return s:sub(1,i-1)
 end
 function Home:keypressed(key)
-  if key=="escape" then self.screen="home";self.focus=nil;return "back" end
+  if key=="escape" then
+    self.screen=self.screen=="controls" and "settings" or "home"
+    self.focus=nil;return "back"
+  end
   if self.focus then
     if key=="backspace" then self[self.focus]=removeLast(self[self.focus]) end
     if key=="v" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then
@@ -440,7 +478,20 @@ function Home:draw(state,detail,showWorld)
       button("opacityLess","-")
       printText("OPACIDADE  "..math.floor(self.hudOpacity*100+.5).."%",475,486,19,C.white,330,"center")
       button("opacityMore","+")
-      button("hudReset","RESTAURAR HUD",false)
+      button("hudReset","AJUSTAR JOYSTICKS",false)
+    else
+      printText("CONTROLES FLUTUANTES",340,171,30,C.white)
+      printText("Cada joystick aparece onde voce encosta o dedo.",356,210,16,C.muted)
+      button("moveMinus","-")
+      printText("MOVIMENTO  "..math.floor(self.moveScale*100+.5).."%",475,262,19,C.white,330,"center")
+      button("movePlus","+")
+      button("attackMinus","-")
+      printText("ATAQUE + MIRA  "..math.floor(self.fireScale*100+.5).."%",475,343,19,C.white,330,"center")
+      button("attackPlus","+")
+      button("deadzoneMinus","-")
+      printText("ZONA MORTA  "..math.floor(self.deadzone*100+.5).."%",475,423,19,C.white,330,"center")
+      button("deadzonePlus","+")
+      button("controlsReset","RESTAURAR PADRAO",false)
     end
   end
   panel(83,614,1111,57,{0.13,0.17,0.15},0)
