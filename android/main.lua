@@ -805,6 +805,12 @@ function love.keypressed(key)
     return
   end
 
+  -- Android Back/Escape while typing must close chat, NOT pause the game.
+  if phase=="playing" and chatOpen and key=="escape" then
+    chatOpen=false;chatDraft=""
+    if mobile and love.keyboard then love.keyboard.setTextInput(false) end
+    return
+  end
   if phase=="playing" and key=="escape" then
     stopPlayerControls()
     panels:close();clans:close()
@@ -829,11 +835,6 @@ function love.keypressed(key)
   if diagnostic then return end
   if phase=="menu" then
     homeAction(home:keypressed(key))
-    return
-  end
-  if key=="escape" and chatOpen then
-    chatOpen=false;chatDraft=""
-    if mobile and love.keyboard then love.keyboard.setTextInput(false) end
     return
   end
   if chatOpen then
