@@ -28,19 +28,26 @@ function M.new()
    moveOrigin=nil,fireOrigin=nil,aimDir=0,fireOffsetX=0,fireOffsetY=0,
    uiScale=1.20,uiOpacity=.90,moveScale=1,fireScale=1,deadzone=.15,
    auto=false,rankOpen=false,mapOpen=false,
-   rankRefresh=0,rankingCategory="gold",page=1,lastPoint=nil,
+   rankRefresh=0,rankingCategory="gold",lastPoint=nil,
+   barScroll=0,barCount=0,barTouchId=nil,barTouchX=nil,
+   barTouchMoved=false,barTouchIndex=nil,
    cachedW=0,cachedH=0,cachedLayout=nil},M)
 end
 function M:reset()
  self.moveId=nil;self.fireId=nil
  self.moveX=0;self.moveY=0;self.moveOrigin=nil;self.fireOrigin=nil
  self.fireOffsetX=0;self.fireOffsetY=0
+ self.barTouchId=nil;self.barTouchX=nil;self.barTouchIndex=nil
+ self.barTouchMoved=false;self.barTouchDistance=0
+ self.barScroll=0;self.barCount=0
  self.mapOpen=false;self.rankOpen=false;self.rankRefresh=0;self.auto=false
 end
 function M:stopForOverlay()
  self.moveId=nil;self.fireId=nil
  self.moveOrigin=nil;self.fireOrigin=nil;self.moveX=0;self.moveY=0
  self.fireOffsetX=0;self.fireOffsetY=0
+ self.barTouchId=nil;self.barTouchX=nil;self.barTouchIndex=nil
+ self.barTouchMoved=false;self.barTouchDistance=0
 end
 function M:configure(size,opacity,movement,attack,deadzone)
  local nextSize=clamp(tonumber(size) or 1.20,.85,1.55)
@@ -61,15 +68,17 @@ function M:layout(w,h)
  local board=min(h*.78,w*.58)
  local panelW=min(w*.76,735*u)
  local panelH=min(h*.82,555*u)
- -- Every unlocked tool/consumable is placed in one centered, paginated
- -- hotbar. As the number of slots changes the visible row is recentered.
+ -- Only the weapons, constructions and consumables actually unlocked by
+ -- the MooMoo.io server appear in one continuous, centered bottom row.
+ -- Overflow is touch-scrollable in the SAME row, never split into pages.
  -- Touch joysticks have no static base until a finger touches the playfield.
  local barX=w*.50
  local topY=53*u
  local l={u=u,move={x=142*u,y=h-128*u,r=86*u*self.moveScale},
    fire={x=w-135*u,y=h-132*u,r=86*u*self.fireScale},
    auto={x=w-88*u,y=h*.47,r=39*u},
-   hotbar={x=barX,y=h-76*u,r=35*u,step=73*u},
+   hotbar={x=barX,y=h-76*u,r=35*u,step=73*u,
+     clipX=w*.255,clipW=w*.49},
    shop={x=w-373*u,y=topY,r=35*u},
    clan={x=w-452*u,y=topY,r=35*u},
    tribe={x=w-294*u,y=topY,r=35*u},
@@ -82,28 +91,40 @@ function M:layout(w,h)
    bigmap={x=(w-board)/2,y=(h-board)/2,w=board,h=board},
    close={x=w-52*u,y=45*u,r=30*u},
    rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
-   stripPrev={x=barX-265*u,y=h-76*u,r=26*u},
-   stripNext={x=barX+265*u,y=h-76*u,r=26*u},
-   chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
+    chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
    chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
    chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
  self.cachedW=w;self.cachedH=h;self.cachedLayout=l
  return l
 end
--- Visible items are recentered for each page, including when the inventory grows.
+-- A single, continuous skill/quick-action row. The authoritative V packets
+-- decide which weapon/build options are available. No client-side unlocks.
+-- If too many exist to fit between the two thumbs, swipe the SAME row.
 function M:hotbar(total,w,h)
  local l=self:layout(w,h)
  total=max(0,math.floor(tonumber(total) or 0))
- local pages=max(1,math.ceil(total/6))
- self.page=clamp(self.page,1,pages)
- local first=(self.page-1)*6+1
- local count=max(0,min(6,total-first+1))
- local slots={}
- for i=1,count do
-   slots[i]={x=l.hotbar.x+(i-(count+1)/2)*l.hotbar.step,
-     y=l.hotbar.y,r=l.hotbar.r,index=first+i-1}
+ local view=l.hotbar
+ -- Respect the requested HUD scale, but keep at least six buttons usable
+ -- when enough screen space exists. New unlocks extend the same line.
+ local rowU=min(l.u,view.clipW/(6*73))
+ local step=73*rowU
+ local radius=35*rowU
+ local width=total>0 and ((total-1)*step+2*radius) or 0
+ local overflow=max(0,width-view.clipW)
+ if total~=self.barCount then
+   -- When a new unlock arrives after spawn, bring it into view automatically.
+   self.barScroll=total>self.barCount and self.barCount>0 and overflow or 0
+   self.barCount=total
  end
- return slots,pages
+ self.barScroll=clamp(self.barScroll,0,overflow)
+ local left=view.clipX+max(0,(view.clipW-width)/2)+radius-self.barScroll
+ local slots={}
+ for i=1,total do
+   slots[i]={x=left+(i-1)*step,y=view.y,r=radius,index=i}
+ end
+ return slots,{scroll=self.barScroll,maxScroll=overflow,
+   clipX=view.clipX,clipW=view.clipW,top=view.y-radius-5*rowU,
+   bottom=view.y+radius+5*rowU}
 end
 function M:movement()
  if self.moveId then return self.moveX,self.moveY end
@@ -175,18 +196,20 @@ function M:pressed(id,x,y,w,h,scale,total)
    self:stopForOverlay();self.mapOpen=true
    return "map_open"
  end
- -- The complete inventory is one centered row (six items per page).
- -- Controls below are handled BEFORE generic movement/attack zones.
- local slots,pages=self:hotbar(total,w,h)
- if pages>1 and near(x,y,l.stripPrev) then
-   self.page=max(1,self.page-1);return "page",self.page
- end
- if pages>1 and near(x,y,l.stripNext) then
-   self.page=min(pages,self.page+1);return "page",self.page
- end
+ -- The bottom shortcuts form ONE persistent line, not an inventory page.
+ -- Capture the pointer until release so swiping never accidentally equips.
  if near(x,y,l.auto) then self.auto=not self.auto;return "server_auto",self.auto end
- for _,p in ipairs(slots) do
-   if near(x,y,p) then return "slot",p.index end
+ local slots,bar=self:hotbar(total,w,h)
+ if self.barTouchId==nil and x>=bar.clipX and x<=bar.clipX+bar.clipW
+   and y>=bar.top and y<=bar.bottom then
+   self.barTouchId=id
+   self.barTouchX=x
+   self.barTouchMoved=false
+   self.barTouchIndex=nil
+   for _,p in ipairs(slots) do
+     if near(x,y,p) then self.barTouchIndex=p.index;break end
+   end
+   return "bar_hold"
  end
  -- Floating left movement: any open place in the lower-left touch zone.
  if x<w*.35 and y>h*.38 and self.moveId==nil then
@@ -204,6 +227,22 @@ function M:pressed(id,x,y,w,h,scale,total)
  return nil
 end
 function M:moved(id,x,y,w,h)
+ if id==self.barTouchId then
+   local previous=self.barTouchX or x
+   local delta=x-previous
+   self.barTouchX=x
+   if not self.barTouchMoved and math.abs(delta)>0 then
+     self.barTouchDistance=(self.barTouchDistance or 0)+math.abs(delta)
+     if self.barTouchDistance>=12*self:layout(w,h).u then
+       self.barTouchMoved=true
+     end
+   end
+   if self.barTouchMoved then
+     local _,bar=self:hotbar(self.barCount,w,h)
+     self.barScroll=clamp(self.barScroll-delta,0,bar.maxScroll)
+   end
+   return "bar_scroll"
+ end
  if id==self.moveId and self.moveOrigin then
    self:joystick(x,y,self:layout(w,h))
    return "move"
@@ -215,6 +254,13 @@ function M:moved(id,x,y,w,h)
  return nil
 end
 function M:released(id)
+ if id==self.barTouchId then
+   local index=not self.barTouchMoved and self.barTouchIndex or nil
+   self.barTouchId=nil;self.barTouchX=nil
+   self.barTouchIndex=nil;self.barTouchMoved=false;self.barTouchDistance=0
+   if index then return "slot",index end
+   return "bar_release"
+ end
  if self.moveId==id then
    self.moveId=nil;self.moveOrigin=nil;self.moveX=0;self.moveY=0;return "move"
  end
@@ -508,28 +554,36 @@ function M:draw(world,scale)
  g.printf("Nv "..level,xpX+3*u,statusY+9*u,82*u,"center")
  -- The auto-gather/attack mode is an independent toggle: a held manual
  -- attack and opening an overlay never change the active auto state.
- local slots,pages=self:hotbar(Slots.total(world),w,h)
+ local slots,bar=self:hotbar(Slots.total(world),w,h)
+ -- Clip only the bottom row. More unlocked options extend horizontally,
+ -- and the same row can be swiped. No arrows, pages or invented skills.
+ g.setScissor(bar.clipX,bar.top,bar.clipW,bar.bottom-bar.top)
  for _,p in ipairs(slots) do
-   local id,weapon=Slots.at(world,p.index)
-   local selected=false
-   if player and type(player.buildIndex)=="number" then
-     if player.buildIndex>=0 then
-       selected=not weapon and id==player.buildIndex
-     else
-       selected=weapon and id==player.weaponIndex
+   if p.x+p.r>=bar.clipX and p.x-p.r<=bar.clipX+bar.clipW then
+     local id,weapon=Slots.at(world,p.index)
+     local selected=false
+     if player and type(player.buildIndex)=="number" then
+       if player.buildIndex>=0 then
+         selected=not weapon and id==player.buildIndex
+       else
+         selected=weapon and id==player.weaponIndex
+       end
      end
+     ring(g,p,selected,selected)
+     local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
+     if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) end
+     g.setColor(.96,.98,.96,1);g.setFont(small)
+     g.printf(tostring(p.index),p.x-p.r*.30,p.y+p.r*.48,p.r*.6,"center")
    end
-   ring(g,p,selected,selected)
-   local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
-   if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) end
-   g.setColor(.96,.98,.96,1);g.setFont(small)
-   g.printf(tostring(p.index),p.x-p.r*.30,p.y+p.r*.48,p.r*.6,"center")
  end
- if pages>1 then
-   ring(g,l.stripPrev,false,false);words(g,"<",l.stripPrev)
-   ring(g,l.stripNext,false,false);words(g,">",l.stripNext)
-   g.setColor(.95,.97,.96,1);g.setFont(small)
-   g.printf(self.page.."/"..pages,l.hotbar.x-34*u,l.hotbar.y-75*u,68*u,"center")
+ g.setScissor()
+ -- Subtle edge marks indicate more unlocked actions off-screen.
+ if bar.maxScroll>0 then
+   g.setFont(font);g.setColor(.74,.97,.86,.88*self.uiOpacity)
+   if bar.scroll>0 then g.print("<",bar.clipX-13*l.u,l.hotbar.y-13*l.u) end
+   if bar.scroll<bar.maxScroll then
+     g.print(">",bar.clipX+bar.clipW+2*l.u,l.hotbar.y-13*l.u)
+   end
  end
  g.pop()
 end
