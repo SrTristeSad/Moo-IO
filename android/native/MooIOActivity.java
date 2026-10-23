@@ -35,7 +35,7 @@ public final class MooIOActivity extends GameActivity {
             if(code.length()<8) {
                 byte[] random=new byte[16];
                 new SecureRandom().nextBytes(random);
-                code=Base64.getUrlEncoder().withoutPadding().encodeToString(random);
+                code=Base64.getUrlEncoder().withoutPadding().encodeToString(random).replace("_","-");
                 getPreferences(MODE_PRIVATE).edit().putString("room_code",code).apply();
             }
             write(new File(root,"room-code.txt"),code);
