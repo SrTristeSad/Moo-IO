@@ -6,6 +6,34 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
+#include <pthread.h>
+#include <errno.h>
+#include <cstdio>
+
+static int stdoutPipe[2],stderrPipe[2];
+static void *capturePipe(void *arg) {
+    int fd = *static_cast<int*>(arg);
+    char buf[2048];
+    ssize_t count;
+    while ((count=read(fd,buf,sizeof(buf)-1))>0) {
+        buf[count]='\0';
+        __android_log_write(fd==stdoutPipe[0]?ANDROID_LOG_INFO:ANDROID_LOG_ERROR,
+                            "MooIO-Node",buf);
+    }
+    return nullptr;
+}
+static void setupCapture() {
+    if(pipe(stdoutPipe)==0 && pipe(stderrPipe)==0) {
+        dup2(stdoutPipe[1],STDOUT_FILENO);
+        dup2(stderrPipe[1],STDERR_FILENO);
+        close(stdoutPipe[1]);
+        close(stderrPipe[1]);
+        pthread_t o,e;
+        pthread_create(&o,nullptr,capturePipe,&stdoutPipe[0]);
+        pthread_create(&e,nullptr,capturePipe,&stderrPipe[0]);
+        pthread_detach(o);pthread_detach(e);
+    }
+}
 extern "C" JNIEXPORT jint JNICALL
 Java_org_love2d_android_MooIONodeBridge_start(
     JNIEnv *env,jclass,jobjectArray arguments,jobjectArray variables,jstring directory) {
@@ -48,5 +76,8 @@ Java_org_love2d_android_MooIONodeBridge_start(
         offset+=a.size()+1;
     }
     __android_log_print(ANDROID_LOG_INFO,"MooIO-Host","node::Start invoked");
-    return (jint)node::Start((int)count,argv.data());
+    setupCapture();
+    int exit=(int)node::Start((int)count,argv.data());
+    __android_log_print(ANDROID_LOG_ERROR,"MooIO-Host","node::Start exited with %d",exit);
+    return (jint)exit;
 }
