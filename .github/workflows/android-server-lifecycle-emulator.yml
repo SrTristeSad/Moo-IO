@@ -1,0 +1,88 @@
+name: Moo IO Android - iniciar e parar servidor sob demanda
+on:
+  push:
+    branches: [fix/android-server-lifecycle]
+    paths:
+      - ".github/workflows/android-server-lifecycle-emulator.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android-native-lifecycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: APK integrado produzido nesta branch
+        uses: actions/download-artifact@v4
+        with:
+          name: Moo-IO-Android-Beta-Instalavel
+          repository: SrTristeSad/Moo-IO
+          run-id: 39978802930
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: dist
+      - name: Liberar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Emulador - lifecycle nativo Node e notificacao
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            set -euo pipefail
+            pkg=io.srtristesad.mooio.beta
+            adb install -r dist/Moo-IO-Android-Beta-Instalavel.apk
+            adb shell am start -n "$pkg/org.love2d.android.MooIOActivity"
+            adb forward tcp:28082 tcp:8082
+            adb forward tcp:28081 tcp:8081
+            echo "NENHUM PROCESSO NODE DEVE EXISTIR NOS MENUS"
+            sleep 3
+            if adb shell pidof "$pkg:mooio_node"; then
+              echo "FAIL: Node launched before user clicked create room"; exit 1
+            fi
+            echo "MOOIO_ANDROID_IDLE_HOST_NOT_RUNNING_PASS"
+            token=$(adb shell run-as "$pkg" cat files/mooio-control-token.txt | tr -d '\r\n')
+            test "${#token}" -eq 48
+            unauth=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:28082/start)
+            test "$unauth" = 404
+            start() {
+              test "$(curl -fsS --max-time 4 "http://127.0.0.1:28082/start/$token")" = started
+              for i in $(seq 1 25); do
+                if curl -fsS --max-time 2 http://127.0.0.1:28081/status 2>/dev/null | grep -q '"project":"Moo-IO"'; then
+                  adb shell pidof "$pkg:mooio_node"
+                  echo "MOOIO_ANDROID_HOST_STARTED_PASS"
+                  return 0
+                fi
+                sleep 2
+              done
+              adb logcat -d -v time -s MooIO-Host:V MooIO-Node:V AndroidRuntime:E | tail -120 || true
+              return 1
+            }
+            stop() {
+              test "$(curl -fsS --max-time 4 "http://127.0.0.1:28082/stop/$token")" = stopped
+              for i in $(seq 1 15); do
+                if ! adb shell pidof "$pkg:mooio_node" >/dev/null 2>&1; then
+                  echo "MOOIO_ANDROID_HOST_STOPPED_RAM_RELEASED_PASS"
+                  return 0
+                fi
+                sleep 1
+              done
+              echo "FAIL: native process survived stop, leaked RAM and notification"
+              exit 1
+            }
+            start
+            stop
+            start
+            stop
+            echo "JOGO DEVE CONTINUAR ABERTO APOS SAIR DA SALA"
+            adb shell pidof "$pkg"
+            adb shell am force-stop "$pkg"
+            echo "MOOIO_ANDROID_SERVER_LIFECYCLE_PASS"
