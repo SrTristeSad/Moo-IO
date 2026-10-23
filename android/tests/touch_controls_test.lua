@@ -25,7 +25,7 @@ dx,dy=m:movement();eq(dx,0);eq(dy,0)
 m:released(2)
 eq(m:pressed(6,l.run.x,l.run.y,w,h),"run")
 dx,dy=m:movement()
-assert(dy<-.9,"autorun begins in last saved direction")
+assert(dx>.9 and math.abs(dy)<.001,"autorun follows the last chosen direction")
 eq(m:pressed(7,l.run.x,l.run.y,w,h),"run")
 eq(m:pressed(8,l.minimap.x+10,l.minimap.y+10,w,h),"map_open")
 local big=m:layout(w,h).bigmap
