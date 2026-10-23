@@ -32,6 +32,35 @@ assert(tenBar.maxScroll>0 and tenBar.scroll==tenBar.maxScroll,
   "newly unlocked options should automatically become visible")
 assert(m.page==nil and l.stripPrev==nil and l.stripNext==nil,
   "one continuous row must not have inventory paging controls")
+-- Visual HUD regression: the old vertical scissor clipped the circular
+-- abilities and the slot numbers against a straight horizontal edge.
+local function verifySkillHUD(sw,sh)
+  local skills=Mobile.new()
+  local shown,bounds=skills:hotbar(6,sw,sh)
+  local margin=4*bounds.rowU
+  assert(#shown==6 and bounds.maxScroll==0)
+  for _,button in ipairs(shown) do
+    assert(button.x-button.r-margin>=bounds.clipX and
+      button.x+button.r+margin<=bounds.clipX+bounds.clipW,
+      "skill border/shadow must fit entirely within the scissor")
+    local numberBottom=button.y+button.r*.80+button.r*.31
+    assert(numberBottom+2*bounds.rowU<=bounds.bottom,
+      "skill keycap number cannot be vertically cropped")
+    assert(button.y-button.r-margin>=bounds.top,
+      "skill wheel top shadow cannot be cropped")
+  end
+  local status=skills:statusLayout(sw,sh)
+  assert(status.life.x+status.life.w<status.level.x,
+    "health and level boxes should not overlap")
+  assert(status.life.y==status.level.y and status.life.h==status.level.h,
+    "health and level must be aligned")
+  assert(status.level.y+status.level.h<bounds.top,
+    "health and level must fit ABOVE the skill wheel")
+end
+verifySkillHUD(1280,720)
+verifySkillHUD(1600,757) -- dimensions of the user's Android HUD screenshot
+verifySkillHUD(800,360)
+
 assert(l.clan.y==l.shop.y and l.shop.y==l.tribe.y,
   "Clan, Shop and Tribe must share the top HUD row")
 assert(l.auto.x>w*.8 and l.auto.y<h*.55,
