@@ -33,15 +33,17 @@ distinguir arquitetura, versão Android e falta de espaço.
 
 ## HUD de sobrevivência — joysticks flutuantes
 
-O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; o toque à direita inicia ataque e mira no mesmo dedo. Os quatro primeiros equipamentos aparecem em uma barra horizontal, sem habilidades falsas.
+O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; o toque à direita inicia ataque e mira no mesmo dedo. Os equipamentos, ferramentas e itens consumíveis reais aparecem em uma única barra inferior com até seis slots visíveis por página. Ela se recentraliza a cada alteração de inventário, sem habilidades inventadas.
 
-Os botões maiores de LOJA, CLÃ e TRIBO abrem, respectivamente, os sistemas existentes de compra/equipamentos, clãs permanentes e alianças temporárias da partida. Clãs de conta e Tribes são mecanismos diferentes. A barra superior de recursos foi ajustada para não obstruir os novos atalhos.
+Os botões maiores de LOJA, CLÃ e TRIBO abrem, respectivamente, os sistemas existentes de compra/equipamentos, clãs permanentes e alianças temporárias da partida. Clãs de conta e Tribes são mecanismos diferentes. Os botões Loja, Clã, Tribo, Chat, TOP e Menu estão na faixa superior. As ofertas de evolução aparecem abaixo desses atalhos, mesmo com a escala máxima do HUD.
 
 - **AUTO**: envia o mesmo comando de coleta/ataque automático do Windows.
 - **Ping (!) ao lado do minimapa**: envia `S(1)`, igual à tecla **R** no Windows, para sinalizar a posição atual aos aliados.
 - **MAP**: abre o mapa completo; toque num ponto para enviar `U(x,y)` aos aliados. O servidor valida coordenadas e cooldown.
 - **TOP10**: abre um ranking com abas **OURO, VIDA, COMIDA, MADEIRA, PEDRA, ABATES e PONTOS**. As classificações vêm exclusivamente do servidor (pacote de pedido `Y`, resposta `n`), até dez jogadores por categoria e ocultação de identidades anônimas.
-- A área sob o minimapa mostra **vida, ouro, comida, madeira, pedra e abates** obtidos das mensagens reais do jogo.
+- A coluna esquerda usa apenas os **ícones originais de food, wood e stone** e suas quantidades recebidas do servidor, sem inventar nomes de recursos; os botões **PING** e **MAPA** continuam visíveis ao lado do minimapa.
+- **Vida** aparece em barra vermelha acima do inventário; **nível e XP** ficam ao lado da vida, com valores autoritativos.
+- **AUTO** continua ativo ao abrir Loja, Clã, Tribo, Chat, TOP, mapa e configurações. Ataque manual não altera o toggle automático. Só AUTO ou a tecla E enviam o toggle `K(1)`.
 
 O APK Beta com servidor integrado precisa ser gerado pela Action **Moo IO Android autonomo - APK com servidor**. O workflow recompila o servidor Node a partir dos módulos atuais antes de incorporá-lo ao APK; evita Top 10 antigo/ausente em salas hospedadas no próprio Android.
 
@@ -72,8 +74,8 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 |---|---|
 | Parte inferior esquerda (livre) | o joystick de movimento surge onde o dedo toca; arraste para mover |
 | Parte inferior direita (livre) | o joystick de ataque e mira surge onde o dedo toca; segurar ataca, arrastar mira e soltar interrompe |
-| Quatro atalhos em barra horizontal | selecionam os quatro primeiros itens/armas reais do servidor |
-| Faixa central inferior | itens a partir do quinto, em páginas de até cinco com setas |
+| Barra central inferior | mostra todos os equipamentos e consumíveis reais, até seis slots por página, recentralizando automaticamente |
+| Setas laterais | percorrem páginas adicionais sem inventar itens |
 | LOJA | abre o Shop real do servidor, com compras e equipamentos |
 | CLÃ | abre a interface de clãs permanentes da conta |
 | TRIBO | abre as alianças temporárias da partida |
@@ -84,7 +86,7 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 | TOP10 | tabela por recurso, pontuação, vida e abates |
 | II | menu de pausa |
 
-Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removidos. A seleção de armas e estruturas fica no inventário horizontal real, sem menus artificiais. Os quatro primeiros ainda são atalhos de itens; habilidades especiais novas não estão implementadas.
+Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removidos. A seleção de armas e estruturas fica no inventário horizontal real, sem menus artificiais. Todos os atalhos são itens e armas reais do inventário; habilidades especiais novas não estão implementadas.
 
 ### Ajustes de estabilidade
 
@@ -126,7 +128,7 @@ A build Android faz um ajuste específico de compatibilidade nas expressões reg
 
 ### Validação conhecida e limitações
 
-O APK com servidor integrado **compilou** e o emulador confirmou inicialização do Node Mobile, inicialização do servidor completo, resposta real na porta de controle e dois processos Android ativos. O pacote offline de servidor também passou em testes HTTP no Linux. **Ainda não foram comprovadas a entrada no mundo, combate e estabilidade em celulares físicos**; trate-o como beta e reporte erros do aparelho.
+O APK com servidor integrado **compila** nas Actions. A validação de ciclo de vida no emulador ainda apresentou falhas em algumas execuções: iniciar o app não deve iniciar Node automaticamente, e o teste também precisa confirmar a porta do servidor e o encerramento do processo. Não considere o teste de emulador aprovado para uma nova build sem verificar a execução específica. O pacote offline de servidor também passou em testes HTTP no Linux. **Ainda não foram comprovadas a entrada no mundo, combate e estabilidade em celulares físicos**; trate-o como beta e reporte erros do aparelho.
 
 Somente durante a hospedagem o serviço de Node opera em primeiro plano com uma notificação; ao encerrar a sala ou fechar o app, essa notificação é removida e o processo isolado é finalizado. Em caso de falha, `files/mooio-data/node-boot.log` (armazenamento privado) registra diagnósticos do Node. A versão antiga `Moo-IO-Android-Teste.apk` e o arquivo `.love` não incluem o servidor.
 
