@@ -1277,20 +1277,26 @@ end
 function love.touchmoved(id,x,y)
   if not mobile or phase~="playing" or pause:isOpen() then return end
   local w,h=love.graphics.getDimensions()
-  local action=mobile:moved(id,x,y,w,h)
-  -- The attack thumb IS the aim control. Send real Node direction packets
-  -- promptly during a drag (max 25 Hz). The normal 70-ms tick remains a
-  -- fallback when Android coalesces touch events.
-  if action=="aim" and mobile:attacking() and not chatOpen and client
+  local action,attackChanged=mobile:moved(id,x,y,w,h)
+  -- The same thumb has TWO zones: short drag = aim only, outer drag =
+  -- aim + manual attack. DIRECTION must update even during aim-only.
+  -- On a threshold transition, send the latest D before F(1)/F(0)
+  -- instead of waiting for the usual 70-ms player update.
+  if action=="aim" and not chatOpen and client
     and client.state=="spawn_confirmed" then
     local now=love.timer.getTime()
-    if now-mobileAimSentAt>=.04 then
+    if attackChanged or now-mobileAimSentAt>=.04 then
       local dir=currentAttackDir()
       if not lastAim or math.abs(dir-lastAim)>.02 then
         local ok=client:send("D",{dir})
         if ok then lastAim=dir end
       end
       mobileAimSentAt=now
+    end
+    if attackChanged then
+      -- Only crossing the attack threshold sends F: simply aiming NEVER
+      -- fires, and moving inward stops fire without disabling server AUTO.
+      mobileAction("attack")
     end
   end
 end
