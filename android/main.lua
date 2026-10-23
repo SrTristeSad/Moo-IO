@@ -702,7 +702,11 @@ homeAction=function(action)
     if isAndroid then
       -- Stop Node's isolated Android service NOW, even if the game stays open.
       if client then client:close();client=nil end
-      hosted:stop()
+      local stopped,stopError=hosted:stop()
+      if not stopped then
+        home:setStatus(stopError or "Nao foi possivel encerrar a hospedagem.",true)
+        return
+      end
       home.hosting=false;home.starting=false
       home.hostAddress="";home.hostCode=""
       home:setStatus("Sala encerrada. Servidor desligado; memoria liberada.")
