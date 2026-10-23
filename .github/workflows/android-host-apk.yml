@@ -29,7 +29,8 @@ jobs:
           npm install --prefix windows/server --no-audit --no-fund
           node windows/tools/build-offline-server.mjs
           test -s windows/server/src/offline.mjs
-          grep -q 'categoryRankingRequest\|categoryRanking' windows/server/src/offline.mjs
+          # The server bundle may tree-shake human-readable packet descriptions.
+          grep -q 'ranking category' windows/server/src/offline.mjs
       - name: Prepare official LÖVE Android 11.5a
         shell: bash
         run: |
