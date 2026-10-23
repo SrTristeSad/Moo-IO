@@ -190,7 +190,7 @@ function P:click(world,x,y,w,h)
     self:close()
     return {consumed=true}
   end
-  if inside(x,y,px+pw-43,py+11,32,32) then
+  if inside(x,y,px+pw-51,py+8,44,44) then
     self:close();return {consumed=true}
   end
   if self.opened=="store" then
@@ -218,7 +218,7 @@ function P:click(world,x,y,w,h)
       if inside(x,y,px+17,row,pw-34,50) then
         local entry=list[self.scroll+i]
         self.hoverItem=entry
-        if inside(x,y,px+328,row+7,105,36) then
+        if inside(x,y,px+328,row+5,105,42) then
           local order=self:storeAction(world,entry)
           if order then order.consumed=true;return order end
           self.message="Not enough gold."
@@ -328,7 +328,7 @@ function P:draw(world,showButtons)
   rect(0,0,w,h,0,0,0,0.28)
   rect(px,py,pw,ph,0.10,0.12,0.12,0.90)
   center(self.opened=="store" and "STORE" or "TRIBES",px+20,py+17,pw-40,24)
-  button("X",px+pw-43,py+11,32,32,false,true)
+  button("X",px+pw-51,py+8,44,44,false,true)
   love.graphics.setScissor(px+15,py+98,pw-30,math.max(1,ph-174))
   if self.opened=="store" then
     -- Shop from exact server-side shared/config/store.js order and prices.
@@ -353,7 +353,7 @@ function P:draw(world,showButtons)
         text("Owned",px+77,ry+26,12,0.65,0.9,0.58)
       end
       local label=self:storeButtonLabel(world,entry)
-      button(label,px+328,ry+7,105,36,
+      button(label,px+328,ry+5,105,42,
         label=="Equip" or label=="Unequip",label~="No gold")
     end
   else
