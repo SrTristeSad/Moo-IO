@@ -204,6 +204,55 @@ local function words(g,str,p,size)
  g.setFont(size and small or font)
  g.printf(str,p.x-p.r*1.1,p.y-(size and 6 or 9),p.r*2.2,"center")
 end
+-- Original vector glyphs (no copyrighted MOBA UI assets). Draw once per frame,
+-- with no filesystem access, shaders or new Canvas allocations.
+local function glyph(g,kind,p,u,active)
+ g.push()
+ g.translate(p.x,p.y)
+ g.scale(u,u)
+ g.setLineWidth(2.8)
+ if kind=="attack" then
+   g.rotate(-.65)
+   g.setColor(active and 1 or .93,active and .7 or .88,.67,1)
+   g.polygon("fill",-5,-29,5,-29,8,13,-8,13)
+   g.setColor(.21,.33,.31,1)
+   g.polygon("fill",0,-23,3,5,0,15,-3,5)
+   g.setColor(1,.86,.44,1)
+   g.rectangle("fill",-20,10,40,6,2,2)
+   g.rectangle("fill",-3,15,6,14,2,2)
+ elseif kind=="auto" then
+   g.setColor(active and .91 or .67,active and .9 or .82,.48,1)
+   g.arc("line","open",0,0,18,-.3,math.pi*1.37)
+   g.polygon("fill",-17,-12,-20,-1,-9,-6)
+   g.circle("fill",0,0,4)
+ elseif kind=="chat" then
+   g.setColor(.81,.96,.87,1)
+   g.rectangle("line",-21,-17,42,29,8,8)
+   g.polygon("fill",-12,10,-12,22,-1,11)
+   g.circle("fill",-10,-3,2.5);g.circle("fill",0,-3,2.5)
+   g.circle("fill",10,-3,2.5)
+ elseif kind=="ping" then
+   g.setColor(1,.83,.39,1)
+   g.polygon("line",0,-23,21,0,0,23,-21,0)
+   g.rectangle("fill",-2.4,-12,4.8,16,2,2)
+   g.circle("fill",0,11,3)
+ elseif kind=="map" then
+   g.setColor(.71,.9,.78,1)
+   g.polygon("line",-21,-15,-8,-20,7,-13,21,-19,21,17,7,21,-8,15,-21,19)
+   g.line(-8,-20,-8,15);g.line(7,-13,7,21)
+ elseif kind=="ranking" then
+   g.setColor(1,.87,.42,1)
+   g.arc("line","open",0,-10,14,0,math.pi)
+   g.line(-14,-10,-10,2,-4,7,4,7,10,2,14,-10)
+   g.line(-3,8,-3,18);g.line(3,8,3,18)
+   g.line(-13,18,13,18)
+ elseif kind=="pause" then
+   g.setColor(.87,.96,.9,1)
+   g.rectangle("fill",-11,-15,8,30,2,2)
+   g.rectangle("fill",3,-15,8,30,2,2)
+ end
+ g.pop()
+end
 local function map(g,world,b,scale)
  scale=scale or 14400
  g.setColor(.045,.13,.09,.90);g.rectangle("fill",b.x,b.y,b.w,b.h,7,7)
@@ -320,11 +369,11 @@ function M:draw(world,scale)
    return
  end
  map(g,world,l.minimap,scale)
- ring(g,l.ping,false,true);words(g,"!",l.ping)
- ring(g,l.mark,false,false);words(g,"MAP",l.mark,true)
- ring(g,l.chat,false,false);words(g,"CHAT",l.chat,true)
- ring(g,l.rank,false,false);words(g,"TOP10",l.rank,true)
- ring(g,l.pause,false,false);words(g,"II",l.pause)
+ ring(g,l.ping,false,true);glyph(g,"ping",l.ping,u)
+ ring(g,l.mark,false,false);glyph(g,"map",l.mark,u)
+ ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
+ ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
+ ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
  ring(g,l.move,self.moveId~=nil,false)
  local x=self.moveOrigin and self.moveOrigin.x or l.move.x
  local y=self.moveOrigin and self.moveOrigin.y or l.move.y
@@ -332,8 +381,9 @@ function M:draw(world,scale)
  g.circle("fill",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,26*u)
  g.setColor(.12,.31,.23,1)
  g.circle("line",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,25*u)
- ring(g,l.fire,self:attacking(),true);words(g,"ATACAR",l.fire,true)
- ring(g,l.auto,self.auto,true);words(g,"AUTO",l.auto,true)
+ ring(g,l.fire,self:attacking(),true)
+ glyph(g,"attack",l.fire,u,self:attacking())
+ ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
  -- The first four are the exact first four quick slots, not fake cooldown skills.
  for i,p in ipairs(l.skills) do
    ring(g,p,false,false)
