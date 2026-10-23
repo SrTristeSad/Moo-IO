@@ -17,6 +17,17 @@ for i=1,10 do
   eq(weapon,i<=3)
 end
 eq(Slots.pages(world,5),2)
+local three=m:hotbar(3,w,h)
+eq(#three,3);eq(three[2].x,w*.50)
+local two=m:hotbar(2,w,h)
+eq(two[1].x+two[2].x,w)
+assert(two[1].x>three[1].x,"added items must recenter hotbar")
+local five,pages=m:hotbar(10,w,h)
+eq(#five,5);eq(pages,2);eq(five[1].index,1)
+assert(l.clan.y==l.shop.y and l.shop.y==l.tribe.y,
+  "Clan, Shop and Tribe must share the top HUD row")
+assert(l.auto.x>w*.8 and l.auto.y<h*.55,
+  "automatic attack button belongs to right side")
 eq(m:movement(),0)
 -- ATACAR is a FLOATING aim joystick: drag the SAME finger to rotate the
 -- weapon while continuously attacking. It never changes the movement input.
@@ -65,29 +76,43 @@ eq(m:released(4),"attack")
 assert(m.fireOrigin==nil and not m:attacking())
 -- No dormant base at a fixed screen coordinate.
 assert(m.moveOrigin==nil and m.fireOrigin==nil)
--- Four first slots use original items, extra slots are in the middle.
-for i,p in ipairs(l.skills) do
+-- All items (not just four) form one centered, dynamically paginated row.
+local shown=m:hotbar(Slots.total(world),w,h)
+for i,p in ipairs(shown) do
   local a,num=m:pressed(10+i,p.x,p.y,w,h,14400,10)
-  eq(a,"skill");eq(num,i)
-end
-for i=1,5 do
-  local x=l.strip.x+(i-3)*l.strip.step
-  local a,num=m:pressed(20+i,x,l.strip.y,w,h,14400,10)
-  eq(a,"slot");eq(num,i+4)
+  eq(a,"slot");eq(num,i)
 end
 local a,page=m:pressed(35,l.stripNext.x,l.stripNext.y,w,h,14400,10)
 eq(a,"page");eq(page,2)
-a,page=m:pressed(36,l.strip.x-2*l.strip.step,l.strip.y,w,h,14400,10)
+shown=m:hotbar(Slots.total(world),w,h)
+eq(#shown,5);eq(shown[1].index,6);eq(shown[5].index,10)
+a,page=m:pressed(36,shown[5].x,shown[5].y,w,h,14400,10)
 eq(a,"slot");eq(page,10)
 a,page=m:pressed(37,l.stripPrev.x,l.stripPrev.y,w,h,14400,10)
 eq(a,"page");eq(page,1)
 a,page=m:pressed(40,l.auto.x,l.auto.y,w,h,14400,10)
 eq(a,"server_auto");eq(page,true)
-assert(not m:attacking(),"server E is NOT a held mouse button")
-a,page=m:pressed(41,l.auto.x,l.auto.y,w,h,14400,10)
+assert(not m:attacking(),"server auto must not act as held attack button")
+-- Opening an overlay or using manual attack must NEVER flip the auto toggle.
+eq(m:pressed(41,l.shop.x,l.shop.y,w,h,14400,10),"shop_open")
+eq(m.auto,true)
+eq(m:pressed(42,l.clan.x,l.clan.y,w,h,14400,10),"clan_open")
+eq(m.auto,true)
+eq(m:pressed(43,l.tribe.x,l.tribe.y,w,h,14400,10),"tribe_open")
+eq(m.auto,true)
+eq(m:pressed(44,l.chat.x,l.chat.y,w,h,14400,10),"chat_open")
+eq(m.auto,true)
+eq(m:pressed(45,l.pause.x,l.pause.y,w,h,14400,10),"pause")
+eq(m.auto,true)
+eq(m:pressed(46,l.fire.x,l.fire.y,w,h,14400,10),"attack")
+eq(m:released(46),"attack")
+eq(m.auto,true)
+m:stopForOverlay();eq(m.auto,true)
+-- Only explicitly pressing AUTO may switch it off.
+a,page=m:pressed(47,l.auto.x,l.auto.y,w,h,14400,10)
 eq(a,"server_auto");eq(page,false)
-eq(m:pressed(42,l.ping.x,l.ping.y,w,h,14400,10),"ping_here")
-eq(m:pressed(43,l.mark.x,l.mark.y,w,h,14400,10),"map_open")
+eq(m:pressed(48,l.ping.x,l.ping.y,w,h,14400,10),"ping_here")
+eq(m:pressed(49,l.mark.x,l.mark.y,w,h,14400,10),"map_open")
 local b=m:layout(w,h).bigmap
 a,page=m:pressed(44,b.x+b.w*.25,b.y+b.h*.75,w,h,14400,10)
 eq(a,"ping");eq(page.x,3600);eq(page.y,10800)
