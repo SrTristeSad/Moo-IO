@@ -1,13 +1,30 @@
 package.path="./?.lua;./?/init.lua;"..package.path
 local Host=require("src.net.mooio_host")
 local address,code=nil,nil
+local active=false
+local starts,stops=0,0
+local function native(action)
+  if action=="start" then
+    starts=starts+1
+    active=true
+    return true
+  end
+  if action=="stop" then
+    stops=stops+1
+    active=false
+    return true
+  end
+  error("unexpected control action")
+end
 local h=Host.new({
-  readStatus=function() return address end,
-  readSessionCode=function() return code end
+  readStatus=function() return active and address or nil end,
+  readSessionCode=function() return active and code or nil end,
+  controlServer=native
 })
-assert(h.state=="idle")
+assert(h.state=="idle" and not active and starts==0,
+  "opening the app or entering menus must never run the Node server")
 local ok=h:start("lan",nil,0)
-assert(ok and h.state=="starting")
+assert(ok and active and starts==1 and h.state=="starting")
 for _=1,12 do h:update(.7) end
 assert(h.state=="starting","must not report ready before Node controller responds")
 address="192.168.1.12"
@@ -18,10 +35,35 @@ h:update(.7)
 assert(h.state=="ready")
 assert(h.hostIP=="192.168.1.12" and h.port==8080)
 assert(h.address=="192.168.1.12:8080" and h.code=="android-room-code")
+local again,reason=h:start("lan")
+assert(not again and starts==1 and reason,"must never start a second Node process")
 h:stop()
-assert(h.state=="idle")
-local dead=Host.new({readStatus=function() return nil end,readSessionCode=function()return nil end})
+assert(h.state=="idle" and stops==1 and not active,
+  "leaving room must actually stop native service and free resources")
+h:stop()
+assert(stops==1,"stopping an already-closed room must not restart service")
+assert(h:start("lan") and active and starts==2,
+  "must be able to start a new room after the previous native service exited")
+h:stop()
+assert(stops==2 and not active)
+local failedCalls=0
+local blocked=Host.new({readStatus=function()return nil end,
+  readSessionCode=function()return nil end,
+  controlServer=function(action)failedCalls=failedCalls+1;return false end})
+local startOk=blocked:start("lan")
+assert(not startOk and blocked.state=="failed" and failedCalls==1,
+  "controller failure must not claim hosting or show ongoing service")
+local timeoutStop=0
+local dead=Host.new({readStatus=function() return nil end,
+  readSessionCode=function() return nil end,
+  controlServer=function(action)
+    if action=="stop" then timeoutStop=timeoutStop+1 end
+    return true
+  end})
 assert(dead:start("lan"))
 for _=1,38 do dead:update(.7) end
-assert(dead.state=="failed" and type(dead.error)=="string")
-print("MOO IO ANDROID HOST PASS")
+assert(dead.state=="failed" and type(dead.error)=="string" and timeoutStop==1,
+  "startup timeout must stop the native foreground service")
+dead:stop()
+assert(timeoutStop==1,"no second shutdown needed after timeout")
+print("MOO IO ANDROID HOST LIFECYCLE PASS")
