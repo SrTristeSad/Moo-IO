@@ -70,9 +70,9 @@ function M:layout(w,h)
  end
  local l={u=u,move={x=142*u,y=h-128*u,r=86*u*self.moveScale},
    fire={x=w-135*u,y=h-132*u,r=86*u*self.fireScale},
-   auto={x=w-86*u,y=h-305*u,r=39*u},
-   skills=skills,shop={x=w-480*u,y=49*u,r=40*u},
-   clan={x=w-380*u,y=49*u,r=40*u},
+   auto={x=w-194*u,y=h-340*u,r=39*u},
+   skills=skills,shop={x=w-87*u,y=153*u,r=40*u},
+   clan={x=w-87*u,y=247*u,r=40*u},
    chat={x=w-280*u,y=49*u,r=40*u},
    rank={x=w-180*u,y=49*u,r=40*u},
    pause={x=w-65*u,y=49*u,r=39*u},
@@ -414,6 +414,9 @@ function M:draw(world,scale)
  ring(g,l.mark,false,false);glyph(g,"map",l.mark,u)
  ring(g,l.shop,false,true);glyph(g,"shop",l.shop,u)
  ring(g,l.clan,false,false);glyph(g,"clan",l.clan,u)
+ g.setFont(small);g.setColor(1,1,1,self.uiOpacity)
+ g.printf("LOJA",l.shop.x-35*u,l.shop.y+25*u,70*u,"center")
+ g.printf("CLA",l.clan.x-35*u,l.clan.y+25*u,70*u,"center")
  ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
  ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
  ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
