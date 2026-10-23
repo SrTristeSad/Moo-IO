@@ -36,6 +36,15 @@ assert(l.clan.y==l.shop.y and l.shop.y==l.tribe.y,
   "Clan, Shop and Tribe must share the top HUD row")
 assert(l.auto.x>w*.8 and l.auto.y<h*.55,
   "automatic attack button belongs to right side")
+eq(m.topCollapsed,false)
+local folded,foldState=m:pressed(170,l.fold.x,l.fold.y,w,h,14400,10)
+eq(folded,"top_toggle");eq(foldState,true)
+assert(m:pressed(171,l.shop.x,l.shop.y,w,h,14400,10)~="shop_open",
+  "hidden shop button must not receive touches")
+eq(m:pressed(172,l.fold.x,l.fold.y,w,h,14400,10),"top_toggle")
+eq(m.topCollapsed,false)
+m:abilityFeedback(2,1.25)
+eq(m.abilityPulse,2);eq(m.abilityPulseAt,1.25)
 eq(m:movement(),0)
 -- ATACAR is a FLOATING aim joystick: drag the SAME finger to rotate the
 -- weapon while continuously attacking. It never changes the movement input.
