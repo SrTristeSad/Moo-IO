@@ -1,7 +1,7 @@
 name: Moo IO Android host - testes Lua
 on:
   push:
-    branches: [feature/android-offline-host, main]
+    branches: [feature/android-offline-host, fix/android-server-lifecycle, main]
     paths:
       - "android/src/net/mooio_host.lua"
       - "android/tests/android_host_test.lua"
