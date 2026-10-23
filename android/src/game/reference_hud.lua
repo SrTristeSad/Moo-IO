@@ -285,32 +285,29 @@ function H.hoveredItem(world,w,h,x,y)
   return nil
 end
 local function mobileStats(world,w,h)
-  -- Only the three resource counters live below the minimap on Android.
-  -- HP and server-authoritative age/XP are drawn above the centered hotbar.
+  -- Real MooMoo.io resource IDs: food, wood and stone. Only show the
+  -- game's own resource icons and server values; no invented display names.
+  -- The desktop HUD and the authoritative world state use these same IDs.
   local g=love.graphics
-  local values=world.resources or {}
+  local values=world and world.resources or {}
   local u=math.max(.50,math.min(2.15,math.min(w/1280,h/720)*1.20))
   local x=23*u
   local startY=211*u
-  local entries={
-    {key="food", label="COMIDA", icon="food"},
-    {key="wood", label="PLANTA", icon="wood"},
-    {key="stone",label="PEDRA",icon="stone"},
-  }
+  local resources={"food","wood","stone"}
   g.push("all")
-  for i,item in ipairs(entries) do
-    local y=startY+(i-1)*67*u
+  for i,key in ipairs(resources) do
+    local y=startY+(i-1)*64*u
     g.setColor(.015,.085,.083,.84)
-    g.rectangle("fill",x,y,156*u,51*u,22*u,22*u)
+    g.rectangle("fill",x,y,134*u,50*u,23*u,23*u)
     g.setColor(.30,.74,.69,.92)
-    g.setLineWidth(2*u);g.circle("line",x+27*u,y+25*u,25*u)
+    g.setLineWidth(2*u)
+    g.circle("line",x+27*u,y+25*u,24*u)
     g.setColor(.09,.22,.22,.95)
-    g.circle("fill",x+27*u,y+25*u,22*u)
-    Assets.draw("resources",item.icon.."_ico.png",x+27*u,y+25*u,33*u,33*u)
-    g.setColor(.82,.94,.87,1);g.setFont(fontSmall)
-    g.print(item.label,x+60*u,y+5*u)
-    g.setColor(1,1,1,1);g.setFont(fontMedium)
-    g.print(number(values[item.key]),x+60*u,y+22*u)
+    g.circle("fill",x+27*u,y+25*u,21*u)
+    Assets.draw("resources",key.."_ico.png",x+27*u,y+25*u,32*u,32*u)
+    g.setColor(1,1,1,1)
+    g.setFont(fontMedium)
+    g.print(number(values[key]),x+65*u,y+13*u)
   end
   g.pop()
 end
