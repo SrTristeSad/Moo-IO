@@ -39,7 +39,12 @@ jobs:
           cp android/main.lua android/conf.lua "$game/"
           cp -a android/src android/assets "$game/"
           sed -i 's/org.love2d.android.GameActivity/org.love2d.android.MooIOActivity/' "$engine/app/src/main/AndroidManifest.xml"
-          grep -q 'MooIOActivity' "$engine/app/src/main/AndroidManifest.xml"
+          # A foreground service isolates Node/libuv/V8 from LÖVE's SDL graphics thread.
+          manifest="$engine/app/src/main/AndroidManifest.xml"
+          sed -i '/<uses-permission android:name="android.permission.INTERNET" \/>/a\  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />' "$manifest"
+          sed -i '/<\/application>/i\    <service android:name="org.love2d.android.MooIOServerService" android:exported="false" android:process=":mooio_node" android:foregroundServiceType="dataSync" />' "$manifest"
+          grep -q 'MooIOActivity' "$manifest"
+          grep -q 'MooIOServerService' "$manifest"
           grep -q 'android:usesCleartextTraffic="true"' "$engine/app/src/main/AndroidManifest.xml"
           mkdir -p "$engine/app/src/main/java/org/love2d/android" "$engine/app/src/main/cpp"
           cp android/native/*.java "$engine/app/src/main/java/org/love2d/android/"
