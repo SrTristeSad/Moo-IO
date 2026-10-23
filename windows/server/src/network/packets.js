@@ -8,6 +8,7 @@ import { items } from "../moomoo/modules/items.js";
 import { hats, accessories } from "../moomoo/modules/store.js";
 import { filter_chat } from "../moomoo/libs/filterchat.js";
 import { ANTICHEAT_CONFIG } from "../anticheat/config.js";
+import { RANK_CATEGORIES, buildCategoryRanking } from "../moomoo/mobileRankings.js";
 
 const isNum = UTILS.isNumber;
 const isInt = (v) => Number.isInteger(v);
@@ -238,6 +239,19 @@ export function handlePacket(ctx, player, name, args) {
                     other.send("9", px, py);
                 }
             }
+            return;
+        }
+
+        // Category Top 10 is queried on demand (Android). Windows clients remain compatible.
+        case "Y": {
+            const category = args[0];
+            if (args.length !== 1 || typeof category !== "string" ||
+                !RANK_CATEGORIES.includes(category)) return invalid("ranking category");
+            if (!player.alive) return;
+            const now = Date.now();
+            if (now - (player.lastMobileRankingAt || 0) < 1000) return;
+            player.lastMobileRankingAt = now;
+            player.send("n", category, buildCategoryRanking(game.players, player, category));
             return;
         }
 
