@@ -117,6 +117,16 @@ A criação de sala passa a quantidade de bots selecionada (0–8) para o proces
 - Se a solicitação de encerramento nativo falhar, o cliente mostra erro e não declara que a RAM foi liberada. Essa confirmação indica o aceite do controle nativo; a verificação de morte do processo continua coberta pelo teste de emulador.
 - Testes de regressão acrescentados para encerramento não confirmado e resposta incompleta do servidor.
 
+## Linha de habilidades funcionais e otimização do Android
+
+A faixa inferior é uma **linha de habilidades/ações executáveis**, e não uma tela de inventário: o cliente recebe as armas, consumíveis e estruturas desbloqueadas pelo servidor do MooMoo.io. Um toque em arma envia o pacote original de equipar (`z`); um toque em consumível ou estrutura aciona a seleção `z` e o uso `F(1)` seguido de `F(0)`. Se o jogador já estiver segurando o joystick de ataque, a opção será selecionada sem soltar artificialmente o ataque manual. Os recursos, a construção, o dano e a validade continuam decididos pelo Node; o cliente não cria habilidades fora do jogo.
+
+A linha é única e desliza horizontalmente quando há mais ações do que cabem na tela. Arrastar **não** ativa habilidades. Cada toque válido recebe um efeito visual breve, sem marcar como confirmado um equipamento que o servidor não aceitou.
+
+A barra superior (Clã, Loja, Tribo, Chat, TOP e Menu) pode ser recolhida/restaurada por **OCULTAR / ABRIR**. Vida e nível/XP estão menores; os botões AUTO, PING e MAPA não desaparecem com a barra recolhida.
+
+Para reduzir engasgos, a criação de novas texturas Canvas de recursos e estruturas foi distribuída por quadros (até três texturas inéditas por quadro), os arrays de personagens e animais são reutilizados no desenho das etiquetas e o desenho fora da tela é evitado. Durante a criação da sala, a consulta HTTP local não aguarda mais até 400 ms por tentativa (novo limite: 120 ms). Essas alterações têm testes automatizados de protocolo e HUD, mas **a fluidez ainda deve ser avaliada em aparelhos físicos**.
+
 ## Build e testes
 
 - [APK autônomo](../.github/workflows/android-host-apk.yml): LÖVE + Node.js Mobile, bibliotecas nativas ARM64/x86_64 e servidor completo no APK.
