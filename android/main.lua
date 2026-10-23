@@ -329,6 +329,13 @@ function love.update(dt)
       client:send("0",{})
     end
   end
+  if mobile and mobile.rankOpen and client.state=="spawn_confirmed" and not died then
+    mobile.rankRefresh=mobile.rankRefresh-dt
+    if mobile.rankRefresh<=0 then
+      client:send("Y",{mobile.rankingCategory})
+      mobile.rankRefresh=3
+    end
+  end
   if client.state=="spawn_confirmed" and not died and not pause:isOpen() then
     if panels:isOpen() or clans:isOpen() then input.keys={} end
     input:update(dt)
@@ -1079,12 +1086,37 @@ local function mobileSelect(kind,slot)
 end
 local function mobileAction(action,payload)
   if action=="pause" then love.keypressed("escape");return end
-  if action=="map_open" or action=="chat_open" or action=="bag_open" then
+  if action=="map_open" or action=="chat_open" or action=="bag_open" or action=="rank_open" then
     mobileStop()
+    if mobile.auto and client and client.state=="spawn_confirmed" then
+      local ok=client:send("K",{1}) -- E: disable previous auto-gather
+      if ok then mobile.auto=false end
+    end
+    if action=="rank_open" and client and client.state=="spawn_confirmed" then
+      client:send("Y",{payload or mobile.rankingCategory})
+      mobile.rankRefresh=3
+    end
     return
   end
   if not client or client.state~="spawn_confirmed" then return end
-  if action=="attack" then
+  if action=="rank_category" then
+    mobile.rankRefresh=3
+    client:send("Y",{payload})
+  elseif action=="ping_here" then
+    client:send("S",{1}) -- Same real team ping as keyboard R on Windows
+  elseif action=="server_auto" then
+    local ok,err=client:send("K",{1}) -- Same toggle as E on Windows
+    if not ok then
+      mobile.auto=not mobile.auto
+      latestEvent="Ataque automatico indisponivel: "..tostring(err)
+    end
+  elseif action=="skill" then
+    -- Four tactical quick slots; equip a server-owned hotbar action, not fake spells.
+    local itemId,isWeapon=Hud.slotForKey(world,tostring(payload))
+    if itemId~=nil then
+      client:send("z",{itemId,isWeapon})
+    else latestEvent="Atalho "..tostring(payload).." ainda sem item." end
+  elseif action=="attack" then
     local active=mobile:attacking()
     if active~=mobileAttackSent then
       local ok=client:send("F",{active and 1 or 0,
