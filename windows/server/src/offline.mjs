@@ -37225,7 +37225,7 @@ var LEGACY_S2C_COUNT = 36;
 var BASE_C2S_COUNT = 22;
 var BASE_S2C_COUNT = 39;
 var TABLE_SIZE = 128;
-var C2S_PACKETS = ["M", "D", "9", "e", "F", "z", "H", "K", "L", "N", "b", "P", "Q", "c", "6", "S", "0", "T", "R", "A", "V", "I"];
+var C2S_PACKETS = ["M", "D", "9", "e", "F", "z", "H", "K", "L", "N", "b", "P", "Q", "c", "6", "S", "0", "T", "R", "A", "V", "I", "U"];
 var S2C_PACKETS = ["A", "B", "C", "D", "E", "a", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "X", "Y", "Z", "g", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "W", "F", "p", "q", "r", "m"];
 var SEAL_OFF = 0;
 var SEAL_BIND = 2;
@@ -38129,6 +38129,23 @@ function handlePacket(ctx, player, name, args) {
       for (const other of game.players) {
         if (other === player || player.team && other.team === player.team) {
           other.send("9", Math.round(player.x), Math.round(player.y));
+        }
+      }
+      return;
+    }
+    // MOO-IO extension: a point chosen on the Android tactical map.
+    // Authoritative server validates bounds and reuses standard ping cooldown.
+    case "U": {
+      if (!player.alive || player.pingCooldown > 0) return;
+      const [x, y] = args;
+      if (args.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > config.mapScale || y > config.mapScale) {
+        return invalid("map coordinates");
+      }
+      player.pingCooldown = config.mapPingTime;
+      const px = Math.round(x), py = Math.round(y);
+      for (const other of game.players) {
+        if (other === player || player.team && other.team === player.team) {
+          other.send("9", px, py);
         }
       }
       return;
