@@ -19,7 +19,7 @@ jobs:
         with:
           name: Moo-IO-Android-Servidor-Integrado
           repository: SrTristeSad/Moo-IO
-          run-id: 39880363149
+          run-id: 39882370641
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: dist
       - name: Liberar KVM
@@ -41,8 +41,15 @@ jobs:
             adb install -r dist/Moo-IO-Android-Servidor-Integrado.apk
             adb shell am start -n io.srtristesad.mooio/org.love2d.android.MooIOActivity
             adb forward tcp:28081 tcp:8081
-            bash -c 'for i in $(seq 1 20); do curl -fsS --max-time 2 http://127.0.0.1:28081/status >/tmp/mooio-status 2>/dev/null && break; sleep 2; done; exit 0'
+            bash -c 'for i in $(seq 1 14); do curl -fsS --max-time 2 http://127.0.0.1:28081/status >/tmp/mooio-status 2>/dev/null && break; sleep 2; done; exit 0'
             adb shell pidof io.srtristesad.mooio || true
-            adb logcat -d -v time -s MooIO-Host:V MooIO-Node:V AndroidRuntime:E linker:E libc:F | tail -200
+            echo "---- APP BOOT LOGS ----"
+            adb logcat -d -v time -s MooIO-Host:V MooIO-Node:V SDL:V SDLActivity:V love:V AndroidRuntime:E linker:E libc:F | tail -230 || true
+            echo "---- NATIVE CRASHES ----"
+            adb logcat -b crash -d -v brief | tail -130 || true
+            echo "---- PORT 8080 / 8081 ----"
+            adb shell 'cat /proc/net/tcp /proc/net/tcp6' | grep -Ei '1F90|1F91' || true
+            echo "---- APP PROCESS ----"
+            adb shell pidof io.srtristesad.mooio || true
             bash -c 'curl -fsS --max-time 5 http://127.0.0.1:28081/status | grep -q "\"project\":\"Moo-IO\""'
             echo "MOOIO_ANDROID_INTEGRATED_SERVER_PASS"
