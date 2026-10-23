@@ -93,6 +93,7 @@ jobs:
           staging="$RUNNER_TEMP/mooio-node-assets"
           mkdir -p "$staging/server/src"
           cp windows/server/src/offline.mjs "$staging/server/src/offline.mjs"
+          cp android/native/bootstrap.mjs "$staging/server/src/bootstrap.mjs"
           (cd "$staging" && zip -q -r "$RUNNER_TEMP/mooio-server.zip" server)
           mkdir -p "$RUNNER_TEMP/love-android/app/src/main/assets"
           cp "$RUNNER_TEMP/mooio-server.zip" "$RUNNER_TEMP/love-android/app/src/main/assets/mooio-server.zip"
