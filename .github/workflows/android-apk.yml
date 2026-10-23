@@ -1,0 +1,68 @@
+name: Moo IO - Android APK
+on:
+  push:
+    branches: [feature/android-touch-ff, main]
+    paths:
+      - "android/**"
+      - "windows/server/src/protocol/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4G"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build cmake lua5.4
+          find android -name '*.lua' -print0 | xargs -0 -n1 luac -p
+          cd android && lua tests/touch_controls_test.lua
+      - name: Get pinned official LÖVE Android source
+        run: |
+          git clone --recurse-submodules --depth 1 --branch 11.5a https://github.com/love2d/love-android.git "$RUNNER_TEMP/love-android"
+          git -C "$RUNNER_TEMP/love-android" rev-parse HEAD | grep -qi '^55feb38'
+      - name: Configure embedded Moo IO client
+        shell: bash
+        run: |
+          set -euo pipefail
+          engine="$RUNNER_TEMP/love-android"
+          sed -i '/^app.name_byte_array=/d' "$engine/gradle.properties"
+          sed -i 's/^#app.name=.*/app.name=Moo IO/' "$engine/gradle.properties"
+          sed -i 's/^app.application_id=.*/app.application_id=io.srtristesad.mooio/' "$engine/gradle.properties"
+          sed -i 's/^app.version_code=.*/app.version_code=1/' "$engine/gradle.properties"
+          sed -i 's/^app.version_name=.*/app.version_name=0.1.0-test/' "$engine/gradle.properties"
+          sed -i 's/^app.orientation=.*/app.orientation=landscape/' "$engine/gradle.properties"
+          mkdir -p "$engine/app/src/embed/assets"
+          cp android/main.lua android/conf.lua "$engine/app/src/embed/assets/"
+          cp -a android/src android/assets "$engine/app/src/embed/assets/"
+          test -f "$engine/app/src/embed/assets/assets/custom/img/weapons/hammer_1.png"
+          grep -q 'android:usesCleartextTraffic="true"' "$engine/app/src/main/AndroidManifest.xml"
+      - name: Build signed debug APK
+        run: |
+          cd "$RUNNER_TEMP/love-android"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleEmbedNoRecordDebug --stacktrace
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          find "$RUNNER_TEMP/love-android/app/build/outputs/apk" -type f -name '*.apk' -print
+          apk=$(find "$RUNNER_TEMP/love-android/app/build/outputs/apk" -type f -name '*embed*debug*.apk' | head -1)
+          test -n "$apk"
+          cp "$apk" dist/Moo-IO-Android-Teste.apk
+          unzip -p dist/Moo-IO-Android-Teste.apk assets/main.lua | grep -q 'Moo-Quest'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moo-IO-Android-APK-Teste
+          path: dist/Moo-IO-Android-Teste.apk
+          retention-days: 30
+          if-no-files-found: error
