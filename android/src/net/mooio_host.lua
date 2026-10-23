@@ -4,7 +4,7 @@ local Host={}
 Host.__index=Host
 local function getSessionCode()
   -- Stored in the app's private internal files by MooIOActivity. Not a fake room.
-  local f=io.open("/data/data/io.srtristesad.mooio/files/mooio-host/room-code.txt","rb")
+  local f=io.open("/data/user/0/io.srtristesad.mooio.beta/files/mooio-host/room-code.txt","rb")
   if not f then return nil end
   local code=f:read("*a");f:close()
   if code and #code>=8 and #code<=64 and code:match("^[%w%-]+$") then

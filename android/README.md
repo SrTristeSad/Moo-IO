@@ -2,6 +2,35 @@
 
 O aplicativo utiliza **LÖVE 11.5a** para o jogo em Lua e **Node.js Mobile 18.20.4** para hospedar o mesmo motor de partidas do Windows. O Android não precisa de outro jogador, PC ou VPS para criar uma sala. A hospedagem inicia em um serviço Android separado do processo gráfico e mantém seus dados no armazenamento privado.
 
+## Instalação sem conflito com APKs antigos
+
+A instalação anterior falhava possivelmente por **assinaturas Android incompatíveis**.
+Foi verificado que os APKs antigos têm certificados de depuração diferentes,
+mesmo usando o mesmo ID `io.srtristesad.mooio`. O Android proíbe atualizações
+que alteram a assinatura do pacote instalado
+(`INSTALL_FAILED_UPDATE_INCOMPATIBLE`).
+
+**Correção desta build:** o instalador Beta usa o identificador
+`io.srtristesad.mooio.beta`, título **Moo IO Beta** e pasta de servidor
+privada própria. Assim, ele pode ser instalado **ao lado do aplicativo antigo,
+sem desinstalar nem apagar os dados dele**.
+
+Para atualizar a **mesma Beta** repetidamente sem conflito de certificados,
+configure no GitHub Actions uma assinatura estável com os segredos
+`MOOIO_BETA_KEYSTORE_B64`, `MOOIO_BETA_STORE_PASS`,
+`MOOIO_BETA_KEY_ALIAS`, `MOOIO_BETA_KEY_PASS`.
+Sem esses segredos, a compilação é assinada com uma chave Android Debug
+temporária nova a cada runner; uma Beta futura poderá exigir uma desinstalação
+ou outra assinatura estável. Nunca use certificado temporário para versões
+de produção. O CI verifica com `apksigner` e `aapt` se o APK está assinado
+e contém o identificador correto.
+
+**Compatibilidade:** o servidor Node integrado está empacotado somente para
+`arm64-v8a` e `x86_64`. Um aparelho Android que rode apenas código de
+32 bits não é suportado por esta Beta. Se ela continuar falhando numa instalação
+limpa, obtenha a mensagem do instalador ou o resultado de `adb install` para
+distinguir arquitetura, versão Android e falta de espaço.
+
 ## HUD tático mobile — quatro atalhos e rankings
 
 O layout Android é original, inspirado na organização funcional de MOBAs mobile: joystick esquerdo, mira independente na direita, **quatro botões de atalhos circulares** exibindo as quatro primeiras armas/estruturas realmente desbloqueadas, e **ataque manual grande**. Esses atalhos selecionam equipamentos existentes validados pelo Node (teclas 1–4); **ainda não existem quatro novos poderes/feitiços** com tempo de recarga. Eles poderão receber habilidades quando o sistema de habilidades for definido.
@@ -12,11 +41,11 @@ O layout Android é original, inspirado na organização funcional de MOBAs mobi
 - **TOP10**: abre um ranking com abas **OURO, VIDA, COMIDA, MADEIRA, PEDRA, ABATES e PONTOS**. As classificações vêm exclusivamente do servidor (pacote de pedido `Y`, resposta `n`), até dez jogadores por categoria e ocultação de identidades anônimas.
 - A área sob o minimapa mostra **vida, ouro, comida, madeira, pedra e abates** obtidos das mensagens reais do jogo.
 
-O APK com servidor integrado precisa ser gerado pela Action **Moo IO Android autonomo - APK com servidor**. O workflow recompila o servidor Node a partir dos módulos atuais antes de incorporá-lo ao APK; evita Top 10 antigo/ausente em salas hospedadas no próprio Android.
+O APK Beta com servidor integrado precisa ser gerado pela Action **Moo IO Android autonomo - APK com servidor**. O workflow recompila o servidor Node a partir dos módulos atuais antes de incorporá-lo ao APK; evita Top 10 antigo/ausente em salas hospedadas no próprio Android.
 
 ## Modo solo e multiplayer
 
-1. Instale o `Moo-IO-Android-Servidor-Integrado.apk` gerado pela action **Moo IO Android autonomo - APK com servidor**.
+1. Instale o `Moo-IO-Android-Beta-Instalavel.apk` gerado pela action **Moo IO Android autonomo - APK com servidor**.
 2. Abra o aplicativo, escolha **Jogar → Criar minha sala**. A interface só apresenta a sala como pronta após receber resposta real do servidor Node.
 3. Clique **Jogar agora**. Sem Wi-Fi, o servidor usa `127.0.0.1`; a partida solo não exige internet.
 4. Para receber amigos, conecte o telefone a uma rede Wi-Fi/hotspot privado e compartilhe o IP:8080 e o código da sala. Os convidados Windows ou Android escolhem **Entrar em outra sala** e digitam essas informações.
