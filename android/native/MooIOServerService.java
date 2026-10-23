@@ -66,7 +66,8 @@ public final class MooIOServerService extends android.app.Service {
             write(new File(root,"room-code.txt"),code);
             String ip=localIPv4();
             Log.i("MooIO-Host","Starting local Node.js host at "+ip+":8080");
-            String[] args={"node",entry.getAbsolutePath()};
+            File bootstrap=new File(root,"server/src/bootstrap.mjs");
+            String[] args={"node",(bootstrap.isFile()?bootstrap:entry).getAbsolutePath()};
             String[] vars={"HOST="+ip,"PORT=8080","MOO_IO_ROOM_CODE="+code,
                 "MOO_IO_NETWORK_MODE=lan","MOO_IO_GUI_HOST=1",
                 "MOO_IO_BOT_COUNT=0","DATA_DIR="+data.getAbsolutePath(),
