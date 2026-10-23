@@ -117,6 +117,12 @@ A criação de sala passa a quantidade de bots selecionada (0–8) para o proces
 - Se a solicitação de encerramento nativo falhar, o cliente mostra erro e não declara que a RAM foi liberada. Essa confirmação indica o aceite do controle nativo; a verificação de morte do processo continua coberta pelo teste de emulador.
 - Testes de regressão acrescentados para encerramento não confirmado e resposta incompleta do servidor.
 
+## Acabamento visual e correção de corte das habilidades
+
+A área recortada da linha única inferior agora contempla a borda completa das rodas de habilidade, sua sombra, a animação de seleção e os indicadores circulares de tecla. A largura de rolagem também reserva margem nas extremidades para que o primeiro e o último círculo não fiquem cortados. Ao desbloquear novas ações, os botões seguem em **uma única linha horizontal funcional**, sem paginação.
+
+Os valores reais de **vida** são centralizados vertical e horizontalmente **dentro** da barra vermelha; o valor de **nível** aparece dentro da cápsula arredondada de XP. O ícone de coração foi removido. O tamanho da fonte acompanha a altura disponível em celulares menores. A regressão de geometria verifica a integridade das rodas, dos números e a separação entre a linha de habilidades e os indicadores de status para 1280×720, 1600×757 e 800×360.
+
 ## Controle único de combate: mira interna e ataque externo
 
 O joystick direito não foi duplicado. Sua base aparece **sob o dedo**, e dois anéis mostram as zonas: o interno (ciano) permite mirar sem atacar; ultrapassar o externo (dourado) dispara também, com direção `D` e ataque `F(1)` transmitidos ao servidor. Regressar à região interna envia `F(0)` apenas se o ataque manual estava ativo, e soltar encerra o toque. As mudanças de direção `D` continuam sendo transmitidas enquanto se usa **somente mira**, com atualização limitada para não sobrecarregar a rede. AUTO permanece um modo independente, sem comando `K` emitido por esse gesto.
