@@ -16,14 +16,18 @@ for i=1,10 do
   assert(type(id)=="number")
   eq(weapon,i<=3)
 end
-eq(Slots.pages(world,5),2)
+eq(Slots.pages(world,6),2)
 local three=m:hotbar(3,w,h)
 eq(#three,3);eq(three[2].x,w*.50)
 local two=m:hotbar(2,w,h)
 eq(two[1].x+two[2].x,w)
 assert(two[1].x>three[1].x,"added items must recenter hotbar")
-local five,pages=m:hotbar(10,w,h)
-eq(#five,5);eq(pages,2);eq(five[1].index,1)
+local six,pages=m:hotbar(10,w,h)
+eq(#six,6);eq(pages,2);eq(six[1].index,1)
+eq(six[3].x+six[4].x,w)
+local four=m:hotbar(4,w,h)
+eq(#four,4);eq(four[2].x+four[3].x,w)
+assert(four[1].x>six[1].x,"fewer items must remain horizontally centered")
 assert(l.clan.y==l.shop.y and l.shop.y==l.tribe.y,
   "Clan, Shop and Tribe must share the top HUD row")
 assert(l.auto.x>w*.8 and l.auto.y<h*.55,
@@ -85,8 +89,8 @@ end
 local a,page=m:pressed(35,l.stripNext.x,l.stripNext.y,w,h,14400,10)
 eq(a,"page");eq(page,2)
 shown=m:hotbar(Slots.total(world),w,h)
-eq(#shown,5);eq(shown[1].index,6);eq(shown[5].index,10)
-a,page=m:pressed(36,shown[5].x,shown[5].y,w,h,14400,10)
+eq(#shown,4);eq(shown[1].index,7);eq(shown[4].index,10)
+a,page=m:pressed(36,shown[4].x,shown[4].y,w,h,14400,10)
 eq(a,"slot");eq(page,10)
 a,page=m:pressed(37,l.stripPrev.x,l.stripPrev.y,w,h,14400,10)
 eq(a,"page");eq(page,1)
@@ -108,9 +112,12 @@ eq(m:pressed(46,l.fire.x,l.fire.y,w,h,14400,10),"attack")
 eq(m:released(46),"attack")
 eq(m.auto,true)
 m:stopForOverlay();eq(m.auto,true)
+-- The map and rankings must also preserve active auto-gather.
 -- Only explicitly pressing AUTO may switch it off.
 a,page=m:pressed(47,l.auto.x,l.auto.y,w,h,14400,10)
 eq(a,"server_auto");eq(page,false)
+assert(l.ping.x>l.minimap.x+l.minimap.w and l.mark.x>l.minimap.x+l.minimap.w,
+  "PING and MAPA must stay visible at the right of the minimap")
 eq(m:pressed(48,l.ping.x,l.ping.y,w,h,14400,10),"ping_here")
 eq(m:pressed(49,l.mark.x,l.mark.y,w,h,14400,10),"map_open")
 local b=m:layout(w,h).bigmap
