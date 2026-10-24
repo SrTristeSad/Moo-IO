@@ -4,6 +4,7 @@
 import path from "node:path";
 import { createPanel, panelCredentials, ADMIN_EMAIL } from "./core/panel.mjs";
 import { DEFAULT_ROOMS } from "./core/supervisor.mjs";
+import { setStaffRole } from "./core/panel-roles.mjs";
 
 async function readPassword(){
   if(process.stdin.isTTY)throw Error("Passe a senha pelo stdin (read -rsp em terminal; nao use argumento).");
@@ -41,19 +42,34 @@ async function main(){
       "  node servidor/v2/panel.mjs password [--rooms pasta] < senha-protegida.txt",
       "  node servidor/v2/panel.mjs serve [--rooms pasta] [--port 8787]",
       "  node servidor/v2/panel.mjs check [--rooms pasta]",
+      "  node servidor/v2/panel.mjs staff EMAIL viewer|moderator|revoke [--rooms pasta] (senha via stdin para adicionar)",
       "",
       "Abra http://127.0.0.1:8787 localmente ou use tunel SSH.",
       "Nunca encaminhe o painel pelo Caddy nem publique a porta na VPS."
     ].join("\n"));
     return;
   }
-  if(!["password","serve","check"].includes(action))throw Error("Comando nao suportado: "+action);
+  if(!["password","serve","check","staff"].includes(action))throw Error("Comando nao suportado: "+action);
+  const staffEmail=action==="staff"?args.shift():null;
+  const staffRole=action==="staff"?args.shift():null;
   const {flags,seen}=parse(args);
   if(action==="check"){
     if(seen.has("--port"))throw Error("--port nao e aceito por check");
     const credentials=panelCredentials(flags.rooms);
     if(!credentials.users[ADMIN_EMAIL])throw Error("Defina a senha administrativa antes de habilitar o painel");
     console.log("Senha administrativa configurada; painel pronto para iniciar em localhost.");
+    return;
+  }
+  if(action==="staff"){
+    if(seen.has("--port"))throw Error("staff aceita somente --rooms");
+    const credentials=panelCredentials(flags.rooms);
+    if(!credentials.users[ADMIN_EMAIL])throw Error("Crie primeiro a senha do proprietario");
+    if(staffRole!=="revoke"){
+      const password=await readPassword();
+      await credentials.set(staffEmail,password);
+    }
+    setStaffRole(path.dirname(credentials.file),staffEmail,staffRole);
+    console.log("Permissao de equipe atualizada; reinicie o painel para recarregar credenciais.");
     return;
   }
   if(action==="password"){
