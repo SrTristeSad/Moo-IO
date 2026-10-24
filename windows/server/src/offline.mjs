@@ -39233,7 +39233,12 @@ var NETWORK_MODE = process.env.MOO_IO_NETWORK_MODE === "vpn" ? "vpn" : "lan";
 var BOT_COUNT = parseBotCount(process.env.MOO_IO_BOT_COUNT);
 if (!allowedRoomInterface(HOST, NETWORK_MODE)) throw new Error("HOST must be a private IPv4 assigned to LAN/VPN (not 0.0.0.0 or public IP)");
 if (!validRoomCode(ROOM_CODE)) throw new Error("MOO_IO_ROOM_CODE must be 8-64 letters, digits or dashes");
-var GAME_SERVERS = [
+var V2_ROOM = process.env.MOO_IO_V2_PRIVATE_ROOM === "1";
+var V2_CAPACITY = Number(process.env.MOO_IO_V2_CAPACITY);
+if (V2_ROOM && (!Number.isInteger(V2_CAPACITY) || V2_CAPACITY < 1 || V2_CAPACITY > 40)) {
+  throw new Error("V2 room capacity must be an integer between 1 and 40");
+}
+var GAME_SERVERS = V2_ROOM ? [{ key: "LC", capacity: V2_CAPACITY, membersOnly: false }] : [
   { key: "LC", capacity: config.maxPlayers, membersOnly: false },
   { key: "MB", capacity: 80, membersOnly: true }
 ];
@@ -39410,7 +39415,20 @@ app.post("/mooio/shutdown", (req, res) => {
 });
 app.get("/mooio/status", (_req, res) => {
   res.set("Cache-Control", "no-store");
-  res.json({ project: "Moo-IO", mode: NETWORK_MODE, build: build.BUILD_ID, bots: BOT_COUNT });
+  const result = { project: "Moo-IO", mode: NETWORK_MODE, build: build.BUILD_ID, bots: BOT_COUNT };
+  if (V2_ROOM) result.v2 = {
+    room: process.env.MOO_IO_V2_ROOM_NAME || "Private room",
+    mods: (process.env.MOO_IO_V2_ACTIVE_MODS || "").split(",").filter(Boolean),
+    capacity: V2_CAPACITY,
+    world: {
+      treesPerArea: config.treesPerArea,
+      bushesPerArea: config.bushesPerArea,
+      totalRocks: config.totalRocks,
+      goldOres: config.goldOres
+    },
+    animals: { cowHealth: AI_TYPES[0].health, wolfHealth: AI_TYPES[4].health }
+  };
+  res.json(result);
 });
 app.use(import_express5.default.static(PUBLIC_DIR));
 var server = createServer(app);
