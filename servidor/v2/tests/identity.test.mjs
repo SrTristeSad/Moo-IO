@@ -28,7 +28,7 @@ async function post(url,body,extraHeaders={}){
 }
 async function authorize(base,email,password,{register=true}={}){
   const start=await post(base+"/v1/authorize/start",{challenge});
-  assert.equal(start.status,200,await start.text());
+  assert.equal(start.status,200);
   const flow=await start.json();
   assert.match(flow.id,/^[a-f0-9]{40}$/);
   assert.equal(flow.verificationUri,base+"/login?id="+flow.id);
@@ -55,7 +55,7 @@ async function authorize(base,email,password,{register=true}={}){
     body:form,redirect:"manual"});
   assert.equal(result.status,200,await result.text());
   const exchange=await post(base+"/v1/authorize/token",{id:flow.id,verifier});
-  assert.equal(exchange.status,200,await exchange.text());
+  assert.equal(exchange.status,200);
   const session=await exchange.json();
   assert.match(session.token,/^[a-f0-9]{64}$/);
   const replay=await post(base+"/v1/authorize/token",{id:flow.id,verifier});
@@ -92,8 +92,8 @@ test("browser login: cross-site blocked, salted password, PKCE, registration, on
   }finally{if(hub)await hub.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
 test("same browser identity exchanges into two isolated V2 rooms without the password crossing the game API",{timeout:50000},async()=>{
-  const dir=temp(),authPort=await port(),ports=[await port(),await port()];
-  while(ports[0]===ports[1]||ports.includes(authPort)){ports[1]=await port();}
+  const dir=temp(),authPort=await port(),ports=[];
+  while(ports.length<2){const candidate=await port();if(candidate!==authPort&&!ports.includes(candidate))ports.push(candidate);}
   const base="http://127.0.0.1:"+authPort,rooms=path.join(dir,"rooms");
   fs.mkdirSync(rooms,{recursive:true});
   const configurations=ports.map((number,i)=>{
@@ -127,7 +127,7 @@ test("same browser identity exchanges into two isolated V2 rooms without the pas
       const blocked=await post(endpoint+"/api/auth/browser",{token:"f".repeat(64)});
       assert.equal(blocked.status,403,await blocked.text());
       const login=await post(endpoint+"/api/auth/browser",{token:browserToken});
-      assert.equal(login.status,200,await login.text());
+      assert.equal(login.status,200);
       const session=await login.json();
       assert.equal(session.email,"shared@example.org");
       assert.match(session.token,/^[\w-]+\.[\w-]+\.[\w-]+$/);
@@ -135,7 +135,7 @@ test("same browser identity exchanges into two isolated V2 rooms without the pas
       const join=await post(endpoint+"/api/join",{
         auth:session.token,host:endpoint+"/s/LC"
       },{"X-MooIO-Code":configurations[i].roomCode});
-      assert.equal(join.status,200,await join.text());
+      assert.equal(join.status,200);
       assert.match((await join.json()).ticket,/^[a-f0-9]{36}$/);
     }
     assert.equal(ids.length,2);
