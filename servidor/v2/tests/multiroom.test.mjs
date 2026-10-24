@@ -123,6 +123,16 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     assert.match(status.output,/0\/15 jogadores/);
     assert.match(status.output,/0\/24 jogadores/);
     assert.doesNotMatch(status.output,new RegExp(normal.roomCode));
+    const jsonStatus=command(["status","--rooms",dir,"--json"]);
+    assert.equal(jsonStatus.exit,0,jsonStatus.output);
+    const statusReport=JSON.parse(jsonStatus.output);
+    assert.deepEqual(statusReport.totals,{rooms:2,online:2,offline:0,players:0,capacity:39});
+    assert.equal(statusReport.healthy,true);
+    assert.deepEqual(statusReport.rooms.map(room=>room.id),["lobos","normal"]);
+    assert.doesNotMatch(jsonStatus.output,new RegExp(normal.roomCode+"|"+modded.roomCode));
+    const health=command(["health","--rooms",dir,"--json"]);
+    assert.equal(health.exit,0,health.output);
+    assert.equal(JSON.parse(health.output).healthy,true);
   }finally{
     if(child&&child.exitCode===null){
       if(process.platform==="win32")spawnSync("taskkill",["/PID",String(child.pid),"/T","/F"],{stdio:"ignore"});

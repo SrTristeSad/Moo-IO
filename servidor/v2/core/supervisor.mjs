@@ -91,18 +91,65 @@ function terminate(child,force=false){
 }
 
 export class RoomSupervisor{
-  constructor(entries,{logger=console.log,clock=()=>Date.now()}={}){
+  constructor(entries,{
+    logger=console.log,clock=()=>Date.now(),probe=probeRoom,
+    watchdogIntervalMs=15000,startupGraceMs=20000,watchdogFailures=3,
+    terminateProcess=terminate
+  }={}){
     this.entries=entries;
+    this.probe=probe;
+    this.watchdogIntervalMs=watchdogIntervalMs;
+    this.startupGraceMs=startupGraceMs;
+    this.watchdogFailures=watchdogFailures;
+    this.terminateProcess=terminateProcess;
+    this.watchdogTimer=null;
+    this.polling=false;
     this.logger=logger;
     this.clock=clock;
     this.states=new Map(entries.map(entry=>[entry.id,{
-      entry,child:null,crashes:[],timer:null,disabled:false,lastExit:null
+      entry,child:null,crashes:[],timer:null,forceTimer:null,
+      misses:0,startedAt:0,restartRequested:false,disabled:false,lastExit:null
     }]));
     this.closing=false;
   }
   start(){
     if(this.closing)throw Error("Supervisor em encerramento");
     for(const state of this.states.values())this.launch(state);
+    // Probe independently so a game that hangs with its process still running
+    // is recycled; failed rooms never stop their healthy neighbors.
+    this.watchdogTimer=setInterval(()=>void this.pollHealth(),this.watchdogIntervalMs);
+  }
+  async pollHealth(){
+    if(this.polling||this.closing)return;
+    this.polling=true;
+    try{
+      await Promise.all([...this.states.values()].map(async state=>{
+        const child=state.child;
+        if(!child||state.disabled||state.restartRequested||
+           this.clock()-state.startedAt<this.startupGraceMs)return;
+        let result;
+        try{result=await this.probe(state.entry,{timeout:1200});}
+        catch(error){result={online:false,reason:error.message};}
+        // Old probe results cannot affect a replacement worker.
+        if(this.closing||state.child!==child||state.restartRequested)return;
+        if(result.online){state.misses=0;return;}
+        state.misses++;
+        if(state.misses<this.watchdogFailures)return;
+        state.misses=0;
+        state.restartRequested=true;
+        this.logger("["+state.entry.id+"] Watchdog: "+
+          this.watchdogFailures+" verificacoes sem resposta; reiniciando apenas esta sala.");
+        this.terminateProcess(child);
+        // An event loop blocked in native code may ignore SIGTERM. Forcefully
+        // recycle that process after a grace period without affecting neighbors.
+        state.forceTimer=setTimeout(()=>{
+          state.forceTimer=null;
+          if(!this.closing&&state.child===child&&child.exitCode===null&&child.signalCode===null)
+            this.terminateProcess(child,true);
+        },5000);
+        state.forceTimer.unref?.();
+      }));
+    }finally{this.polling=false;}
   }
   launch(state){
     if(this.closing||state.disabled)return;
@@ -112,6 +159,9 @@ export class RoomSupervisor{
       cwd:root,stdio:["ignore","pipe","pipe"],windowsHide:true
     });
     state.child=child;
+    state.startedAt=this.clock();
+    state.misses=0;
+    state.restartRequested=false;
     const report=(tag,data)=>{
       const chunks=String(data).replace(/\r/g,"").split("\n").filter(Boolean);
       for(const chunk of chunks)this.logger("["+id+" "+tag+"] "+chunk);
@@ -122,6 +172,9 @@ export class RoomSupervisor{
     child.once("exit",(code,signal)=>{
       if(state.child!==child)return;
       state.child=null;
+      if(state.forceTimer){clearTimeout(state.forceTimer);state.forceTimer=null;}
+      state.misses=0;
+      state.restartRequested=false;
       state.lastExit={code,signal,at:this.clock()};
       if(this.closing)return;
       const now=this.clock();
@@ -140,13 +193,15 @@ export class RoomSupervisor{
   async stop(){
     if(this.closing)return;
     this.closing=true;
+    if(this.watchdogTimer){clearInterval(this.watchdogTimer);this.watchdogTimer=null;}
     for(const state of this.states.values()){
       if(state.timer){clearTimeout(state.timer);state.timer=null;}
+      if(state.forceTimer){clearTimeout(state.forceTimer);state.forceTimer=null;}
     }
     const active=[...this.states.values()].map(s=>s.child).filter(Boolean);
-    for(const child of active)terminate(child);
+    for(const child of active)this.terminateProcess(child);
     const closed=await Promise.all(active.map(child=>waitForExit(child,3500)));
-    for(let i=0;i<active.length;i++)if(!closed[i])terminate(active[i],true);
+    for(let i=0;i<active.length;i++)if(!closed[i])this.terminateProcess(active[i],true);
     this.logger("Supervisor finalizado; "+active.length+" sala(s) encerrada(s).");
   }
 }
