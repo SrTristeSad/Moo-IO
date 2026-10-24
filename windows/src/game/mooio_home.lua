@@ -93,6 +93,10 @@ local function field(id,value,placeholder,focused)
 end
 function Home.parseInvite(value,code)
   if type(value)=="string" and type(code)=="string" and #code>0
+    and value:match("^https://[a-z0-9%.%-]+/?$") then
+    return Network.invite(value:gsub("/$","").."/"..code)
+  end
+  if type(value)=="string" and type(code)=="string" and #code>0
     and not value:find("/",1,true) then
     local host=value:match("^%s*(.-)%s*$")
     if host and not host:find(":",1,true) then host=host..":8080" end
@@ -338,8 +342,8 @@ function Home:draw(state,detail,showWorld)
           "CRIAR MINHA SALA",true)
       end
       printText("02  ENTRAR EM OUTRA SALA",704,214,19,C.green)
-      printText("IP, porta ou convite completo",704,256,15,C.muted)
-      field("joinIP",self.invite,"192.168.1.5:8080",self.focus=="invite")
+      printText("Convite LAN/VPN ou HTTPS publico",704,256,15,C.muted)
+      field("joinIP",self.invite,"IP:porta ou https://sala.dominio/CODIGO",self.focus=="invite")
       printText("Codigo de acesso (separado ou no convite)",704,340,14,C.muted)
       field("joinCode",self.joinCode,"Codigo da sala",self.focus=="joinCode")
       button("join","ENTRAR NA SALA",true)
@@ -349,7 +353,7 @@ function Home:draw(state,detail,showWorld)
       if self.error then
         button("joinRetry","TENTAR NOVAMENTE",false)
       else
-        printText("Entre pelo IP da rede local ou VPN privada.",706,517,15,C.muted)
+        printText("HTTPS usa TLS validado; LAN/VPN mantem conexao original.",706,517,13,C.muted)
       end
     elseif self.screen=="server" then
       printText("SERVIDORES",140,165,31,C.white)
