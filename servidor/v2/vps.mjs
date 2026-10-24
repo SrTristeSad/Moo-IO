@@ -31,6 +31,22 @@ export function unitContent({node=process.execPath,root=ROOT,rooms=DEFAULT_ROOMS
     "","[Install]","WantedBy=default.target",""
   ].join("\n");
 }
+export function panelUnitContent({node=process.execPath,root=ROOT,rooms=DEFAULT_ROOMS,port=8787}={}){
+  if(!Number.isInteger(port)||port<1024||port>65534)throw Error("Porta do painel invalida");
+  const exe=quoteSystemd(node),script=quoteSystemd(path.posix.join(root,"servidor/v2/panel.mjs"));
+  const folder=quoteSystemd(path.posix.resolve(rooms)),work=quoteSystemd(root);
+  return [
+    "# Moo-IO V2: painel restrito a localhost. NUNCA adicionar ao Caddy.",
+    "[Unit]","Description=Moo-IO V2 private admin panel","After=network.target mooio-v2.service",
+    "StartLimitIntervalSec=120","StartLimitBurst=5",
+    "","[Service]","Type=simple","WorkingDirectory="+work,
+    "ExecStartPre="+exe+" "+script+" check --rooms "+folder,
+    "ExecStart="+exe+" "+script+" serve --rooms "+folder+" --port "+port,
+    "Restart=on-failure","RestartSec=5","KillMode=control-group","TimeoutStopSec=15",
+    "UMask=0077","NoNewPrivileges=true","Environment=NODE_ENV=production",
+    "","[Install]","WantedBy=default.target",""
+  ].join("\n");
+}
 function argsParse(args){
   const flags={};
   for(let i=0;i<args.length;i++){
@@ -100,12 +116,13 @@ async function main(){
     console.log("  node servidor/v2/vps.mjs setup [--rooms pasta] [--name nome] [--port 8080]");
     console.log("  node servidor/v2/vps.mjs doctor [--rooms pasta]");
     console.log("  node servidor/v2/vps.mjs unit [--rooms pasta]");
+    console.log("  node servidor/v2/vps.mjs panel-unit [--rooms pasta] [--port 8787]");
     console.log("  bash servidor/v2/deploy/install-ubuntu.sh  # instalar servico systemd --user");
     return;
   }
-  if(!["setup","doctor","unit"].includes(command))throw Error("Comando desconhecido: "+command);
+  if(!["setup","doctor","unit","panel-unit"].includes(command))throw Error("Comando desconhecido: "+command);
   const opts=argsParse(args);
-  if(command!=="setup"&&(opts.name||opts.port||opts.skipInstall))throw Error("Opcoes de setup nao aceitas em "+command);
+  if(!["setup","panel-unit"].includes(command)&&(opts.name||opts.port||opts.skipInstall))throw Error("Opcoes de setup nao aceitas em "+command);
   const rooms=opts.rooms?path.resolve(opts.rooms):DEFAULT_ROOMS;
   if(command==="setup"){
     const out=await setup({rooms,name:opts.name||DEFAULT_NAME,port:opts.port===undefined?8080:Number(opts.port),skipInstall:Boolean(opts.skipInstall)});
@@ -118,6 +135,9 @@ async function main(){
     for(const room of result.rooms)console.log("OK "+room.id+" "+room.host+":"+room.port+" mods="+room.mods+" capacidade="+room.capacity);
     for(const warning of result.warnings)console.warn("AVISO: "+warning);
     console.log("ATENCAO: autenticacao PUBLICA e WSS ainda nao estao prontos. Nao abra portas do jogo na Internet.");
+  }else if(command==="panel-unit"){
+    if(opts.name||opts.skipInstall)throw Error("panel-unit aceita apenas --rooms e --port");
+    process.stdout.write(panelUnitContent({rooms,port:opts.port===undefined?8787:Number(opts.port)}));
   }else{
     await checkRooms(discoverRooms(rooms));
     process.stdout.write(unitContent({rooms}));

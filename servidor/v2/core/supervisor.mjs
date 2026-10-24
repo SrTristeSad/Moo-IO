@@ -114,6 +114,56 @@ export class RoomSupervisor{
     this.closing=false;
     this.started=false;
   }
+  // Start a newly created room while all existing game processes remain alive.
+  // Re-read the real directory, validate ALL ports/IDs, then mutate state only
+  // after its mods and network configuration have passed validation.
+  async startRoom(id){
+    if(this.closing||!this.started)throw Error("Supervisor nao esta ativo");
+    if(!/^[a-z][a-z0-9_-]{0,47}$/.test(id))throw Error("ID da sala invalido");
+    if(this.pendingStarts?.has(id))throw Error("Inicializacao ja em andamento: "+id);
+    this.pendingStarts??=new Set();
+    this.pendingStarts.add(id);
+    try{
+      const roomsDir=path.dirname(this.entries[0]?.file||DEFAULT_ROOMS);
+      const found=discoverRooms(roomsDir);
+      const entry=found.find(item=>item.id===id);
+      if(!entry)throw Error("Sala nao encontrada no disco: "+id);
+      await planRoom(entry.room);
+      // Existing rooms may have unsaved changes, but listening ports are
+      // always compared to the active configuration instead of stale disk.
+      for(const state of this.states.values()){
+        if(state.entry.id!==id&&state.entry.room.port===entry.room.port)
+          throw Error("Porta em uso pela sala "+state.entry.id);
+      }
+      const current=this.states.get(id);
+      if(current){
+        if(current.child||current.manualRestart||current.timer||current.restartRequested)
+          throw Error("Sala ja iniciada ou reiniciando: "+id);
+        if(current.entry.room.host!==entry.room.host||
+           current.entry.room.port!==entry.room.port||
+           current.entry.room.network!==entry.room.network)
+          throw Error("Host, rede ou porta mudaram; reinicie o controlador de forma planejada.");
+        current.entry=entry;
+        current.crashes=[];
+        current.disabled=false;
+        this.launch(current);
+        return {id,status:"starting"};
+      }
+      if(this.states.size>=MAX_ROOMS)throw Error("Limite de "+MAX_ROOMS+" salas por controlador");
+      const state={entry,child:null,crashes:[],timer:null,forceTimer:null,
+        misses:0,startedAt:0,restartRequested:false,disabled:false,lastExit:null,
+        manualRestart:null};
+      this.states.set(id,state);
+      this.entries.push(entry);
+      try{this.launch(state);}catch(error){
+        this.states.delete(id);
+        this.entries=this.entries.filter(item=>item.id!==id);
+        throw error;
+      }
+      this.logger("["+id+"] Nova sala adicionada sem interromper outras salas.");
+      return {id,status:"starting"};
+    }finally{this.pendingStarts.delete(id);}
+  }
   async restartRoom(id){
     if(this.closing||!this.started)throw Error("Supervisor nao esta ativo");
     const state=this.states.get(id);

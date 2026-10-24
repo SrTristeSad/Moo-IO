@@ -7,7 +7,7 @@ import http from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { LocalCredentials } from "../../../windows/server/src/api/credentials.js";
-import { controlPaths, requestRoomRestart } from "./control.mjs";
+import { controlPaths, requestRoomRestart, requestRoomStart } from "./control.mjs";
 import { newRoom, createRoom, readRoom, readModFile, listMods, updateRoom } from "./config.mjs";
 import { discoverRooms, checkRooms, DEFAULT_ROOMS, MAX_ROOMS } from "./supervisor.mjs";
 import { scanRooms } from "./monitor.mjs";
@@ -93,9 +93,9 @@ function catalog(){
   });
 }
 function safeIdFromPathname(url){
-  const match=/^\/api\/rooms\/([^/]+)(\/restart)?$/.exec(url);
+  const match=/^\/api\/rooms\/([^/]+)(\/(?:restart|start))?$/.exec(url);
   if(!match)return null;
-  return {id:ensureRoomId(match[1]),restart:!!match[2]};
+  return {id:ensureRoomId(match[1]),action:match[2]?.slice(1)||null};
 }
 function readJson(req){
   return new Promise((resolve,reject)=>{
@@ -175,9 +175,21 @@ async function mutateRoom(rooms,id,payload,{create=false}={}){
   // validate entire would-be world before persisting, not after mutation.
   await checkRooms(current.filter(entry=>entry.id!==id).concat([{id,file,room}]));
   if(create)createRoom(file,room);else updateRoom(file,room);
+  let activation=null;
+  let notice="Configuracao salva. Reinicie somente esta sala para aplicar.";
+  if(create){
+    try{
+      activation=await requestRoomStart(rooms,id);
+      notice="Sala criada e inicializacao solicitada. Outras salas continuam ativas.";
+    }catch(error){
+      activation={id,status:"pending"};
+      // A stopped supervisor is not a reason to discard a successfully
+      // validated room. The admin can click "Iniciar" when it is available.
+      notice="Sala salva, mas ainda nao iniciada: "+String(error.message).slice(0,150);
+    }
+  }
   return {id,name:room.name,preset:room.preset,port:room.port,
-    capacity:room.capacity,bots:room.bots,mods:room.mods,
-    notice:create?"Sala criada. Reinicie o controlador para ativa-la.":"Configuracao salva. Reinicie somente esta sala para aplicar."};
+    capacity:room.capacity,bots:room.bots,mods:room.mods,activation,notice};
 }
 
 export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
@@ -253,7 +265,11 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
           return send(res,201,await queue(()=>mutateRoom(folder,body.id,body,{create:true})));
         }
         const match=safeIdFromPathname(url.pathname);
-        if(match?.restart){
+        if(match?.action==="start"){
+          if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
+          return send(res,200,{result:await requestRoomStart(folder,match.id)});
+        }
+        if(match?.action==="restart"){
           // Fail-closed: cannot restart a room that no longer exists.
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           return send(res,200,{result:await requestRoomRestart(folder,match.id)});
@@ -262,7 +278,7 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
       if(req.method==="PUT"){
         formRequest(req,allowed,session);
         const match=safeIdFromPathname(url.pathname);
-        if(match&&!match.restart){
+        if(match&&!match.action){
           const body=await readJson(req);
           return send(res,200,await queue(()=>mutateRoom(folder,match.id,body)));
         }
