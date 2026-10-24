@@ -18,14 +18,16 @@ local function base64(data)
   return table.concat(out)
 end
 M.base64=base64
-function M.request(host,port,path,key,origin)
+function M.request(host,port,path,key,origin,secure)
   assert(type(host)=="string" and host:match("^[%w%.%-]+$"),"invalid host")
   assert(type(port)=="number" and port%1==0 and port>=1 and port<=65535,"invalid port")
   assert(type(path)=="string" and path:sub(1,1)=="/" and not path:find("[\r\n]"),"invalid path")
   assert(type(key)=="string" and #key==24 and key:match("^[%w%+/%=]+$"),"invalid websocket key")
-  local authority=host..":"..port
-  origin=origin or "http://"..authority
-  assert(origin=="http://"..authority,"origin must match local server authority")
+  if secure then assert(port==443,"WSS requires port 443") end
+  local authority=secure and host or host..":"..port
+  local expectedOrigin=(secure and "https://" or "http://")..authority
+  origin=origin or expectedOrigin
+  assert(origin==expectedOrigin,"origin must match server authority")
   return table.concat({
     "GET "..path.." HTTP/1.1",
     "Host: "..authority,
