@@ -35,11 +35,31 @@ chmod 600 "$TMP_UNIT"
 mv -f -- "$TMP_UNIT" "$SERVICE_FILE"
 systemctl --user daemon-reload
 systemctl --user enable --now mooio-v2.service
+# Install a separate user service for the admin UI. Only start it once its
+# dedicated password exists; never generate a default password.
+PANEL_UNIT="$SERVICE_DIR/mooio-v2-panel.service"
+PANEL_TEMP="$(mktemp "$SERVICE_DIR/.mooio-v2-panel.XXXXXX")"
+trap 'rm -f -- "$TMP_UNIT" "$PANEL_TEMP"' EXIT
+node servidor/v2/vps.mjs panel-unit > "$PANEL_TEMP"
+chmod 600 "$PANEL_TEMP"
+mv -f -- "$PANEL_TEMP" "$PANEL_UNIT"
+systemctl --user daemon-reload
+if node servidor/v2/panel.mjs check >/dev/null 2>&1; then
+  systemctl --user enable --now mooio-v2-panel.service
+  echo "Painel local iniciado em http://127.0.0.1:8787 (somente SSH/loopback)."
+else
+  echo "Painel instalado mas NAO iniciado: falta definir a senha administrativa."
+  echo "Depois de configurar com 'node servidor/v2/panel.mjs password', execute:"
+  echo "  systemctl --user enable --now mooio-v2-panel.service"
+fi
 echo
 echo "Moo-IO V2 habilitado no systemd do usuario."
 echo "Status:   systemctl --user status mooio-v2.service"
 echo "Logs:     journalctl --user -u mooio-v2.service -f"
-echo "Reiniciar apos editar salas: systemctl --user restart mooio-v2.service"
+echo "Salas:    node servidor/v2/manager.mjs status"
+echo "Painel:   systemctl --user status mooio-v2-panel.service"
+echo "Logs:     journalctl --user -u mooio-v2-panel.service -f"
+echo "Nova sala nao exige reiniciar todo o controlador."
 echo "Para continuar ativo apos sair do SSH, um administrador deve executar:"
 echo "  sudo loginctl enable-linger \"$(id -un)\""
-echo "Nao abra as portas das salas para a internet; a autenticacao publica ainda nao esta pronta."
+echo "Nao abra 8787 nem as portas internas das salas na Internet."
