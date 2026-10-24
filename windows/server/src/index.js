@@ -29,6 +29,7 @@ import { Chat } from "./api/chat.js";
 import { ModerationStore } from "./anticheat/index.js";
 import { createConnectionHandler } from "./network/connection.js";
 import { AdminConsole } from "./admin/console.js";
+import { installPlayerAdmin } from "./admin/v2-players.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 // Moo IO modification: invitation-gated community LAN rooms.
 import { validRoomCode, equalRoomCode, publicProtocol, requireRoomInvite } from "./mooio/invite.js";
@@ -117,6 +118,9 @@ for (const def of GAME_SERVERS) {
         membersOnly: def.membersOnly, accounts, log, hooks: gameHooks,
         botCount: def.key === "LC" ? BOT_COUNT : 0 }));
 }
+
+// Dedicated V2 worker: listen ONLY on authenticated parent/child IPC, never public HTTP.
+if (V2_ROOM) installPlayerAdmin(games);
 
 const gameApi = {
     kickAccount: (id, reason) => [...games.values()].reduce((n, g) => n + g.kickAccount(id, reason), 0),
