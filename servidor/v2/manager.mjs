@@ -9,6 +9,7 @@ import { startControlServer, requestRoomRestart, requestRoomStart, requestRoomSt
 const args=process.argv.slice(2);
 const cmd=args.shift()||"help";
 const targetId=["restart","start-room","stop-room","events","players","kick"].includes(cmd)?args.shift():null;
+const kickId=cmd==="kick"?args.shift():null;
 function parseArgs(args){
   const flags={rooms:DEFAULT_ROOMS,json:false,interval:15,intervalPassed:false};
   const seen=new Set();
@@ -67,7 +68,6 @@ async function main(){
   if(["restart","start-room","stop-room","events","players","kick"].includes(cmd)){
     if(flags.json||flags.intervalPassed)throw Error("Comando aceita somente --rooms");
     if(!targetId)throw Error("Informe o ID da sala");
-    const playerId=cmd==="kick"?args.shift():null;
     if(args.length)throw Error("Argumentos desconhecidos");
     const actions={
       restart:requestRoomRestart,
@@ -77,7 +77,7 @@ async function main(){
       players:requestRoomPlayers,
       kick:requestPlayerKick
     };
-    const result=await actions[cmd](flags.rooms,targetId,...(cmd==="kick"?[playerId]:[]));
+    const result=await actions[cmd](flags.rooms,targetId,...(cmd==="kick"?[kickId]:[]));
     if(cmd==="events"||cmd==="players")console.log(JSON.stringify(result,null,2));
     else console.log("Sala "+result.id+": "+result.status+". Outras salas permanecem ativas.");
     return;
