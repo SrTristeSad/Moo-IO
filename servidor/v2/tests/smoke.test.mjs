@@ -33,6 +33,11 @@ test("V2: custom real altera mundo e AI, valida convite e websocket, mantem um u
       cwd:root,input:password+"\n",encoding:"utf8",timeout:20000
   });
   assert.equal(provision.status,0,provision.stderr);
+  const second=spawnSync(process.execPath,[path.join(root,"servidor/v2/accounts.mjs"),
+    "set-password","--file",file,"--email","second@example.org"],{
+    cwd:root,input:password+"\n",encoding:"utf8",timeout:20000
+  });
+  assert.equal(second.status,0,second.stderr);
   let child,logs="";
   try{
     child=spawn(process.execPath,[cli,"start","--file",file],{cwd:root,stdio:["ignore","pipe","pipe"]});
@@ -58,15 +63,19 @@ test("V2: custom real altera mundo e AI, valida convite e websocket, mantem um u
     assert.equal(ping.servers[0].playerCapacity,40);
     assert.equal((await fetch(address+"/api/auth/code",{method:"POST",
       headers:{"content-type":"application/json"},body:JSON.stringify({email})})).status,410);
-    const passwordLogin=async(pass)=>fetch(address+"/api/auth/password",{
+    const passwordLogin=async(pass,userEmail=email)=>fetch(address+"/api/auth/password",{
       method:"POST",headers:{"content-type":"application/json"},
-      body:JSON.stringify({email,password:pass})
+      body:JSON.stringify({email:userEmail,password:pass})
     });
     assert.equal((await passwordLogin("wrong-password")).status,400);
     const good=await passwordLogin(password);
     assert.equal(good.status,200);
     const token=(await good.json()).token;
     assert.ok(token);
+    for(let i=0;i<8;i++)assert.equal((await passwordLogin("wrong-password")).status,400);
+    assert.equal((await passwordLogin("wrong-password")).status,429);
+    assert.equal((await passwordLogin(password,"second@example.org")).status,200,
+      "Uma conta bloqueada nao deve impedir outra conta no mesmo IP de fazer login");
     const join=async(code,auth=token)=>fetch(address+"/api/join",{
       method:"POST",headers:{"content-type":"application/json",...(code?{"x-mooio-code":code}:{})},
       body:JSON.stringify({host:address+"/s/LC",auth})
