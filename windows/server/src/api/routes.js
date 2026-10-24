@@ -157,7 +157,7 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
             const account=store.accountForEmail(identity.email);
             if(!account)throw Error("Unable to map account");
             res.set("Cache-Control","no-store");
-            return res.json({token:store.issueToken(account),id:account.id,email:account.email});
+            return res.json({token:store.issueToken(account,{ttlSeconds:900}),id:account.id,email:account.email});
         }catch{
             return res.status(503).json({type:"identityUnavailable"});
         }
