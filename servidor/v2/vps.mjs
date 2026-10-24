@@ -13,12 +13,12 @@ const DEFAULT_NAME="Minha sala Moo-IO";
 
 export function quoteSystemd(input){
   const p=String(input);
-  if(!path.isAbsolute(p)||/[\x00-\x1f\x7f]/.test(p))throw Error("Caminho absoluto sem caracteres de controle obrigatorio");
+  if(!path.posix.isAbsolute(p)||/[\x00-\x1f\x7f]/.test(p))throw Error("Caminho absoluto sem caracteres de controle obrigatorio");
   return '"' + p.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/%/g,"%%").replace(/\$/g,()=> String.fromCharCode(36,36)) + '"';
 }
 export function unitContent({node=process.execPath,root=ROOT,rooms=DEFAULT_ROOMS}={}){
-  const exe=quoteSystemd(node),script=quoteSystemd(path.join(root,"servidor/v2/manager.mjs"));
-  const work=quoteSystemd(root),config=quoteSystemd(path.resolve(rooms));
+  const exe=quoteSystemd(node),script=quoteSystemd(path.posix.join(root,"servidor/v2/manager.mjs"));
+  const work=quoteSystemd(root),config=quoteSystemd(path.posix.resolve(rooms));
   return [
     "# Gerado pela V2 Moo-IO; acesso de rede somente privado.",
     "[Unit]","Description=Moo-IO V2 private server rooms","After=network.target",
