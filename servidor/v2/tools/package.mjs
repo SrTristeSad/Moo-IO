@@ -34,6 +34,27 @@ for (const name of ["cli.mjs", "package.json", "README.md"]) {
 }
 fs.cpSync(path.join(source, "lib"), path.join(target, "servidor/v2/lib"), { recursive: true });
 fs.cpSync(path.join(source, "tests"), path.join(target, "servidor/v2/tests"), { recursive: true });
+// Preserve upstream and project redistribution notices in every offline artifact.
+for (const name of ["LICENSE", "NOTICE.md"]) {
+  fs.copyFileSync(path.join(root, name), path.join(target, name));
+}
+fs.cpSync(path.join(root, "windows/licenses"), path.join(target, "windows/licenses"), { recursive: true });
+for (const [name, command] of [
+  ["CRIAR-SERVIDOR.cmd", "init"],
+  ["INICIAR-SERVIDOR.cmd", "start"],
+  ["DIAGNOSTICAR-SERVIDOR.cmd", "doctor"]
+]) {
+  fs.writeFileSync(path.join(target, name),
+    '@echo off\r\ncd /d "%~dp0"\r\nnode servidor\\v2\\cli.mjs ' + command + ' %*\r\nif errorlevel 1 pause\r\n');
+}
+for (const [name, command] of [
+  ["criar-servidor.sh", "init"],
+  ["iniciar-servidor.sh", "start"]
+]) {
+  const dest = path.join(target, name);
+  fs.writeFileSync(dest, '#!/bin/sh\ncd "$(dirname "$0")"\nexec node servidor/v2/cli.mjs ' + command + ' "$@"\n');
+  fs.chmodSync(dest, 0o755);
+}
 fs.writeFileSync(path.join(target, "LEIA-ME.txt"),
   "MOO-IO SERVIDOR V2\n\nRequer Node.js >=20 instalado.\n" +
   "1) node servidor/v2/cli.mjs init --host 127.0.0.1\n" +
