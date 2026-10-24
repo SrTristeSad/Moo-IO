@@ -104,8 +104,8 @@ test("native Windows relay uses CA trust + matching SNI and refuses untrusted or
     assert.match(page,/HTTP\/1\.1 200 OK/);
     assert.match(page,/pong/);
   }finally{
-    if(bridge){bridge.closeAllConnections();await close(bridge);}
-    if(target){target.closeAllConnections();await close(target);}
+    if(bridge)await close(bridge);
+    if(target)await close(target);
     fs.rmSync(dir,{recursive:true,force:true});
   }
 });
