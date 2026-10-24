@@ -1,0 +1,46 @@
+name: Moo-IO - servidor V2 dedicado
+on:
+  push:
+    paths:
+      - "servidor/**"
+      - "windows/server/src/**"
+      - "windows/server/package.json"
+      - "windows/shared/**"
+      - ".github/workflows/server-v2.yml"
+  pull_request:
+    paths:
+      - "servidor/**"
+      - "windows/server/src/**"
+      - "windows/server/package.json"
+      - "windows/shared/**"
+      - ".github/workflows/server-v2.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dedicated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install authoritative engine dependencies (build-time only)
+        run: npm install --prefix windows/server --no-audit --no-fund
+      - name: Unit tests + real Node/WebSocket smoke
+        run: node --test servidor/v2/tests/*.test.mjs
+      - name: Package independent V2 with dependencies
+        run: node servidor/v2/tools/package.mjs
+      - name: Verify packaged server is standalone
+        run: |
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/server/src/index.js
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/shared/config.js
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/server/node_modules/ws/package.json
+          cd servidor/v2/dist/Moo-IO-Servidor-V2
+          node --test servidor/v2/tests/*.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moo-IO-Servidor-V2
+          path: servidor/v2/dist/Moo-IO-Servidor-V2/
+          retention-days: 14
