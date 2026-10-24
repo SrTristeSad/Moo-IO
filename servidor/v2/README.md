@@ -2,6 +2,43 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Reiniciar uma sala sem derrubar as outras (novo)
+
+A V2 permite aplicar configuracoes e mods de uma sala **individualmente**
+enquanto as demais continuam online. O controlador abre apenas um **socket
+local privado**, nao uma API HTTP: o acesso administrativo precisa de
+permissoes no sistema e um token aleatorio salvo em
+`servidor/v2/rooms/.control/admin.token` (0600 no Linux).
+No Linux o controle usa um socket Unix 0600; no Windows, um named pipe
+local mais autenticacao por token. Ele nao passa por Caddy, nao exige
+IP publico e nunca revela o token na linha de comando.
+
+```bash
+# 1. Personalize mods ou configuracoes de uma sala ja existente:
+node servidor/v2/cli.mjs enable colheita-farta --file servidor/v2/rooms/lobos.json
+
+# 2. Valide antes de aplicar:
+node servidor/v2/cli.mjs preview --file servidor/v2/rooms/lobos.json
+
+# 3. Reinicie SOMENTE a sala chamada lobos:
+node servidor/v2/manager.mjs restart lobos
+```
+
+Use `--rooms caminho` quando o controlador foi iniciado com outra pasta
+de salas. A ordem dos comandos de modificacao e reinicio e importante:
+`restart` relê o JSON da sala, valida todos os mods e so entao encerra
+o processo antigo e abre o novo. **Se o mod for invalido, o processo
+antigo nao e parado.** Uma sala nao pode reiniciar outra, pois IDs sao
+validados e so o supervisor tem o canal de controle. Reinicios
+administrativos nao consomem o limite de falhas automáticas.
+
+**Limitacao deliberada:** mudancas de host, porta ou modo de rede
+exigem parar o controlador, ajustar o Caddy/DNS quando aplicavel e
+iniciar novamente. Um reinicio individual desconecta os jogadores
+daquela sala. Os jogadores das outras partidas continuam conectados.
+O comando responde quando o novo processo e iniciado; consulte
+`manager.mjs health` para confirmar que ele ficou pronto.
+
 ## Monitoramento e recuperacao de salas na VPS (novo)
 
 O controlador suporta multiplas salas independentes e agora disponibiliza
