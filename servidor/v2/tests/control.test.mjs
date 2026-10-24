@@ -58,7 +58,7 @@ test("controlador local exige autenticacao e so aceita o comando autorizado", {t
     assert.equal(roster.players[0].name,"A");
     const expelled=await requestPlayerKick(dir,"normal","0123456789abcdef");
     assert.equal(expelled.status,"kicked");
-    await assert.rejects(()=>requestPlayerKick(dir,"normal","../../escape"),/invalido/);
+    assert.throws(()=>requestPlayerKick(dir,"normal","../../escape"),/invalido/);
     await assert.rejects(()=>requestRoomRestart(dir,"../normal"),/ID da sala invalido/);
     await assert.rejects(()=>requestRoomStart(dir,"../arena"),/ID da sala invalido/);
     await assert.rejects(()=>requestRoomStop(dir,"../arena"),/ID da sala invalido/);
