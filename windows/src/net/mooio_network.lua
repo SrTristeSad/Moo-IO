@@ -1,6 +1,7 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
 -- Private addresses used by LAN and virtual VPN adapters. No arbitrary Internet IPs.
 local N={}
+local TLS=require("src.net.tls_bridge")
 local function parse(ip)
   if type(ip)~="string" then return nil end
   local a,b,c,d=ip:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
@@ -34,6 +35,15 @@ end
 function N.invite(value)
   if type(value)~="string" then return nil,"Convite vazio." end
   value=value:match("^%s*(.-)%s*$")
+  -- Public HTTPS invite: https://normal.jogo.example.com/CODIGO
+  -- Never silently downgrade a public DNS hostname to plain ws://.
+  local publicHost,publicCode=value:match("^https://([a-z0-9%.%-]+)/([%w%-]+)$")
+  if publicHost then
+    if not TLS.validDomain(publicHost) or #publicCode<8 or #publicCode>64 then
+      return nil,"Dominio HTTPS ou codigo de convite invalido."
+    end
+    return {host=publicHost,port=443,code=publicCode,mode="public",secure=true}
+  end
   local host,port,code=value:match("^([%d%.]+):(%d%d?%d?%d?%d?)/([%w%-]+)$")
   local kind=N.kind(host)
   if not kind then return nil,"Use IP da LAN/VPN privada, nao um endereco publico." end
