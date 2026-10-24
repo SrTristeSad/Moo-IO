@@ -1,2 +1,3 @@
 rooms/
 *.log
+/deploy/Caddyfile.generated
