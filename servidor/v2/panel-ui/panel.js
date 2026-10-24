@@ -106,6 +106,43 @@ function renderRooms(){
       }catch(error){notify(error.message,true);}
       finally{stop.disabled=false;}
     });
+    const playersButton=element("button","Jogadores","subtle");
+    playersButton.type="button";
+    playersButton.addEventListener("click",async()=>{
+      playersButton.disabled=true;
+      try{
+        const data=await api("/api/rooms/"+encodeURIComponent(room.id)+"/players");
+        const old=card.querySelector(".player-list");
+        if(old){old.remove();return;}
+        const container=element("div",null,"player-list");
+        const users=Array.isArray(data.players)?data.players:[];
+        if(!users.length)container.append(element("span","Nenhum jogador conectado."));
+        for(const user of users){
+          const line=element("div",null,"player-row");
+          const role={admin:"Administrador",mod:"Moderador",player:"Jogador",guest:"Convidado"}[user.role]||"Jogador";
+          const name=element("span",user.name+" · "+role+" · "+user.id.slice(0,8));
+          line.append(name);
+          if(user.role!=="mod"&&user.role!=="admin"){
+            const kick=element("button","Expulsar","subtle");
+            kick.type="button";
+            kick.addEventListener("click",async()=>{
+              if(!confirm("Expulsar “"+user.name+"” somente desta partida?"))return;
+              kick.disabled=true;
+              try{
+                await api("/api/rooms/"+encodeURIComponent(room.id)+"/kick","POST",{playerId:user.id});
+                notify("Sessao "+user.id.slice(0,8)+" expulsa de "+room.name+".");
+                container.remove();
+                await refresh();
+              }catch(error){notify(error.message,true);kick.disabled=false;}
+            });
+            line.append(kick);
+          }
+          container.append(line);
+        }
+        info.append(container);
+      }catch(error){notify(error.message,true);}
+      finally{playersButton.disabled=false;}
+    });
     const events=element("button","Eventos","subtle");
     events.type="button";
     events.addEventListener("click",async()=>{
@@ -125,7 +162,7 @@ function renderRooms(){
       }catch(error){notify(error.message,true);}
       finally{events.disabled=false;}
     });
-    append(buttons,configure,restart,stop,events);
+    append(buttons,configure,restart,stop,playersButton,events);
     append(card,info,buttons);
     list.append(card);
   }
