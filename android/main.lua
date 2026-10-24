@@ -303,6 +303,7 @@ function love.update(dt)
         -- Reset smoothing when respawning or entering a new match.
         if camera then camera.hasTarget=false end
         lockDir=false
+        if mobile then mobile:setDirectionLock(false) end
         mouseAttack=false
         spaceAttack=false
         died=false
