@@ -142,7 +142,7 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
     return req.socket.remoteAddress||"unknown";
   }
   function browserAccount(req){
-    const match=/(?:^|;\\s*)mooio_browser=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||"");
+    const match=/(?:^|;\s*)mooio_browser=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||"");
     if(!match)return null;
     const entry=sessions[hash(match[1])];
     return entry&&entry.until>Date.now()&&credentials.users[entry.email]?entry.email:null;
