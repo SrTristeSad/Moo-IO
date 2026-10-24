@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { setup, doctor, unitContent, panelUnitContent, quoteSystemd, ROOT } from "../vps.mjs";
+import { setup, doctor, unitContent, panelUnitContent, identityUnitContent, quoteSystemd, ROOT } from "../vps.mjs";
 import { readRoom, createRoom, newRoom } from "../core/config.mjs";
 const cli=fileURLToPath(new URL("../vps.mjs",import.meta.url));
 const dir=()=>fs.mkdtempSync(path.join(os.tmpdir(),"mooio-v2-vps-"));
@@ -91,4 +91,16 @@ test("Painel systemd gerado separadamente, somente localhost e senha obrigatoria
     assert.match(generated.stdout,/panel.mjs" serve/);
     assert.doesNotMatch(generated.stdout,/senha|password.*=.*[a-f0-9]{64}/i);
   }
+});
+
+test("identity unit stays on localhost, requires configured HTTPS, and has no embedded secrets",()=>{
+  const content=identityUnitContent({node:"/usr/bin/node",root:"/opt/Moo IO",
+    rooms:"/opt/Moo IO/rooms",port:8788});
+  assert.match(content,/ExecStartPre="\/usr\/bin\/node" "\/opt\/Moo IO\/servidor\/v2\/identity.mjs" check/);
+  assert.match(content,/identity.mjs" serve/);
+  assert.match(content,/--port 8788/);
+  assert.match(content,/UMask=0077/);
+  assert.match(content,/NoNewPrivileges=true/);
+  assert.doesNotMatch(content,/0\.0\.0\.0|reverse_proxy|https:\/\/auth\.|secret\.key/);
+  assert.throws(()=>identityUnitContent({port:443}),/Porta/);
 });
