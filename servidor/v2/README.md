@@ -91,9 +91,9 @@ inclusive mandando `captcha:true`, nao emite um ticket na V2.
 
 O modo `traditional` preserva a jogabilidade original; agora tambem
 exige autenticacao por senha como qualquer outra sala privada V2.
-Essa implementacao NAO inclui ainda cadastro integrado ao cliente,
-recuperacao de senhas nem gateway HTTPS/WSS. Ela e base de seguranca,
-**nao autoriza publicar portas na Internet**. Clientes so poderao
+Essa implementacao NAO inclui cadastro integrado ao cliente ou
+recuperacao de senhas. O gateway HTTPS/WSS e gerado pela V2, mas
+**precisa ser configurado e ativado pelo administrador antes do acesso publico**. Clientes so poderao
 autenticar diretamente se tiverem suporte ao fluxo de login por senha.
 
 ## Instalacao em VPS Ubuntu/Debian (nova)
@@ -135,11 +135,12 @@ Para continuar funcionando **apos desconectar do SSH**, habilite
 explicitamente o linger da conta (administrador da VPS):
 `sudo loginctl enable-linger "$(id -un)"`.
 
-O instalador nao exige sudo nem mexe no firewall. **Importante:** esta etapa NAO transforma a V2 em servidor publico:
-autenticacao real por senha na V2 ja existe, mas faltam HTTPS/WSS,
-seguranca de proxy, protecao contra abuso e gateway publico. Uso de loopback/VPN privada
-e adequado apenas para testes controlados. Para acesso publico,
-faltam autenticacao de producao, gateway e protecao contra abuso.
+O instalador nao exige sudo nem mexe no firewall. **Importante:**
+autenticacao real por senha ja existe na V2, mas o acesso externo
+exige configurar DNS, Caddy com TLS valido e regras de firewall.
+O gerador do gateway esta documentado acima; ele nao ativa acesso publico
+sozinho. Ainda faltam monitoramento de ataques, mitigacao de DDoS
+e um fluxo de cadastro/recuperacao de senha para uma hospedagem publica madura.
 
 ## Comece sem programar
 
@@ -241,6 +242,6 @@ Mods com alteracoes conflitantes sao recusados, nunca aplicados parcialmente. Re
 - Mods de codigo com scripts arbitrarios, hooks, Lua/JS executavel, ou download automatico.
 - Novos sprites, armas ou tipos de animais nao definidos pelo cliente (exige protocolo e carregamento de assets).
 - GUI/painel web de configuracao, autoatualizacao ou configuracao de proxies seguros. O controlador atual inicia multiplas salas, mas nao garante capacidade para 20+ partidas lotadas.
-- Autenticacao segura de producao, TLS/WSS e hospedagem publica pronta. O motor herdado inclui autenticacao de **teste** e bloqueia vinculo direto com IPv4 publico.
+- Cadastro publico e recuperacao de senhas; TLS/WSS so depois de ativar Caddy com dominio e DNS. A V2 exige senha verificada, e o motor permanece vinculado apenas a IPv4 privado/loopback.
 
-**VPS:** esta etapa roda no loopback da VPS. Para acesso externo real ainda precisamos de proxy WebSocket seguro + nova autenticacao. Nao publique este servidor na internet por port forwarding. Os mods sao declarativos sem execucao de scripts externos: mais seguros para comecar a personalizacao.
+**VPS:** para conexoes externas, use somente o gateway Caddy gerado pela V2 e configure DNS/TLS; nao exponha as portas de jogo por port forwarding. Os mods continuam declarativos, sem executar scripts externos.
