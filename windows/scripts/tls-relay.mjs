@@ -5,6 +5,8 @@
 // There is NO arbitrary public proxy, no HTTP downgrade, and no token logging.
 import net from "node:net";
 import tls from "node:tls";
+import path from "node:path";
+import {fileURLToPath} from "node:url";
 
 const DNS=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
 const TOKEN=/^[a-f0-9]{48}$/;
@@ -61,6 +63,6 @@ export async function startRelay({token=process.env.MOOIO_TLS_TOKEN,port=DEFAULT
   });
   return server;
 }
-if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1].replaceAll("\\","/")).href){
+if(process.argv[1]&&fileURLToPath(import.meta.url)===path.resolve(process.argv[1])){
   startRelay().catch(()=>process.exitCode=1);
 }
