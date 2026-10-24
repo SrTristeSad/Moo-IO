@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Moo-IO | Painel do servidor V2</title>
+  <link rel="stylesheet" href="/panel.css">
+  <script type="module" src="/panel.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="top"><div class="brand"><div class="logo">M</div><div><strong>Moo-IO</strong><span>SERVIDOR PRIVADO V2</span></div></div><div class="topright"><div class="status"><span class="dot"></span> Painel local / SSH</div><button id="logout" class="subtle hidden" type="button">Sair</button></div></header>
+    <section id="login" class="login card">
+      <div class="eyebrow">ADMINISTRAÇÃO DA VPS</div>
+      <h1>Acesso ao servidor</h1>
+      <p>Entre com a senha administrativa definida no terminal. O painel aceita somente conexões locais ou túnel SSH.</p>
+      <form id="login-form">
+        <label for="password">Senha administrativa</label>
+        <input id="password" type="password" autocomplete="current-password" minlength="12" required placeholder="Digite sua senha">
+        <button class="primary" type="submit">Entrar no painel <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+    <section id="dashboard" class="hidden">
+      <div class="sectionhead"><div><div class="eyebrow">VISÃO GERAL</div><h1>Suas salas</h1><p>Gerencie partidas independentes e seus mods sem mexer nos clientes.</p></div><div class="actions"><button id="refresh" class="subtle" type="button">Atualizar</button><button id="new-room" class="primary" type="button">+ Criar sala</button></div></div>
+      <div class="stats">
+        <div class="stat card"><span>Salas configuradas</span><strong id="stat-all">—</strong></div>
+        <div class="stat card"><span>Salas online</span><strong id="stat-online">—</strong></div>
+        <div class="stat card"><span>Jogadores online</span><strong id="stat-players">—</strong></div>
+        <div class="stat card"><span>Vagas totais</span><strong id="stat-slots">—</strong></div>
+      </div>
+      <div class="block-head"><h2>Partidas</h2><span class="hint">Uma sala = um processo independente</span></div>
+      <div id="rooms" class="rooms"></div>
+      <section id="editor" class="card editor hidden">
+        <div class="block-head"><h2 id="editor-title">Configurar sala</h2><button id="close-editor" class="subtle" type="button">Cancelar</button></div>
+        <form id="room-form">
+          <div class="form-grid">
+            <label>ID da sala <input id="room-id" required pattern="[a-z][a-z0-9-]{0,47}" placeholder="minha-sala"></label>
+            <label>Nome visível <input id="room-name" required maxlength="60" placeholder="Meu mundo personalizado"></label>
+            <label>Porta interna (127.0.0.1) <input id="room-port" type="number" min="1024" max="65534" required></label>
+            <label>Modo <select id="room-preset"><option value="traditional">Tradicional</option><option value="custom">Personalizado</option></select></label>
+            <label>Limite de jogadores <input id="room-capacity" type="number" min="1" max="40" value="40" required></label>
+            <label>Bots <input id="room-bots" type="number" min="0" max="8" value="0" required></label>
+          </div>
+          <div class="mod-heading"><strong>Mods instalados</strong><span>Disponíveis apenas no modo personalizado</span></div>
+          <div id="mod-options" class="mod-list"></div>
+          <div class="form-footer"><span id="editor-note">O modo tradicional não carrega mods.</span><button class="primary" type="submit">Salvar configurações</button></div>
+        </form>
+      </section>
+      <div class="bottomhint">O painel não altera portas do gateway automaticamente. Salas novas precisam de reinício planejado do controlador e, se públicas, de atualização do Caddy.</div>
+    </section>
+    <div id="notice" class="notice hidden" role="status" aria-live="polite"></div>
+  </main>
+</body>
+</html>
