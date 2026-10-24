@@ -108,12 +108,59 @@ export class RoomSupervisor{
     this.clock=clock;
     this.states=new Map(entries.map(entry=>[entry.id,{
       entry,child:null,crashes:[],timer:null,forceTimer:null,
-      misses:0,startedAt:0,restartRequested:false,disabled:false,lastExit:null
+      misses:0,startedAt:0,restartRequested:false,disabled:false,lastExit:null,
+      manualRestart:null
     }]));
     this.closing=false;
+    this.started=false;
+  }
+  async restartRoom(id){
+    if(this.closing||!this.started)throw Error("Supervisor nao esta ativo");
+    const state=this.states.get(id);
+    if(!state)throw Error("Sala nao encontrada: "+id);
+    if(state.manualRestart||state.restartRequested)throw Error("Sala ja esta reiniciando: "+id);
+
+    // Parse and validate the current on-disk config before touching the live
+    // worker. A broken mod must leave the old match and other rooms untouched.
+    const nextRoom=readRoom(state.entry.file);
+    await planRoom(nextRoom);
+    const current=state.entry.room;
+    if(nextRoom.host!==current.host||nextRoom.port!==current.port||
+       nextRoom.network!==current.network)
+      throw Error("Host, porta ou rede alterados: requer reinicio planejado do controlador e revisao do gateway.");
+
+    state.entry={...state.entry,room:nextRoom};
+    state.disabled=false;
+    state.crashes=[];
+    if(state.timer){clearTimeout(state.timer);state.timer=null;}
+    const child=state.child;
+    if(!child){
+      this.launch(state);
+      return {id,status:"started"};
+    }
+    return await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{
+        if(state.manualRestart?.timer===timer){
+          state.manualRestart=null;
+          reject(Error("Sala nao encerrou a tempo; confira o supervisor."));
+        }
+      },12000);
+      timer.unref?.();
+      state.manualRestart={resolve,reject,timer};
+      this.logger("["+id+"] Reinicio solicitado pelo administrador.");
+      try{this.terminateProcess(child);}
+      catch(error){clearTimeout(timer);state.manualRestart=null;reject(error);return;}
+      state.forceTimer=setTimeout(()=>{
+        state.forceTimer=null;
+        if(!this.closing&&state.child===child&&child.exitCode===null&&child.signalCode===null)
+          this.terminateProcess(child,true);
+      },5000);
+      state.forceTimer.unref?.();
+    });
   }
   start(){
-    if(this.closing)throw Error("Supervisor em encerramento");
+    if(this.closing||this.started)throw Error("Supervisor nao pode iniciar duas vezes");
+    this.started=true;
     for(const state of this.states.values())this.launch(state);
     // Probe independently so a game that hangs with its process still running
     // is recycled; failed rooms never stop their healthy neighbors.
@@ -125,7 +172,7 @@ export class RoomSupervisor{
     try{
       await Promise.all([...this.states.values()].map(async state=>{
         const child=state.child;
-        if(!child||state.disabled||state.restartRequested||
+        if(!child||state.disabled||state.restartRequested||state.manualRestart||
            this.clock()-state.startedAt<this.startupGraceMs)return;
         let result;
         try{result=await this.probe(state.entry,{timeout:1200});}
@@ -176,6 +223,18 @@ export class RoomSupervisor{
       state.misses=0;
       state.restartRequested=false;
       state.lastExit={code,signal,at:this.clock()};
+      const manual=state.manualRestart;
+      if(manual){
+        state.manualRestart=null;
+        clearTimeout(manual.timer);
+        if(this.closing){manual.reject(Error("Supervisor sendo encerrado"));return;}
+        this.logger("["+state.entry.id+"] Aplicando configuracao validada e reiniciando esta sala.");
+        try{
+          this.launch(state);
+          manual.resolve({id:state.entry.id,status:"restarted"});
+        }catch(error){manual.reject(error);}
+        return;
+      }
       if(this.closing)return;
       const now=this.clock();
       state.crashes=state.crashes.filter(at=>now-at<CRASH_WINDOW_MS);
@@ -193,6 +252,13 @@ export class RoomSupervisor{
   async stop(){
     if(this.closing)return;
     this.closing=true;
+    for(const state of this.states.values()){
+      if(state.manualRestart){
+        clearTimeout(state.manualRestart.timer);
+        state.manualRestart.reject(Error("Supervisor sendo encerrado"));
+        state.manualRestart=null;
+      }
+    }
     if(this.watchdogTimer){clearInterval(this.watchdogTimer);this.watchdogTimer=null;}
     for(const state of this.states.values()){
       if(state.timer){clearTimeout(state.timer);state.timer=null;}
