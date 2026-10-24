@@ -2,6 +2,63 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Painel administrativo da VPS (novo)
+
+O painel V2 funciona **no navegador**, sem WebView nos clientes, para
+administrar salas tradicionais e personalizadas e seus mods. Ele tem
+visao geral das salas online/offline, jogadores e capacidade, criacao
+de salas, edicao de nome, bots, limite de jogadores e escolha de mods,
+alem do botao de reiniciar apenas uma sala.
+
+Por seguranca, **o painel nunca abre uma porta publica**. Escuta
+somente \`127.0.0.1:8787\` e usa uma senha administrativa independente
+das contas dos jogadores, hash scrypt com salt, cookies HttpOnly,
+SameSite=Strict, tokens anti-CSRF e verificacao de Origin e Host.
+
+**1. Configure a senha no terminal da VPS, usando a conta que executa
+o servidor e sem colocar a senha na linha de comando:**
+
+\`\`\`bash
+read -rsp "Senha do painel (12+ caracteres): " SENHA; echo
+printf '%s\n' "$SENHA" | node servidor/v2/panel.mjs password
+unset SENHA
+\`\`\`
+
+**2. Inicie o painel em outro terminal da mesma conta:**
+
+\`\`\`bash
+node servidor/v2/panel.mjs serve
+\`\`\`
+
+**3. No seu computador Windows, estabeleca um tunel SSH ate a VPS:**
+
+\`\`\`bash
+ssh -L 8787:127.0.0.1:8787 ubuntu@IP_DA_VPS
+\`\`\`
+
+Abra **http://127.0.0.1:8787** no seu proprio navegador.
+Substitua \`ubuntu\` pelo usuario real da VPS. Para salas em outro
+diretorio, use \`--rooms /caminho/salas\` ao configurar a senha e iniciar
+o painel. Se a porta local 8787 estiver ocupada, voce pode usar outra
+porta local no tunel sem mudar a porta de destino e abrir essa porta
+no seu navegador (p. ex. \`ssh -L 8790:127.0.0.1:8787 ...\`).
+O Host HTTP visto pelo painel nesse caso permanece o destino conforme
+o encaminhamento SSH/navegador e pode exigir manter 8787 em ambos os lados
+com a configuracao atual.
+
+As configuracoes sao salvas e verificadas contra as definicoes reais
+do jogo. Depois de editar uma sala existente, clique em **Reiniciar sala**
+para aplicar as alteracoes sem derrubar as demais. Salas novas precisam
+de um reinicio planejado do **controlador inteiro** para serem descobertas;
+esse reinicio desconecta temporariamente jogadores das salas existentes.
+
+**Nao** adicione a porta 8787 ao firewall publico, nao a exponha no
+Caddy nem atraves de port forwarding. O painel nao oferece
+administracao HTTP publica, recuperacao de senha, edicao de scripts
+arbitrarios ou alteracao de portas de salas existentes. Se alterar a
+senha, reinicie tambem o processo do painel; as sessoes antigas sao
+mantidas apenas na memoria do processo.
+
 ## Reiniciar uma sala sem derrubar as outras (novo)
 
 A V2 permite aplicar configuracoes e mods de uma sala **individualmente**
