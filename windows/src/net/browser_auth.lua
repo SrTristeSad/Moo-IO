@@ -5,6 +5,7 @@
 local Json=require("src.net.json")
 local Random=require("src.net.secure_random")
 local Upgrade=require("src.net.upgrade")
+local TLS=require("src.net.tls_bridge")
 local M={}
 
 local function privateHost(host)
@@ -19,8 +20,9 @@ local function privateHost(host)
 end
 local function send(host,port,code,route,body,options)
   options=options or {}
-  if not privateHost(host) then
-    return nil,"Login por HTTP requer LAN confiavel ou VPN criptografada; Internet publica exige HTTPS/WSS."
+  local public=TLS.validDomain(host) and port==443
+  if not privateHost(host) and not public then
+    return nil,"Login exige IP privado ou dominio HTTPS com certificado valido."
   end
   if type(port)~="number" or port<1 or port>65535 or port%1~=0 or
     type(code)~="string" or #code<8 or #code>64 or
@@ -29,6 +31,12 @@ local function send(host,port,code,route,body,options)
   if not encoded then return nil,encodeError end
   local http=options.http or require("socket.http")
   local ltn12=options.ltn12 or require("ltn12")
+  local secureOptions=nil
+  if public then
+    local err
+    secureOptions,err=TLS.options(host,port,options)
+    if not secureOptions then return nil,err end
+  end
   local chunks={}
   local previous=http.TIMEOUT
   http.TIMEOUT=1.5
@@ -42,7 +50,8 @@ local function send(host,port,code,route,body,options)
       ["Connection"]="close"
     },
     source=ltn12.source.string(encoded),
-    sink=ltn12.sink.table(chunks)
+    sink=ltn12.sink.table(chunks),
+    create=secureOptions and secureOptions.create or nil
   })
   http.TIMEOUT=previous
   if not ok or not response then return nil,"Servidor de autenticacao indisponivel" end
