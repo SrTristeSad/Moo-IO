@@ -187,6 +187,44 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     const unaffected=await fetch(a+"/mooio/status").then(r=>r.json());
     assert.deepEqual(unaffected.v2.mods,[]);
     assert.equal(unaffected.v2.world.treesPerArea,9);
+    // Adding a THIRD room must not require a global restart. The normal
+    // room keeps its authenticated WebSocket connection throughout.
+    let thirdPort=await freePort();
+    while([firstPort,secondPort].includes(thirdPort))thirdPort=await freePort();
+    const third=newRoom({name:"Arena extra",port:thirdPort,capacity:12,
+      preset:"custom",mods:["mais-lobos"]});
+    const thirdFile=path.join(dir,"arena.json");
+    createRoom(thirdFile,third);
+    const added=command(["start-room","arena","--rooms",dir]);
+    assert.equal(added.exit,0,added.output);
+    assert.match(added.output,/arena: starting/);
+    let thirdOnline=false;
+    for(let i=0;i<100;i++){
+      const res=await probeRoom({id:"arena",file:thirdFile,room:third},{timeout:500});
+      if(res.online){thirdOnline=true;break;}
+      await sleep(120);
+    }
+    assert.equal(thirdOnline,true,"Terceira sala nao iniciou: "+logs.slice(-1700));
+    assert.equal(normalSocket.readyState,WebSocket.OPEN,
+      "Adicionar sala nao deve desconectar jogadores de outra partida");
+    const thirdData=await fetch("http://127.0.0.1:"+thirdPort+"/mooio/status").then(r=>r.json());
+    assert.deepEqual(thirdData.v2.mods,["mais-lobos"]);
+    assert.equal(thirdData.v2.capacity,12);
+    const secondStart=command(["start-room","arena","--rooms",dir]);
+    assert.notEqual(secondStart.exit,0,"Sala ativa nao inicia em duplicidade");
+    const live=command(["status","--rooms",dir,"--json"]);
+    assert.equal(live.exit,0,live.output);
+    const liveReport=JSON.parse(live.output);
+    assert.equal(liveReport.totals.rooms,3);
+    assert.equal(liveReport.totals.online,3);
+    assert.equal(liveReport.totals.capacity,51);
+    assert.doesNotMatch(live.output,new RegExp(third.roomCode));
+    // Do not allow a new room to bind on an already active neighbor's port.
+    createRoom(path.join(dir,"collision.json"),newRoom({port:firstPort}));
+    const conflict=command(["start-room","collision","--rooms",dir]);
+    assert.notEqual(conflict.exit,0);
+    fs.unlinkSync(path.join(dir,"collision.json"));
+    assert.equal(normalSocket.readyState,WebSocket.OPEN);
     const newStatus=command(["status","--rooms",dir,"--json"]);
     assert.equal(newStatus.exit,0,newStatus.output);
     assert.equal(JSON.parse(newStatus.output).healthy,true);
