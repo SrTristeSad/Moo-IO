@@ -31,7 +31,7 @@ test("painel protege sessao, sala e mods",{timeout:30000},async()=>{
     });
     assert.equal((await request("/api/overview")).status,401);
     assert.equal((await request("/api/rooms/normal/players")).status,401);
-    assert.equal((await request("/api/rooms/normal/kick","POST",{playerId:"0123456789abcdef"})).status,403);
+    assert.equal((await request("/api/rooms/normal/kick","POST",{playerId:"0123456789abcdef"})).status,401);
     assert.equal((await request("/api/login","POST",{password},undefined,undefined,"https://external.invalid")).status,403);
     const login=await request("/api/login","POST",{password});
     assert.equal(login.status,200);
