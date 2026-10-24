@@ -13,8 +13,9 @@ local function privateHost(host)
   a,b,c,d=tonumber(a),tonumber(b),tonumber(c),tonumber(d)
   if not a or not b or not c or not d or
     a>255 or b>255 or c>255 or d>255 then return false end
-  return a==10 or a==127 or (a==192 and b==168) or
-    (a==172 and b>=16 and b<=31) or (a==100 and b>=64 and b<=127)
+  return a==10 or a==127 or a==25 or a==26 or (a==192 and b==168) or
+    (a==172 and b>=16 and b<=31) or (a==100 and b>=64 and b<=127 and
+      not (b==100 and c==100 and d==100))
 end
 local function send(host,port,code,route,body,options)
   options=options or {}
