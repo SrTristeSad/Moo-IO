@@ -2,6 +2,43 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Monitoramento e recuperacao de salas na VPS (novo)
+
+O controlador suporta multiplas salas independentes e agora disponibiliza
+diagnosticos somente pelo terminal, sem criar interface administrativa
+HTTP publica:
+
+```bash
+# Relatorio simples: salas online, jogadores atuais e capacidade:
+node servidor/v2/manager.mjs status
+
+# Dados JSON para ferramentas externas (sem codigo de convite):
+node servidor/v2/manager.mjs status --json
+
+# Health check: codigo de saida 0 quando todas online; 1 quando alguma falha
+node servidor/v2/manager.mjs health
+node servidor/v2/manager.mjs health --json
+
+# Acompanhar mudancas sem inundar logs com relatorios repetidos
+node servidor/v2/manager.mjs watch --interval 15
+```
+
+O JSON informa total de salas, quantas estao online/offline, jogadores
+e lotacao, assim como a disponibilidade e o numero de mods de cada sala.
+Os codigos privados de convite, hashes de senha e tokens nao aparecem.
+O comando `health` serve para verificacoes locais do systemd, scripts
+de administracao e diagnosticos via SSH; **nao publique sua saida
+indiscriminadamente como API**.
+
+O processo controlador agora executa um watchdog: depois de uma janela
+de inicializacao de 20 segundos, confere as salas a cada 15 segundos.
+Ao detectar **tres falhas consecutivas de resposta**, encerra e reinicia
+somente aquela sala. Se um processo parar de responder a sinais normais,
+pode ser encerrado forcosamente apos mais 5 segundos. Salas saudaveis
+continuam funcionando. Falhas sucessivas de inicializacao ainda respeitam
+o limite de reinicios do supervisor; o watchdog nao substitui monitoramento
+da VPS nem garante recuperacao em falta de RAM ou CPU.
+
 ## Gateway HTTPS/WSS para VPS (novo)
 
 O gateway publica **cada sala com um subdominio** usando o proxy Caddy.
