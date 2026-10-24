@@ -29,7 +29,7 @@ O workflow do GitHub Actions prepara as dependencias e monta `Moo-IO-Servidor-V2
 node servidor/v2/tools/package.mjs
 ```
 
-A saida esta em `servidor/v2/dist/Moo-IO-Servidor-V2/`. Copie **a pasta inteira** para outra maquina com Node.js 20+. Ela contem o motor, configuracoes compartilhadas, dependencias e launcher; nao exige os clientes Lua nem npm durante a execucao.
+A saida esta em `servidor/v2/dist/Moo-IO-Servidor-V2/`. No Windows, tambem podem ser usados `CRIAR-SERVIDOR.cmd`, `INICIAR-SERVIDOR.cmd` e `DIAGNOSTICAR-SERVIDOR.cmd` (duplo clique); os arquivos `.sh` fazem o mesmo no Linux. O pacote inclui `LICENSE`, `NOTICE.md` e os avisos de licenca do servidor original. Copie **a pasta inteira** para outra maquina com Node.js 20+. Ela contem o motor, configuracoes compartilhadas, dependencias e launcher; nao exige os clientes Lua nem npm durante a execucao.
 
 ## Conectar
 
