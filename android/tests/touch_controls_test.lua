@@ -82,6 +82,7 @@ eq(m:setDirectionLock(false),false)
 eq(m:aimAngle(),1.15)
 assert(l.lock.y+l.lock.r < l.hotbar.y-14*l.u,
   "fixed-direction button must not interfere with ability row")
+m.aimDir=0
 eq(m.topCollapsed,false)
 local folded,foldState=m:pressed(170,l.fold.x,l.fold.y,w,h,14400,10)
 eq(folded,"top_toggle");eq(foldState,true)
