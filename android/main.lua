@@ -395,9 +395,11 @@ function love.update(dt)
         lastMove=move
       end
       local aim=View.localAim(lockDir,currentAttackDir(),lastAim)
-      if not lastAim or math.abs(aim-lastAim)>0.02 then
-        client:send("D",{aim})
-        lastAim=aim
+      -- Node K(0) prevents rotation while locked. Do not flood it with
+      -- direction packets, and keep our rendered facing fixed as well.
+      if not lockDir and (not lastAim or math.abs(aim-lastAim)>0.02) then
+        local ok=client:send("D",{aim})
+        if ok then lastAim=aim end
       end
     end
   end
@@ -940,8 +942,24 @@ function love.keypressed(key)
       return
     end
     if key=="x" then
+      -- Lock exactly the last authoritative facing, even if the last
+      -- short Android aim movement has not reached the normal network tick.
+      if not lockDir then
+        local dir=currentAttackDir()
+        local sent=client:send("D",{dir})
+        if not sent then return end
+        lastAim=dir
+      end
       local ok=client:send("K",{0})
-      if ok then lockDir=not lockDir end
+      if ok then
+        lockDir=not lockDir
+        if mobile then mobile:setDirectionLock(lockDir) end
+        if not lockDir then
+          local dir=currentAttackDir()
+          local updated=client:send("D",{dir})
+          if updated then lastAim=dir end
+        end
+      end
       return
     end
     if key=="r" then client:send("S",{1});return end
@@ -1199,6 +1217,30 @@ local function mobileAction(action,payload)
     client:send("Y",{payload})
   elseif action=="ping_here" then
     client:send("S",{1}) -- Same real team ping as keyboard R on Windows
+  elseif action=="lock_aim" then
+    -- Use the EXACT existing MooMoo.io K(0) lock toggle (Windows X).
+    -- This freezes direction only, not movement, attack or AUTO.
+    if not lockDir then
+      local dir=currentAttackDir()
+      local sent,sendErr=client:send("D",{dir})
+      if not sent then
+        latestEvent="Nao foi possivel fixar a mira: "..tostring(sendErr)
+        return
+      end
+      lastAim=dir
+    end
+    local ok,err=client:send("K",{0})
+    if ok then
+      lockDir=not lockDir
+      mobile:setDirectionLock(lockDir)
+      if not lockDir then
+        local dir=currentAttackDir()
+        local updated=client:send("D",{dir})
+        if updated then lastAim=dir end
+      end
+    else
+      latestEvent="Trava de mira indisponivel: "..tostring(err)
+    end
   elseif action=="server_auto" then
     local ok,err=client:send("K",{1}) -- Same toggle as E on Windows
     if not ok then
@@ -1285,7 +1327,7 @@ function love.touchmoved(id,x,y)
   if action=="aim" and not chatOpen and client
     and client.state=="spawn_confirmed" then
     local now=love.timer.getTime()
-    if attackChanged or now-mobileAimSentAt>=.04 then
+    if not lockDir and (attackChanged or now-mobileAimSentAt>=.04) then
       local dir=currentAttackDir()
       if not lastAim or math.abs(dir-lastAim)>.02 then
         local ok=client:send("D",{dir})
