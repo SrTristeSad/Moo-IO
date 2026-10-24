@@ -141,6 +141,12 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
     if(local&&typeof forwarded==="string"&&net.isIP(forwarded))return forwarded;
     return req.socket.remoteAddress||"unknown";
   }
+  function browserAccount(req){
+    const match=/(?:^|;\s*)mooio_browser=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||"");
+    if(!match)return null;
+    const entry=sessions[hash(match[1])];
+    return entry&&entry.until>Date.now()&&credentials.users[entry.email]?entry.email:null;
+  }
   function originAllowed(req){
     if(req.headers.origin!==publicUrl)fail(403,"Origem nao autorizada");
   }
@@ -205,7 +211,14 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
         flow.csrf=randomBytes(24).toString("hex");
         res.setHeader("Set-Cookie","mooio_login_csrf="+flow.csrf+
           "; HttpOnly; SameSite=Strict; Path=/login; Max-Age=300"+(secure?"; Secure":""));
+        const loggedIn=browserAccount(req);
+        const approval=loggedIn?'<p>Você já está conectado no navegador.</p>'+
+          '<form action="/login/submit" method="post">'+
+          '<input type="hidden" name="id" value="'+id+'"><input type="hidden" name="csrf" value="'+flow.csrf+'">'+
+          '<button name="action" value="approve">Autorizar como '+escapeHTML(loggedIn)+'</button></form>'+
+          '<p>Ou use outra conta:</p>':'';
         const section=flow.approved?"<p>Conta autorizada. Volte ao Moo-IO.</p>":
+          approval+
           '<p>Entre ou crie uma conta para autorizar seu jogo. Sua senha não é enviada ao cliente.</p>'+
           '<form action="/login/submit" method="post">'+
           '<input type="hidden" name="id" value="'+id+'"><input type="hidden" name="csrf" value="'+flow.csrf+'">'+
@@ -225,6 +238,12 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
         if(!match||!equal(match[1],flow.csrf)||!equal(body.csrf,flow.csrf))
           fail(403,"CSRF invalido");
         rate("login:"+peer(req),20);
+        if(body.action==="approve"){
+          const known=browserAccount(req);
+          if(!known)fail(401,"Entre com a conta primeiro");
+          flow.approved=known;
+          return html(res,200,"<h2>Acesso autorizado</h2><p>Volte ao Moo-IO. Sua senha permanece no navegador.</p>",secure);
+        }
         const email=normalizeEmail(body.email);
         const password=body.password;
         if(email)rate("email:"+hash(email),12);
@@ -238,6 +257,13 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
           if(!await credentials.verify(email,password))fail(401,"Credenciais invalidas");
         }else fail(400,"Acao invalida");
         flow.approved=email;
+        clean();
+        if(Object.keys(sessions).length>=MAX_SESSIONS)fail(503,"Limite de sessoes atingido");
+        const browserToken=randomBytes(32).toString("hex");
+        sessions[hash(browserToken)]={email,until:Date.now()+SESSION_TTL};
+        persist();
+        res.setHeader("Set-Cookie","mooio_browser="+browserToken+
+          "; HttpOnly; SameSite=Strict; Path=/login; Max-Age=604800"+(secure?"; Secure":""));
         logger("Browser authorization approved (account identifier omitted)");
         return html(res,200,"<h2>Acesso autorizado</h2><p>Você já pode voltar ao Moo-IO. Esta página não envia sua senha ao jogo.</p>",secure);
       }

@@ -9,6 +9,7 @@ local Home=require("src.game.mooio_home")
 local Pause=require("src.game.mooio_pause")
 local Host=require("src.net.mooio_host")
 local Auth=require("src.net.local_auth")
+local BrowserAuth=require("src.net.browser_auth")
 local Config=require("src.game.config")
 local Hud=require("src.game.reference_hud")
 local Panels=require("src.game.reference_panels")
@@ -52,6 +53,7 @@ local sessionIsHost=false
 local allowQuit=false
 local joinRequested=false
 local connectRoom
+local pendingBrowserLogin=nil
 local homeAction
 local panels=Panels.new()
 local profile=Profile.new()
@@ -128,6 +130,7 @@ function love.load()
     local ok,err=pcall(function()
       require("src.test_room_choice")(homeAction,home,hosted,
         function() return client end)
+      require("src.test_browser_auth")()
     end)
     if not ok then print("MOO IO ROOM CHOICE FAIL: "..tostring(err)) end
     allowQuit=true -- mocked owner must not block an automated test exit
@@ -218,6 +221,27 @@ function love.update(dt)
   elseif home.starting and hosted.state=="failed" then
     home.starting=false;home.hosting=false
     home:setStatus(hosted.error or "Nao foi possivel iniciar o servidor.",true)
+  end
+  -- PKCE polling over the already-private LAN/VPN connection.
+  -- No long-lived hub token or password is ever returned to Lua.
+  if pendingBrowserLogin then
+    if home.screen~="play" then pendingBrowserLogin=nil
+    else
+      pendingBrowserLogin.elapsed=pendingBrowserLogin.elapsed+dt
+      if pendingBrowserLogin.elapsed>=2.5 then
+        pendingBrowserLogin.elapsed=0
+        local result,why=BrowserAuth.poll(pendingBrowserLogin)
+        if result then
+          local target=pendingBrowserLogin.target
+          pendingBrowserLogin=nil
+          home:setStatus("Conta autorizada! Conectando a partida...")
+          connectRoom(target.host,target.port,target.code,result.token)
+        elseif why~="pending" then
+          pendingBrowserLogin=nil
+          home:setStatus(why or "Login V2 recusado.",true)
+        end
+      end
+    end
   end
   if not client then return end
   if joinRequested and client.state=="keyed_transport" then
@@ -594,11 +618,12 @@ menuAction=function(action)
 end
 
 -- Native menu actions. Only one authoritative Node session exists at a time.
-connectRoom=function(ip,port,inviteCode)
+connectRoom=function(ip,port,inviteCode,authToken)
   if client then client:close();client=nil end
   world=World.new()
   local ok,connection=pcall(Original.new,{
-    host=ip,port=port,server="LC",inviteCode=inviteCode,autoSpawn=false
+    host=ip,port=port,server="LC",inviteCode=inviteCode,autoSpawn=false,
+    authToken=authToken
   })
   if not ok then
     home:setStatus("Cliente de rede: "..tostring(connection),true)
@@ -658,6 +683,23 @@ homeAction=function(action)
     home:setStatus(home.serverMode=="vpn"
       and "Abra sua VPN com os amigos e informe o IP virtual deste computador."
       or "Modo LAN: amigos conectados ao mesmo roteador.")
+  elseif action=="v2_login" then
+    if pendingBrowserLogin then
+      home:setStatus("Login V2 ja solicitado. Autorize no navegador.");return
+    end
+    local target,why=Home.parseInvite(home.invite,home.joinCode)
+    if not target then home:setStatus(why,true);return end
+    local request,err=BrowserAuth.begin(target.host,target.port,target.code)
+    if not request then home:setStatus(err,true);return end
+    local ok,opened=pcall(function()
+      return love.system.openURL(request.verificationUri)
+    end)
+    if not ok or opened==false then
+      home:setStatus("Nao foi possivel abrir o navegador seguro.",true);return
+    end
+    request.target=target
+    pendingBrowserLogin=request
+    home:setStatus("Abra o navegador para entrar ou criar conta. Volte ao jogo ao autorizar.")
   elseif action=="join" then
     local target,why=Home.parseInvite(home.invite,home.joinCode)
     if not target then home:setStatus(why,true);return end

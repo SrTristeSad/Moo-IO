@@ -34,9 +34,16 @@ Configure o DNS de `auth.jogo.seudominio.com` e dos subdomínios das salas, cert
 - Contas antigas armazenadas em cada sala não são migradas automaticamente. A identidade central funciona apenas entre salas da mesma VPS.
 - O cadastro ainda não verifica a propriedade do e-mail e ainda não fornece recuperação de senha por e-mail; não trate o endereço como verificado.
 - O token central pode ser revogado, mas JWTs de sala já emitidos podem continuar válidos até expirar (até 15 minutos).
-- **A interface dos clientes Lua Windows e Android ainda precisa implementar o fluxo de navegador, a consulta PKCE e os transportes HTTPS/WSS com certificados validados.** O backend está disponível, mas isso por si só não torna o APK existente capaz de jogar numa VPS pública.
+- **Windows/Android Lua agora possuem a ação Entrar na conta V2 (navegador) para LAN e VPN privadas**, com PKCE encaminhado pelo servidor da sala. O token central de sete dias fica no backend; o jogo recebe somente um JWT da sala de até 15 minutos. Ainda falta transporte HTTPS/WSS nativo e certificado validado para acessar IPs públicos diretamente; não use o modo privado em redes públicas não confiáveis.
 - O cliente LAN e o login legado para salas locais permanecem separados e não foram removidos.
 
+### Login pelo navegador no cliente LAN/VPN
+
+Com o serviço de identidade e o Caddy configurados na VPS, conecte o dispositivo à rede privada/VPN do proprietário. Na tela **Jogar**, informe o IP privado ou virtual da sala, porta e código de convite; em seguida clique em **Entrar na conta V2 (navegador)**. O navegador abre a página HTTPS do servidor; após autorizar, volte ao jogo. O cliente consulta a sala periodicamente e entra automaticamente quando recebe a autorização.
+
+A sala oferece `/api/auth/v2/start` e `/api/auth/v2/token`, protegidos pelo convite. Esses endpoints encaminham apenas PKCE ao hub em localhost. A sessão central é validada e revogada pelo próprio servidor; **somente o JWT temporário da sala volta para o Lua**. O navegador mantém um cookie seguro HttpOnly para permitir aprovar outras salas sem redigitar a senha.
+
+**Atenção:** o cliente Lua usa HTTP e WS para jogar. Esse fluxo é exclusivamente para IPs privados LAN/VPN; prefira VPN criptografada (como Tailscale) para proteger o JWT temporário e a partida. Não significa que o cliente já suporta HTTPS/WSS de ponta a ponta em uma VPS pública. Não exponha diretamente portas internas no firewall.
 ## Banimento temporario, historico e permissoes do painel (novo)
 
 O painel agora permite banir por **5, 15, 60, 360, 1440 ou 10080

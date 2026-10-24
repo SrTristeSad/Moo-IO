@@ -56,6 +56,7 @@ local boxes={
   roomStop={392,485,225,55},
   joinIP={704,287,421,51},joinCode={704,359,421,51},
   join={704,430,421,54},joinRetry={704,506,421,49},
+  v2Login={704,557,421,38},
   serverLite={159,274,433,58},serverFirebase={661,274,433,58},
   serverToPlay={381,526,518,54},
   grid={355,280,570,57},fullscreen={355,364,570,57},
@@ -177,6 +178,9 @@ function Home:click(sx,sy)
       if inside(x,y,boxes.roomStop) then self.focus=nil;return "stop" end
     end
     if inside(x,y,boxes.join) then self.focus=nil;return "join" end
+    if not self.hosting and not self.starting and inside(x,y,boxes.v2Login) then
+      self.focus=nil;return "v2_login"
+    end
     if self.error and inside(x,y,boxes.joinRetry) then self.focus=nil;return "retry" end
     self.focus=nil
   elseif self.screen=="server" then
@@ -350,6 +354,9 @@ function Home:draw(state,detail,showWorld)
       printText("Codigo de acesso (separado ou no convite)",704,340,14,C.muted)
       field("joinCode",self.joinCode,"Codigo da sala",self.focus=="joinCode")
       button("join","ENTRAR NA SALA",true)
+      if not self.hosting and not self.starting then
+        button("v2Login","ENTRAR NA CONTA V2 (NAVEGADOR)",false)
+      end
       if self.error then
         button("joinRetry","TENTAR NOVAMENTE",false)
       else

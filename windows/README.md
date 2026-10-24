@@ -1,5 +1,13 @@
 # Moo-IO — Windows
 
+## Login V2 pelo navegador (LAN/VPN privada)
+
+O cliente não solicita senha no jogo. No menu **Jogar**, informe o convite privado da sala (IP/porta/código), escolha **Entrar na conta V2 (navegador)** e autorize no site HTTPS da VPS. Volte ao Moo-IO; o cliente consulta a sala automaticamente e entra quando a autorização termina. O código PKCE é gerado com fonte criptográfica de entropia e usado uma só vez.
+
+O protocolo protege o segredo central: a sala consulta o serviço de identidade localmente, consome o código PKCE e devolve ao cliente somente um JWT específico de 15 minutos. Sem a infraestrutura Caddy/identidade da VPS, use a entrada LAN original.
+
+**Limite:** o transportador Lua continua usando HTTP/WS para partidas por IP privado. Para tráfego entre redes, use uma VPN criptografada; acesso público direto por domínio HTTPS/WSS ainda exige cliente TLS próprio. Não envie credenciais ou tokens por IP público sem TLS.
+
 **Moo-IO** é um jogo multiplayer de sobrevivência e combate em 2D, com visão de cima. Explore o mapa, reúna recursos, construa estruturas, equipe armas e enfrente animais e outros jogadores.
 
 ## O jogo
