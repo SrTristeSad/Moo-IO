@@ -4,11 +4,11 @@
 import path from "node:path";
 import { RoomSupervisor, discoverRooms, checkRooms, DEFAULT_ROOMS } from "./core/supervisor.mjs";
 import { scanRooms, statusText, statusKey } from "./core/monitor.mjs";
-import { startControlServer, requestRoomRestart } from "./core/control.mjs";
+import { startControlServer, requestRoomRestart, requestRoomStart } from "./core/control.mjs";
 
 const args=process.argv.slice(2);
 const cmd=args.shift()||"help";
-const restartId=cmd==="restart"?args.shift():null;
+const targetId=["restart","start-room"].includes(cmd)?args.shift():null;
 function parseArgs(args){
   const flags={rooms:DEFAULT_ROOMS,json:false,interval:15,intervalPassed:false};
   const seen=new Set();
@@ -42,23 +42,27 @@ async function main(){
       "  node servidor/v2/manager.mjs watch [--rooms pasta] [--interval 15]",
       "  node servidor/v2/manager.mjs start [--rooms pasta]",
       "  node servidor/v2/manager.mjs restart ID [--rooms pasta]",
+      "  node servidor/v2/manager.mjs start-room ID [--rooms pasta]",
       "status: jogadores por sala; --json: relatorio para scripts.",
       "health: sai com codigo 1 se alguma sala estiver offline.",
       "watch: mostra alteracoes de jogadores/disponibilidade.",
       "start: inicia salas isoladas e reinicia apos falhas e travamentos.",
       "restart: valida os mods e recarrega somente a sala indicada, sem reiniciar vizinhas.",
+      "start-room: inicia uma nova sala criada no disco, sem interromper as demais.",
       "Administracao local; NAO disponibilize estes comandos como API publica."
     ].join("\n"));
     return;
   }
-  if(!["check","status","health","watch","start","restart"].includes(cmd))throw Error("Comando desconhecido: "+cmd);
+  if(!["check","status","health","watch","start","restart","start-room"].includes(cmd))throw Error("Comando desconhecido: "+cmd);
   if(flags.json&&!["status","health"].includes(cmd))throw Error("--json somente para status/health");
   if(flags.intervalPassed&&cmd!=="watch")throw Error("--interval somente para watch");
-  if(cmd==="restart"){
-    if(flags.json||flags.intervalPassed)throw Error("restart aceita somente --rooms");
-    if(!restartId)throw Error("Informe o ID da sala, por exemplo: restart lobos");
-    const result=await requestRoomRestart(flags.rooms,restartId);
-    console.log("Sala "+result.id+": "+result.status+". As demais salas permaneceram no mesmo processo.");
+  if(cmd==="restart"||cmd==="start-room"){
+    if(flags.json||flags.intervalPassed)throw Error("Comando aceita somente --rooms");
+    if(!targetId)throw Error("Informe o ID da sala");
+    const result=cmd==="restart"
+      ?await requestRoomRestart(flags.rooms,targetId)
+      :await requestRoomStart(flags.rooms,targetId);
+    console.log("Sala "+result.id+": "+result.status+". Outras salas permanecem ativas.");
     return;
   }
   const rooms=await checkRooms(discoverRooms(flags.rooms));
@@ -106,7 +110,7 @@ async function main(){
     supervisor.start();
     let control;
     try{
-      control=await startControlServer(flags.rooms,{onRestart:id=>supervisor.restartRoom(id)});
+      control=await startControlServer(flags.rooms,{onRestart:id=>supervisor.restartRoom(id),onStart:id=>supervisor.startRoom(id)});
     }catch(error){
       await supervisor.stop();
       throw error;
