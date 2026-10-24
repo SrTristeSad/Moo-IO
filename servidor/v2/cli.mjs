@@ -57,6 +57,18 @@ try{
     createRoom(file,room);
     console.log("Sala criada: "+file+"\nCodigo privado: "+room.roomCode+"\nModos: traditional ou custom. Use 'mods' e 'enable ID' para personalizar.");
   }
+  else if(action==="configure"){
+    if(opts._.length)throw Error("configure nao recebe argumentos sem --opcao");
+    const room=readRoom(file),changes={};
+    for(const field of ["name","preset","host","network"])if(opts[field]!==undefined)changes[field]=opts[field];
+    for(const field of ["port","bots","capacity"])if(opts[field]!==undefined)changes[field]=Number(opts[field]);
+    if(!Object.keys(changes).length)throw Error("Informe pelo menos uma opcao: --name, --preset, --host, --port, --network, --bots ou --capacity");
+    Object.assign(room,changes);
+    if(room.preset==="custom")await planRoom(room); // no invalid mods after editing
+    updateRoom(file,room);
+    console.log("Sala atualizada: "+file);
+    console.log("Nome: "+room.name+" | preset: "+room.preset+" | host: "+room.host+":"+room.port+" | capacidade: "+room.capacity+" | bots: "+room.bots);
+  }
   else if(action==="mods"){
     if(opts._.length)throw Error("mods nao recebe argumentos");
     console.log("Mods JSON instalados em "+MOD_DIR+":");
