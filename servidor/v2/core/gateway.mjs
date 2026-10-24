@@ -92,15 +92,15 @@ export function renderCaddyfile(plan,{identityHost=null,identityPort=8788}={}){
     all.push('        X-Content-Type-Options "nosniff"');
     all.push("    }");
     all.push("    @auth_public path /login /login/submit /v1/authorize/start /v1/authorize/token /v1/session/revoke /health");
-    all.push("    handle @auth_public {");
-    all.push("        reverse_proxy 127.0.0.1:"+identityPort+" {");
+    all.push("    route {");
+    all.push("        reverse_proxy @auth_public 127.0.0.1:"+identityPort+" {");
     all.push("            header_up Host {host}");
     all.push("            header_up -Forwarded");
     all.push("            header_up X-Forwarded-For {remote_host}");
     all.push("            header_up X-Forwarded-Proto https");
     all.push("        }");
+    all.push("        respond 404");
     all.push("    }");
-    all.push("    respond 404");
     all.push("}");
     all.push("");
   }
