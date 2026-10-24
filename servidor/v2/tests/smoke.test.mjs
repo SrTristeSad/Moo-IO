@@ -1,7 +1,7 @@
 // Integration: dedicated CLI -> actual authoritative Node -> API / ticket / WebSocket.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -83,9 +83,14 @@ test("V2: cria sala isolada, inicia motor real, controla ingresso e desliga", { 
     ws.terminate();
   } finally {
     if (child && child.exitCode === null) {
-      child.kill("SIGTERM");
-      await Promise.race([new Promise(resolve => child.once("close", resolve)), sleep(3500)]);
-      if (child.exitCode === null) child.kill("SIGKILL");
+      if (process.platform === "win32") {
+        // Windows does not deliver POSIX signals to a spawned process tree.
+        spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      } else {
+        child.kill("SIGTERM");
+        await Promise.race([new Promise(resolve => child.once("close", resolve)), sleep(3500)]);
+        if (child.exitCode === null) child.kill("SIGKILL");
+      }
     }
     rmSync(dir, { recursive: true, force: true });
   }
