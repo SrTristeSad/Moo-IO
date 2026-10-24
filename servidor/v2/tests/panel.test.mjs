@@ -6,7 +6,10 @@ import os from "node:os";
 import net from "node:net";
 import path from "node:path";
 import { createPanel, panelCredentials, ADMIN_EMAIL } from "../core/panel.mjs";
-import { readRoom } from "../core/config.mjs";
+import { readRoom, createRoom, newRoom } from "../core/config.mjs";
+import { probeRoom } from "../core/supervisor.mjs";
+import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 async function port(){
   const s=net.createServer();
@@ -57,6 +60,71 @@ test("painel protege sessao, sala e mods",{timeout:30000},async()=>{
     assert.equal((await request("/api/overview","GET",undefined,cookie)).status,401);
   }finally{
     if(panel)await panel.close();
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+test("Painel cria e inicia sala nova com controlador ativo sem parar primeira sala",{timeout:45000},async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"mooio-panel-live-"));
+  const root=fileURLToPath(new URL("../../../",import.meta.url));
+  const initialPort=await port();
+  let extraPort=await port();
+  while(extraPort===initialPort)extraPort=await port();
+  const room=newRoom({name:"Normal",port:initialPort,capacity:20});
+  const firstFile=path.join(dir,"normal.json");
+  createRoom(firstFile,room);
+  let child,panel,log="";
+  try{
+    child=spawn(process.execPath,[path.join(root,"servidor/v2/manager.mjs"),"start","--rooms",dir],
+      {cwd:root,stdio:["ignore","pipe","pipe"]});
+    child.stdout.on("data",d=>log+=d.toString());
+    child.stderr.on("data",d=>log+=d.toString());
+    let initial=false;
+    for(let i=0;i<90;i++){
+      if((await probeRoom({id:"normal",file:firstFile,room},{timeout:350})).online){
+        initial=true;break;
+      }
+      await new Promise(r=>setTimeout(r,140));
+    }
+    assert.equal(initial,true,"Sala inicial nao iniciou: "+log.slice(-900));
+    await panelCredentials(dir).set(ADMIN_EMAIL,"panel-live-password-93841");
+    panel=await createPanel({rooms:dir,port:await port()});
+    const base="http://127.0.0.1:"+panel.port;
+    const login=await fetch(base+"/api/login",{method:"POST",headers:{
+      "Origin":base,"Content-Type":"application/json"
+    },body:JSON.stringify({password:"panel-live-password-93841"})});
+    assert.equal(login.status,200);
+    const cookie=login.headers.get("set-cookie").split(";")[0];
+    const {csrf}=await login.json();
+    const created=await fetch(base+"/api/rooms",{method:"POST",headers:{
+      "Origin":base,"Content-Type":"application/json","Cookie":cookie,"X-CSRF-Token":csrf
+    },body:JSON.stringify({id:"arena",name:"Arena",preset:"custom",
+      port:extraPort,capacity:24,bots:0,mods:["mais-lobos"]})});
+    assert.equal(created.status,201,await created.text());
+    // The request has already reached the private supervisor IPC channel.
+    const newFile=path.join(dir,"arena.json"),config=readRoom(newFile);
+    let online=false;
+    for(let i=0;i<90;i++){
+      if((await probeRoom({id:"arena",file:newFile,room:config},{timeout:400})).online){
+        online=true;break;
+      }
+      await new Promise(r=>setTimeout(r,140));
+    }
+    assert.equal(online,true,"Painel nao iniciou nova arena: "+log.slice(-1500));
+    assert.equal((await probeRoom({id:"normal",file:firstFile,room},{timeout:500})).online,true);
+    const duplicate=await fetch(base+"/api/rooms/arena/start",{method:"POST",headers:{
+      "Origin":base,"Content-Type":"application/json","Cookie":cookie,"X-CSRF-Token":csrf
+    },body:"{}"});
+    assert.notEqual(duplicate.status,200);
+  }finally{
+    if(panel)await panel.close();
+    if(child&&child.exitCode===null){
+      if(process.platform==="win32")spawnSync("taskkill",["/PID",String(child.pid),"/T","/F"],{stdio:"ignore"});
+      else child.kill("SIGTERM");
+      await Promise.race([new Promise(resolve=>child.once("close",resolve)),
+        new Promise(resolve=>setTimeout(resolve,5000))]);
+      if(child.exitCode===null&&process.platform!=="win32")child.kill("SIGKILL");
+    }
     fs.rmSync(dir,{recursive:true,force:true});
   }
 });
