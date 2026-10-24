@@ -92,7 +92,12 @@ public final class MooIOTlsBridge implements AutoCloseable {
             params.setEndpointIdentificationAlgorithm("HTTPS");
             params.setServerNames(Collections.singletonList(new SNIHostName(parts[2])));
             tls.setSSLParameters(params);
-            tls.setEnabledProtocols(new String[]{"TLSv1.3","TLSv1.2"});
+            java.util.List<String> allowed=new java.util.ArrayList<>();
+            for(String protocol:tls.getSupportedProtocols())
+                if("TLSv1.3".equals(protocol)||"TLSv1.2".equals(protocol))
+                    allowed.add(protocol);
+            if(allowed.isEmpty())throw new IOException("TLS 1.2+ unavailable");
+            tls.setEnabledProtocols(allowed.toArray(new String[0]));
             tls.setSoTimeout(7000);
             tls.startHandshake(); // aborts for unknown CA, expired, mismatched hostname
             client.getOutputStream().write("OK\n".getBytes(StandardCharsets.US_ASCII));
@@ -103,7 +108,7 @@ public final class MooIOTlsBridge implements AutoCloseable {
             upstream.setDaemon(true);upstream.start();
             pipe(tls.getInputStream(),client.getOutputStream());
             tls.close();
-            try{client.shutdownOutput();}catch(SocketException ignored){}
+            try{client.shutdownOutput();}catch(IOException ignored){}
         }
     }
     private static OutputStream outputOf(Socket socket){
