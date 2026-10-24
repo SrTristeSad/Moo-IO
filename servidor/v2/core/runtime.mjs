@@ -22,6 +22,8 @@ export async function run(room,file){
     HOST:room.host,
     PORT:String(room.port),
     DATA_DIR:data,
+    MOO_IO_V2_AUTH_DIR:path.join(path.dirname(file),".identity"),
+    MOO_IO_V2_AUTH_PORT:"8788",
     PROTOCOL_BUILD_FILE:path.join(data,"protocol-build.json")
   });
   // All gameplay mutations already applied before the engine modules import.
