@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
-import {spawn} from "node:child_process";
+import {spawn,spawnSync} from "node:child_process";
 import {createHash} from "node:crypto";
 import {fileURLToPath} from "node:url";
 import {createIdentityService,publicOrigin} from "../core/identity.mjs";
@@ -150,4 +150,25 @@ test("same browser identity exchanges into two isolated V2 rooms without the pas
     if(hub)await hub.close();
     fs.rmSync(dir,{recursive:true,force:true});
   }
+});
+
+test("identity CLI requires explicit HTTPS origin and stores only safe local configuration",()=>{
+  const folder=temp(),entry=path.join(root,"servidor/v2/identity.mjs");
+  try{
+    const args=["configure","--origin","https://auth.play.example.org","--rooms",folder];
+    const configured=spawnSync(process.execPath,[entry,...args],{cwd:root,encoding:"utf8"});
+    assert.equal(configured.status,0,configured.stderr);
+    const configFile=path.join(folder,".identity","origin.json");
+    assert.deepEqual(JSON.parse(fs.readFileSync(configFile,"utf8")),
+      {schemaVersion:1,origin:"https://auth.play.example.org"});
+    const verified=spawnSync(process.execPath,[entry,"check","--rooms",folder],{
+      cwd:root,encoding:"utf8"
+    });
+    assert.equal(verified.status,0,verified.stderr);
+    const denied=spawnSync(process.execPath,[entry,"configure","--origin",
+      "http://auth.example.org","--rooms",folder],{cwd:root,encoding:"utf8"});
+    assert.notEqual(denied.status,0);
+    assert.deepEqual(JSON.parse(fs.readFileSync(configFile,"utf8")),
+      {schemaVersion:1,origin:"https://auth.play.example.org"});
+  }finally{fs.rmSync(folder,{recursive:true,force:true});}
 });
