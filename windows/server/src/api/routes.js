@@ -66,6 +66,7 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
     const loginBuckets=new Map();
     let activeLogins=0;
     const allowBridgeAttempt=rateLimiter(30,60000);
+    const allowPkcePoll=rateLimiter(150,600000);
     function allowPasswordAttempt(req){
         const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase().slice(0,120):"invalid";
         const key=(req.socket.remoteAddress||"unknown")+"|"+email;
@@ -189,9 +190,11 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
             const response=await hubPost("/v1/authorize/start",{challenge});
             if(!response.ok)return res.status(503).json({type:"identityUnavailable"});
             const result=await response.json();
+            const uri=typeof result.verificationUri==="string"?new URL(result.verificationUri):null;
+            const localTesting=process.env.MOO_IO_V2_TEST_HTTP==="1"&&
+              uri?.protocol==="http:"&&["localhost","127.0.0.1"].includes(uri.hostname);
             if(typeof result.id!=="string"||!/^[a-f0-9]{40}$/.test(result.id)||
-               typeof result.verificationUri!=="string"||
-               !result.verificationUri.startsWith("https://"))
+               !uri||!(uri.protocol==="https:"||localTesting))
                 throw Error("Untrusted login URL");
             res.set("Cache-Control","no-store");
             return res.json({
@@ -207,7 +210,7 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
         if(typeof id!=="string"||!/^[a-f0-9]{40}$/.test(id)||
            typeof verifier!=="string"||!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier))
             return res.status(400).json({type:"invalidAuthorization"});
-        if(!allowBridgeAttempt(clientIp(req)))return res.status(429).json({type:"rateLimited"});
+        if(!allowPkcePoll(clientIp(req)+"|"+id))return res.status(429).json({type:"rateLimited"});
         try{
             const response=await hubPost("/v1/authorize/token",{id,verifier});
             if(response.status===202)return res.status(202).json({status:"pending"});
