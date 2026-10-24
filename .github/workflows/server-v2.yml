@@ -57,7 +57,8 @@ jobs:
         with:
           node-version: '22'
       - name: Install authoritative engine dependencies
-        run: npm install --prefix windows/server --no-audit --no-fund
+        working-directory: windows/server
+        run: npm install --no-audit --no-fund
       - name: Real Windows unit and gameplay smoke
         run: node --test servidor/v2/tests
       - name: Prepare Windows dedicated server folder
