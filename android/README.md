@@ -1,5 +1,13 @@
 # Moo-IO Android — cliente e servidor local integrados
 
+## Login V2 pelo navegador (LAN/VPN privada)
+
+O cliente não solicita senha no jogo. No menu **Jogar**, informe o convite privado da sala (IP/porta/código), escolha **Entrar na conta V2 (navegador)** e autorize no site HTTPS da VPS. Volte ao Moo-IO; o cliente consulta a sala automaticamente e entra quando a autorização termina. O código PKCE é gerado com fonte criptográfica de entropia e usado uma só vez.
+
+O protocolo protege o segredo central: a sala consulta o serviço de identidade localmente, consome o código PKCE e devolve ao cliente somente um JWT específico de 15 minutos. Sem a infraestrutura Caddy/identidade da VPS, use a entrada LAN original.
+
+**Limite:** o transportador Lua continua usando HTTP/WS para partidas por IP privado. Para tráfego entre redes, use uma VPN criptografada; acesso público direto por domínio HTTPS/WSS ainda exige cliente TLS próprio. Não envie credenciais ou tokens por IP público sem TLS.
+
 O aplicativo utiliza **LÖVE 11.5a** para o jogo em Lua e **Node.js Mobile 18.20.4** para hospedar o mesmo motor de partidas do Windows. O Android não precisa de outro jogador, PC ou VPS para criar uma sala. A hospedagem inicia em um serviço Android separado do processo gráfico e mantém seus dados no armazenamento privado.
 
 ## Instalação sem conflito com APKs antigos
