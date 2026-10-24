@@ -120,7 +120,7 @@ for (const def of GAME_SERVERS) {
 }
 
 // Dedicated V2 worker: listen ONLY on authenticated parent/child IPC, never public HTTP.
-if (V2_ROOM) installPlayerAdmin(games);
+if (V2_ROOM && typeof process.send === "function") installPlayerAdmin(games);
 
 const gameApi = {
     kickAccount: (id, reason) => [...games.values()].reduce((n, g) => n + g.kickAccount(id, reason), 0),
