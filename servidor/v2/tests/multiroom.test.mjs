@@ -281,7 +281,7 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     const closed=new Promise(resolve=>normalSocket.once("close",resolve));
     const kicked=command(["kick","normal",victim.id,"--rooms",dir]);
     assert.equal(kicked.exit,0,kicked.output);
-    assert.match(kicked.output,/undefined: kicked|Sala undefined/);
+    assert.match(kicked.output,/Jogador .* expulso desta sala/);
     await Promise.race([closed,sleep(4000)]);
     assert.equal(normalSocket.readyState,WebSocket.CLOSED);
     assert.equal((await probeRoom({id:"lobos",file:moddedFile,room:changed},{timeout:500})).online,true);
