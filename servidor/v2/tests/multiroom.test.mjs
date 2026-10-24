@@ -49,8 +49,20 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
   while(secondPort===firstPort)secondPort=await freePort();
   const normal=newRoom({name:"Normal",port:firstPort,capacity:15});
   const modded=newRoom({name:"Mundo dos Lobos",port:secondPort,capacity:24,preset:"custom",mods:["mais-lobos"]});
-  createRoom(path.join(dir,"normal.json"),normal);
-  createRoom(path.join(dir,"lobos.json"),modded);
+  const normalFile=path.join(dir,"normal.json"),moddedFile=path.join(dir,"lobos.json");
+  createRoom(normalFile,normal);
+  createRoom(moddedFile,modded);
+  const pass="correct-horse-battery-454",accounts=[
+    {file:normalFile,email:"normal@example.org"},
+    {file:moddedFile,email:"lobos@example.org"}
+  ];
+  for(const {file,email} of accounts){
+    const run=spawnSync(process.execPath,[path.join(root,"servidor/v2/accounts.mjs"),
+      "set-password","--file",file,"--email",email],{
+      cwd:root,input:pass+"\n",encoding:"utf8",timeout:20000
+    });
+    assert.equal(run.status,0,run.stderr);
+  }
   const entries=await checkRooms(discoverRooms(dir));
   let child,logs="";
   const a="http://127.0.0.1:"+firstPort,b="http://127.0.0.1:"+secondPort;
@@ -80,14 +92,30 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     assert.equal(modifiedPing.servers.length,1);
     assert.equal(normalPing.servers[0].playerCapacity,15);
     assert.equal(modifiedPing.servers[0].playerCapacity,24);
-    const ticket=async(url,code)=>fetch(url+"/api/join",{
+    const login=async(url,email)=>{
+      const res=await fetch(url+"/api/auth/password",{
+        method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({email,password:pass})
+      });
+      assert.equal(res.status,200);
+      return (await res.json()).token;
+    };
+    const normalToken=await login(a,accounts[0].email);
+    const modifiedToken=await login(b,accounts[1].email);
+    assert.equal((await fetch(b+"/api/auth/password",{
+      method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({email:accounts[0].email,password:pass})
+    })).status,400);
+    const ticket=async(url,code,auth)=>fetch(url+"/api/join",{
       method:"POST",headers:{"content-type":"application/json","x-mooio-code":code},
-      body:JSON.stringify({host:url+"/s/LC",captcha:true})
+      body:JSON.stringify({host:url+"/s/LC",auth})
     });
-    assert.equal((await ticket(a,modded.roomCode)).status,403);
-    assert.equal((await ticket(b,normal.roomCode)).status,403);
-    assert.equal((await ticket(a,normal.roomCode)).status,200);
-    assert.equal((await ticket(b,modded.roomCode)).status,200);
+    assert.equal((await ticket(a,modded.roomCode,normalToken)).status,403);
+    assert.equal((await ticket(b,normal.roomCode,modifiedToken)).status,403);
+    assert.equal((await ticket(a,normal.roomCode,null)).status,403);
+    assert.equal((await ticket(b,modded.roomCode,null)).status,403);
+    assert.equal((await ticket(a,normal.roomCode,normalToken)).status,200);
+    assert.equal((await ticket(b,modded.roomCode,modifiedToken)).status,200);
     const status=command(["status","--rooms",dir]);
     assert.equal(status.exit,0,status.output);
     assert.match(status.output,/ONLINE normal/);
