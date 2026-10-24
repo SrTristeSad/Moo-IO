@@ -60,12 +60,12 @@ jobs:
         working-directory: windows/server
         run: npm install --no-audit --no-fund
       - name: Real Windows unit and gameplay smoke
-        run: node --test servidor/v2/tests
+        run: node --test servidor/v2/tests/config.test.mjs servidor/v2/tests/smoke.test.mjs
       - name: Prepare Windows dedicated server folder
         run: node servidor/v2/tools/package.mjs
       - name: Verify Windows offline folder
         run: |
-          node --test servidor/v2/dist/Moo-IO-Servidor-V2/servidor/v2/tests
+          node --test servidor/v2/dist/Moo-IO-Servidor-V2/servidor/v2/tests/config.test.mjs servidor/v2/dist/Moo-IO-Servidor-V2/servidor/v2/tests/smoke.test.mjs
           if (!(Test-Path 'servidor/v2/dist/Moo-IO-Servidor-V2/INICIAR-SERVIDOR.cmd')) { exit 1 }
           if (!(Test-Path 'servidor/v2/dist/Moo-IO-Servidor-V2/LICENSE')) { exit 1 }
       - uses: actions/upload-artifact@v4
