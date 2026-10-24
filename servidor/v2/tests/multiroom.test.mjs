@@ -69,7 +69,7 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     const [normStatus,modsStatus]=await Promise.all([fetch(a+"/mooio/status").then(r=>r.json()),fetch(b+"/mooio/status").then(r=>r.json())]);
     assert.deepEqual(normStatus.v2.mods,[]);
     assert.deepEqual(modsStatus.v2.mods,["mais-lobos"]);
-    assert.equal(normStatus.v2.animals.wolfHealth,500); // Verify original baseline below via reference check
+    assert.equal(normStatus.v2.animals.wolfHealth,300); // Exact original value from aiManager.js
     assert.equal(modsStatus.v2.animals.wolfHealth,1000);
     assert.equal(normStatus.v2.world.treesPerArea,9);
     assert.equal(modsStatus.v2.world.treesPerArea,9);
