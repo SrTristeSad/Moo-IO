@@ -39,5 +39,6 @@ jobs:
         shell: bash
         run: |
           node servidor/v2/cli.mjs init --preset custom --file servidor/v2/rooms/teste.json
+          node servidor/v2/cli.mjs configure --file servidor/v2/rooms/teste.json --bots 2 --capacity 35
           node servidor/v2/cli.mjs enable colheita-farta --file servidor/v2/rooms/teste.json
           node servidor/v2/cli.mjs preview --file servidor/v2/rooms/teste.json
