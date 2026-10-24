@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import os from "node:os";
 import { buildPlan, applyPlan, validateManifest } from "../core/mods.mjs";
 import { newRoom, validateRoom, readModFile, listMods, createRoom, readRoom } from "../core/config.mjs";
@@ -62,6 +63,11 @@ test("cria sala e nao sobrescreve configuracao existente",()=>{
     const filename=path.join(folder,"sala.json"),r=newRoom({preset:"custom"});
     createRoom(filename,r);
     assert.deepEqual(readRoom(filename),r);
+    const result=spawnSync(process.execPath,[path.join(root,"servidor/v2/cli.mjs"),"configure","--file",filename,"--bots","3","--capacity","30","--name","Sala Personalizada"],{cwd:root,encoding:"utf8"});
+    assert.equal(result.status,0,result.stderr);
+    assert.equal(readRoom(filename).bots,3);
+    assert.equal(readRoom(filename).capacity,30);
+    assert.equal(readRoom(filename).name,"Sala Personalizada");
     assert.throws(()=>createRoom(filename,newRoom()),/EEXIST/);
   }finally{fs.rmSync(folder,{recursive:true,force:true});}
 });
