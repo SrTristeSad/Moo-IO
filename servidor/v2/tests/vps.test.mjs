@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { setup, doctor, unitContent, quoteSystemd, ROOT } from "../vps.mjs";
+import { setup, doctor, unitContent, panelUnitContent, quoteSystemd, ROOT } from "../vps.mjs";
 import { readRoom, createRoom, newRoom } from "../core/config.mjs";
 const cli=fileURLToPath(new URL("../vps.mjs",import.meta.url));
 const dir=()=>fs.mkdtempSync(path.join(os.tmpdir(),"mooio-v2-vps-"));
@@ -71,4 +71,20 @@ test("Unit systemd seguro com caminhos contendo espacos",()=>{
   assert.equal(quoteSystemd("/path/has $cash %var"),'"/path/has $$cash %%var"');
   assert.throws(()=>quoteSystemd("/root/file\nBad=true"),/controle/);
   assert.throws(()=>quoteSystemd("relative/file"),/absoluto/);
+});
+
+test("Painel systemd gerado separadamente, somente localhost e senha obrigatoria",()=>{
+  const unit=panelUnitContent({root:"/opt/Moo IO",rooms:"/opt/Moo IO/rooms",node:"/usr/bin/node",port:8787});
+  assert.match(unit,/ExecStartPre="\/usr\/bin\/node" "\/opt\/Moo IO\/servidor\/v2\/panel.mjs" check --rooms "\/opt\/Moo IO\/rooms"/);
+  assert.match(unit,/ExecStart="\/usr\/bin\/node" "\/opt\/Moo IO\/servidor\/v2\/panel.mjs" serve --rooms "\/opt\/Moo IO\/rooms" --port 8787/);
+  assert.match(unit,/NoNewPrivileges=true/);
+  assert.match(unit,/UMask=0077/);
+  assert.match(unit,/After=network.target mooio-v2.service/);
+  assert.doesNotMatch(unit,/0\.0\.0\.0|reverse_proxy|sudo|curl/);
+  assert.throws(()=>panelUnitContent({port:443}),/Porta/);
+  const generated=spawnSync(process.execPath,[cli,"panel-unit","--rooms","/opt/Moo IO/rooms","--port","8787"],
+    {cwd:ROOT,encoding:"utf8"});
+  assert.equal(generated.status,0,generated.stderr);
+  assert.match(generated.stdout,/panel.mjs" serve/);
+  assert.doesNotMatch(generated.stdout,/senha|password.*=.*[a-f0-9]{64}/i);
 });
