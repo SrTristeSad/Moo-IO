@@ -1,0 +1,37 @@
+name: Moo IO V2 - browser login Lua contract
+on:
+  pull_request:
+    paths:
+      - "android/**"
+      - "windows/src/**"
+      - "windows/main.lua"
+      - "windows/src/test_browser_auth.lua"
+      - ".github/workflows/private-v2-browser-client.yml"
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "windows/src/**"
+      - "windows/main.lua"
+      - ".github/workflows/private-v2-browser-client.yml"
+permissions:
+  contents: read
+jobs:
+  native-auth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.4
+      - name: Validate syntax of all Windows and Android Lua sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          find windows android -type f -name '*.lua' -print0 | xargs -0 -n1 luac -p
+      - name: Test Windows and Android scoped browser authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd windows && lua -e 'require("src.test_browser_auth")()')
+          (cd android && lua -e 'require("src.test_browser_auth")()')
