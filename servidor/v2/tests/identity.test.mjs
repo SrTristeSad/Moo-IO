@@ -53,14 +53,16 @@ async function authorize(base,email,password,{register=true}={}){
   const result=await fetch(base+"/login/submit",{method:"POST",
     headers:{"Origin":base,"Cookie":cookie,"Content-Type":"application/x-www-form-urlencoded"},
     body:form,redirect:"manual"});
-  assert.equal(result.status,200,await result.text());
+  assert.equal(result.status,200);
+  const browserCookie=result.headers.get("set-cookie")?.split(";")[0];
+  assert.match(browserCookie||"",/^mooio_browser=[a-f0-9]{64}$/);
   const exchange=await post(base+"/v1/authorize/token",{id:flow.id,verifier});
   assert.equal(exchange.status,200);
   const session=await exchange.json();
   assert.match(session.token,/^[a-f0-9]{64}$/);
   const replay=await post(base+"/v1/authorize/token",{id:flow.id,verifier});
   assert.equal(replay.status,410);
-  return session.token;
+  return {token:session.token,browserCookie};
 }
 test("browser login: cross-site blocked, salted password, PKCE, registration, one-time exchange, restart-safe session",{timeout:30000},async()=>{
   const dir=temp(),p=await port(),base="http://127.0.0.1:"+p,identityDir=path.join(dir,".identity");
@@ -69,7 +71,7 @@ test("browser login: cross-site blocked, salted password, PKCE, registration, on
     hub=await createIdentityService({dataDir:identityDir,origin:base,port:p});
     assert.throws(()=>publicOrigin("http://example.net"),/HTTPS/);
     assert.throws(()=>publicOrigin("https://evil.test/path"),/somente/);
-    const token=await authorize(base,"player@example.org","correct-long-password-2026");
+    const {token}=await authorize(base,"player@example.org","correct-long-password-2026");
     const passwordFile=fs.readFileSync(path.join(identityDir,"v2-credentials.json"),"utf8");
     assert.doesNotMatch(passwordFile,/correct-long-password-2026/);
     if(process.platform!=="win32")assert.equal(fs.statSync(path.join(identityDir,"hub.secret")).mode&0o777,0o600);
@@ -82,7 +84,7 @@ test("browser login: cross-site blocked, salted password, PKCE, registration, on
     await hub.close();hub=null;
     hub=await createIdentityService({dataDir:identityDir,origin:base,port:p});
     assert.equal((await introspect(secret,token).then(r=>r.json())).active,true);
-    const again=await authorize(base,"player@example.org","correct-long-password-2026",{register:false});
+    const {token:again}=await authorize(base,"player@example.org","correct-long-password-2026",{register:false});
     assert.notEqual(again,token);
     const revoked=await post(base+"/v1/session/revoke",{},
       {"Authorization":"Bearer "+token});
@@ -104,9 +106,9 @@ test("same browser identity exchanges into two isolated V2 rooms without the pas
   let hub,manager,logs="";
   try{
     hub=await createIdentityService({dataDir:path.join(rooms,".identity"),origin:base,port:authPort});
-    const browserToken=await authorize(base,"shared@example.org","long-password-2026-unique");
+    const {token:browserToken,browserCookie}=await authorize(base,"shared@example.org","long-password-2026-unique");
     manager=spawn(process.execPath,[path.join(root,"servidor/v2/manager.mjs"),"start","--rooms",rooms],{
-      cwd:root,env:{...process.env,MOO_IO_V2_AUTH_PORT:String(authPort)},
+      cwd:root,env:{...process.env,MOO_IO_V2_AUTH_PORT:String(authPort),MOO_IO_V2_TEST_HTTP:"1"},
       stdio:["ignore","pipe","pipe"]
     });
     manager.stdout.on("data",d=>logs+=d.toString());
@@ -139,6 +141,47 @@ test("same browser identity exchanges into two isolated V2 rooms without the pas
       assert.match((await join.json()).ticket,/^[a-f0-9]{36}$/);
     }
     assert.equal(ids.length,2);
+    // Native client broker: no seven-day hub token ever leaves the room.
+    const roomEndpoint="http://127.0.0.1:"+ports[0];
+    const invite={"X-MooIO-Code":configurations[0].roomCode};
+    const challenge2=createHash("sha256").update("b".repeat(64)).digest("base64url");
+    const noInvite=await post(roomEndpoint+"/api/auth/v2/start",{challenge:challenge2});
+    assert.equal(noInvite.status,403);
+    const begin=await post(roomEndpoint+"/api/auth/v2/start",{challenge:challenge2},invite);
+    assert.equal(begin.status,200);
+    const flow=await begin.json();
+    assert.match(flow.id,/^[a-f0-9]{40}$/);
+    const pending=await post(roomEndpoint+"/api/auth/v2/token",
+      {id:flow.id,verifier:"b".repeat(64)},invite);
+    assert.equal(pending.status,202);
+    const loginPage=await fetch(flow.verificationUri,{headers:{"Cookie":browserCookie}});
+    assert.equal(loginPage.status,200);
+    const markup=await loginPage.text();
+    assert.match(markup,/Autorizar como shared@example.org/);
+    const csrf=markup.match(/name="csrf" value="([a-f0-9]{48})"/)?.[1];
+    assert.ok(csrf);
+    const csrfCookie=loginPage.headers.get("set-cookie")?.split(";")[0];
+    const approved=await fetch(base+"/login/submit",{
+      method:"POST",
+      headers:{"Origin":base,"Content-Type":"application/x-www-form-urlencoded",
+        "Cookie":browserCookie+"; "+csrfCookie},
+      body:new URLSearchParams({id:flow.id,csrf,action:"approve"})
+    });
+    assert.equal(approved.status,200);
+    const result=await post(roomEndpoint+"/api/auth/v2/token",
+      {id:flow.id,verifier:"b".repeat(64)},invite);
+    assert.equal(result.status,200);
+    const scoped=await result.json();
+    assert.equal(scoped.status,"authorized");
+    assert.equal(scoped.email,"shared@example.org");
+    assert.match(scoped.token,/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    assert.ok(!JSON.stringify(scoped).includes(browserToken));
+    const joinAgain=await post(roomEndpoint+"/api/join",
+      {auth:scoped.token,host:roomEndpoint+"/s/LC"},invite);
+    assert.equal(joinAgain.status,200);
+    const replay=await post(roomEndpoint+"/api/auth/v2/token",
+      {id:flow.id,verifier:"b".repeat(64)},invite);
+    assert.equal(replay.status,410);
     assert.ok(!logs.includes("long-password-2026-unique"));
   }finally{
     if(manager&&manager.exitCode===null){
