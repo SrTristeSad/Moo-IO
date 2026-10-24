@@ -17,6 +17,9 @@ node servidor/v2/cli.mjs init --name "Minha sala especial" --preset custom --fil
 node servidor/v2/cli.mjs mods
 node servidor/v2/cli.mjs catalog
 
+# Altere configuracoes sem editar arquivos JSON (ex.: bots e capacidade)
+node servidor/v2/cli.mjs configure --file servidor/v2/rooms/especial.json --bots 3 --capacity 40 --name "Mundo dos Animais"
+
 # Ative um mod na sala personalizada
 node servidor/v2/cli.mjs enable colheita-farta --file servidor/v2/rooms/especial.json
 node servidor/v2/cli.mjs enable mais-lobos --file servidor/v2/rooms/especial.json
