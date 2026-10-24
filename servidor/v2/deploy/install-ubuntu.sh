@@ -52,6 +52,23 @@ else
   echo "Depois de configurar com 'node servidor/v2/panel.mjs password', execute:"
   echo "  systemctl --user enable --now mooio-v2-panel.service"
 fi
+# The browser identity service is opt-in until a real HTTPS origin is set.
+# Never auto-publish a login domain or create credentials as side effects.
+IDENTITY_UNIT="$SERVICE_DIR/mooio-v2-identity.service"
+IDENTITY_TEMP="$(mktemp "$SERVICE_DIR/.mooio-v2-identity.XXXXXX")"
+trap 'rm -f -- "$TMP_UNIT" "$PANEL_TEMP" "$IDENTITY_TEMP"' EXIT
+node servidor/v2/vps.mjs identity-unit > "$IDENTITY_TEMP"
+chmod 600 "$IDENTITY_TEMP"
+mv -f -- "$IDENTITY_TEMP" "$IDENTITY_UNIT"
+systemctl --user daemon-reload
+if node servidor/v2/identity.mjs check >/dev/null 2>&1; then
+  systemctl --user enable --now mooio-v2-identity.service
+  echo "Identidade V2 ativa somente em 127.0.0.1:8788; use HTTPS Caddy."
+else
+  echo "Identidade V2 instalada e desativada; falta configurar --origin HTTPS."
+  echo "  node servidor/v2/identity.mjs configure --origin https://auth.SEUDOMINIO"
+  echo "  systemctl --user enable --now mooio-v2-identity.service"
+fi
 echo
 echo "Moo-IO V2 habilitado no systemd do usuario."
 echo "Status:   systemctl --user status mooio-v2.service"
@@ -59,7 +76,8 @@ echo "Logs:     journalctl --user -u mooio-v2.service -f"
 echo "Salas:    node servidor/v2/manager.mjs status"
 echo "Painel:   systemctl --user status mooio-v2-panel.service"
 echo "Logs:     journalctl --user -u mooio-v2-panel.service -f"
+echo "Identidade: systemctl --user status mooio-v2-identity.service"
 echo "Nova sala nao exige reiniciar todo o controlador."
 echo "Para continuar ativo apos sair do SSH, um administrador deve executar:"
 echo "  sudo loginctl enable-linger \"$(id -un)\""
-echo "Nao abra 8787 nem as portas internas das salas na Internet."
+echo "Nao abra 8787, 8788 nem as portas internas das salas na Internet."
