@@ -39276,6 +39276,59 @@ var AdminConsole = class {
   }
 };
 
+// server/src/admin/v2-players.js
+var PLAYER_ID = /^[a-f0-9]{16}$/;
+var REQUEST_ID = /^[a-f0-9]{16,64}$/;
+var ROLES = /* @__PURE__ */ new Set(["admin", "mod", "player", "guest"]);
+function createPlayerAdmin(games2) {
+  const game = games2.get("LC");
+  if (!game) throw Error("Mundo LC nao encontrado");
+  function safeRole(player) {
+    const role = player.account?.role;
+    if (!role) return player.account ? "player" : "guest";
+    return ROLES.has(role) ? role : "player";
+  }
+  function players() {
+    return game.players.filter((p) => PLAYER_ID.test(p.id)).slice(0, 40).map((p) => ({
+      id: p.id,
+      name: String(p.name || "Jogador").slice(0, 80),
+      role: safeRole(p),
+      connectedAt: Number.isFinite(p.connectedAt) ? p.connectedAt : null
+    }));
+  }
+  function kick(playerId) {
+    if (typeof playerId !== "string" || !PLAYER_ID.test(playerId))
+      throw Error("ID de jogador invalido");
+    const player = game.players.find((p) => p.id === playerId);
+    if (!player) throw Error("Jogador nao esta conectado");
+    if (["admin", "mod"].includes(safeRole(player)))
+      throw Error("Jogador com permissao de equipe nao pode ser expulso por este painel");
+    if (typeof player.kick !== "function") throw Error("Jogador nao possui conexao expulsavel");
+    player.kick("kicked");
+    return { playerId, status: "kicked" };
+  }
+  function execute({ action, playerId }) {
+    if (action === "players") return { players: players() };
+    if (action === "kick") return kick(playerId);
+    throw Error("Comando de jogador nao autorizado");
+  }
+  return { execute };
+}
+function installPlayerAdmin(games2) {
+  if (typeof process.send !== "function") throw Error("Canal privado com supervisor ausente");
+  const control = createPlayerAdmin(games2);
+  process.on("message", (message) => {
+    if (message?.type !== "v2-player-admin" || !REQUEST_ID.test(message.requestId)) return;
+    let payload;
+    try {
+      payload = { ok: true, result: control.execute(message) };
+    } catch (error) {
+      payload = { ok: false, error: String(error.message).slice(0, 180) };
+    }
+    if (process.connected) process.send({ type: "v2-player-admin-result", requestId: message.requestId, ...payload });
+  });
+}
+
 // server/src/index.js
 import { randomBytes as randomBytes9, timingSafeEqual as timingSafeEqual5 } from "node:crypto";
 
@@ -39405,6 +39458,7 @@ for (const def of GAME_SERVERS) {
     botCount: def.key === "LC" ? BOT_COUNT : 0
   }));
 }
+if (V2_ROOM && typeof process.send === "function") installPlayerAdmin(games);
 var gameApi = {
   kickAccount: (id, reason) => [...games.values()].reduce((n, g) => n + g.kickAccount(id, reason), 0),
   setShadow: (id, on) => games.forEach((g) => g.setShadow(id, on)),
