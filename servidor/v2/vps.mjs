@@ -14,7 +14,7 @@ const DEFAULT_NAME="Minha sala Moo-IO";
 export function quoteSystemd(input){
   const p=String(input);
   if(!path.isAbsolute(p)||/[\x00-\x1f\x7f]/.test(p))throw Error("Caminho absoluto sem caracteres de controle obrigatorio");
-  return '"' + p.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/%/g,"%%").replace(/\$/g,"$$") + '"';
+  return '"' + p.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/%/g,"%%").replace(/\$/g,()=> "$") + '"';
 }
 export function unitContent({node=process.execPath,root=ROOT,rooms=DEFAULT_ROOMS}={}){
   const exe=quoteSystemd(node),script=quoteSystemd(path.join(root,"servidor/v2/manager.mjs"));
@@ -22,11 +22,11 @@ export function unitContent({node=process.execPath,root=ROOT,rooms=DEFAULT_ROOMS
   return [
     "# Gerado pela V2 Moo-IO; acesso de rede somente privado.",
     "[Unit]","Description=Moo-IO V2 private server rooms","After=network.target",
+    "StartLimitIntervalSec=120","StartLimitBurst=5",
     "","[Service]","Type=simple","WorkingDirectory="+work,
     "ExecStartPre="+exe+" "+script+" check --rooms "+config,
     "ExecStart="+exe+" "+script+" start --rooms "+config,
-    "Restart=on-failure","RestartSec=5","StartLimitIntervalSec=120",
-    "StartLimitBurst=5","KillMode=control-group","TimeoutStopSec=15",
+    "Restart=on-failure","RestartSec=5","KillMode=control-group","TimeoutStopSec=15",
     "UMask=0077","NoNewPrivileges=true","Environment=NODE_ENV=production",
     "","[Install]","WantedBy=default.target",""
   ].join("\n");
