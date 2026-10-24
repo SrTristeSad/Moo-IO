@@ -1,5 +1,5 @@
 -- Shared mapping of server-owned weapon/item IDs onto mobile buttons.
--- Four first slots belong on the right, remaining entries appear in the centre.
+-- The options actually unlocked on the server share one continuous bottom row.
 -- Neither this module nor the client grants ownership or creates items.
 local S={}
 function S.list(world)
@@ -31,8 +31,4 @@ function S.total(world)
   local inv=world and world.inventory or {}
   return #(inv.weapons or {})+#(inv.items or {})
 end
-function S.pages(world,perPage)
-  perPage=perPage or 5
-  return math.max(1,math.ceil(math.max(0,S.total(world)-4)/perPage))
-end
-return S
+ return S

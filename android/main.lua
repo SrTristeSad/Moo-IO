@@ -17,6 +17,7 @@ local Death=require("src.game.reference_death")
 local Notices=require("src.game.reference_notices")
 local Profile=require("src.game.reference_profile")
 local Upgrades=require("src.game.reference_upgrades")
+local Abilities=require("src.mobile.ability_actions")
 local Assets=require("src.game.reference_assets")
 local Camera=require("src.camera")
 local Input=require("src.input")
@@ -47,6 +48,37 @@ local previewAge=2
 local menu=Menu.new()
 local home=Home.new()
 local hosted=Host.new()
+local function saveHudSettings()
+  if mobile then mobile:configure(home.hudScale,home.hudOpacity,
+    home.moveScale,home.fireScale,home.deadzone) end
+  if love.filesystem then
+    love.filesystem.write("mooio-hud-v1.cfg",
+      string.format("%.2f %.2f %.2f %.2f %.2f",
+        home.hudScale,home.hudOpacity,home.moveScale,home.fireScale,home.deadzone))
+  end
+end
+local function loadHudSettings()
+  if love.filesystem then
+    local content=love.filesystem.read("mooio-hud-v1.cfg")
+    if type(content)=="string" then
+      local values={}
+      for number in content:gmatch("%d+%.?%d*") do
+        values[#values+1]=tonumber(number)
+      end
+      if #values>=2 then
+        home.hudScale=math.max(.85,math.min(1.55,values[1]))
+        home.hudOpacity=math.max(.50,math.min(1,values[2]))
+      end
+      if #values>=5 then
+        home.moveScale=math.max(.75,math.min(1.50,values[3]))
+        home.fireScale=math.max(.75,math.min(1.50,values[4]))
+        home.deadzone=math.max(.05,math.min(.30,values[5]))
+      end
+    end
+  end
+  if mobile then mobile:configure(home.hudScale,home.hudOpacity,
+    home.moveScale,home.fireScale,home.deadzone) end
+end
 local pause=Pause.new()
 local sessionIsHost=false
 local allowQuit=false
@@ -64,6 +96,7 @@ local latestEvent="Nenhum io-init recebido."
 local startupError=nil
 local input=Input.new()
 local movementClock=0
+local mobileAbilitySentAt=nil
 local lastMove=false
 local lastAim=nil
 local playerX,playerY=nil,nil
@@ -106,6 +139,7 @@ local function backspaceUtf8(text)
 end
 
 function love.load()
+  loadHudSettings()
   love.graphics.setDefaultFilter("linear","linear")
   camera=Camera.new()
   menuCamera=Camera.new()
@@ -269,6 +303,7 @@ function love.update(dt)
         -- Reset smoothing when respawning or entering a new match.
         if camera then camera.hasTarget=false end
         lockDir=false
+        if mobile then mobile:setDirectionLock(false) end
         mouseAttack=false
         spaceAttack=false
         died=false
@@ -361,9 +396,11 @@ function love.update(dt)
         lastMove=move
       end
       local aim=View.localAim(lockDir,currentAttackDir(),lastAim)
-      if not lastAim or math.abs(aim-lastAim)>0.02 then
-        client:send("D",{aim})
-        lastAim=aim
+      -- Node K(0) prevents rotation while locked. Do not flood it with
+      -- direction packets, and keep our rendered facing fixed as well.
+      if not lockDir and (not lastAim or math.abs(aim-lastAim)>0.02) then
+        local ok=client:send("D",{aim})
+        if ok then lastAim=aim end
       end
     end
   end
@@ -444,7 +481,7 @@ function love.draw()
     local state=client and client.state or "idle"
     home:draw(state,client and (client.error or client.status) or "",true)
     if home.roomOverlay then home:drawRoomOverlay() end
-    if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite()) end
+    if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite(),home.hudScale,home.hudOpacity) end
     return
   end
   if client and client.state=="spawn_confirmed" and not died
@@ -456,7 +493,7 @@ function love.draw()
        localAim=View.localAim(lockDir,currentAttackDir(),lastAim)})
     Hud.draw(world,chatOpen,chatDraft,
       chatOpen or panels:isOpen() or clans:isOpen() or profile:isOpen())
-    panels:draw(world)
+    panels:draw(world,not mobile)
     if mobile and not pause:isOpen() and not panels:isOpen()
       and not clans:isOpen() and not profile:isOpen() then
       if chatOpen then
@@ -465,7 +502,7 @@ function love.draw()
         mobile:draw(world,Config.mapScale)
       end
     end
-    -- Keep permanent clans internal; no separate Clan button in gameplay HUD.
+    -- Permanent clans are accessible via the dedicated Android CLAN icon.
     clans:draw(false)
     Notices.draw(world,w,h)
     profile:draw(world)
@@ -476,7 +513,7 @@ function love.draw()
       love.event.quit(0)
     end
     if pause:isOpen() then
-      pause:draw(home.showGrid,home.fullscreen,home:roomInvite())
+      pause:draw(home.showGrid,home.fullscreen,home:roomInvite(),home.hudScale,home.hudOpacity)
       return
     end
     -- Only show missing PNG diagnostics on explicit developer opt-in.
@@ -505,7 +542,7 @@ function love.draw()
   love.graphics.printf("Carregando mundo e jogadores...",0,h/2-20,w,"center")
   love.graphics.setColor(0.68,0.75,0.73)
   love.graphics.printf(client and client.status or "Aguardando servidor...",40,h/2+26,w-80,"center")
-  if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite()) end
+  if pause:isOpen() then pause:draw(home.showGrid,home.fullscreen,home:roomInvite(),home.hudScale,home.hudOpacity) end
 end
 
 local menuAction
@@ -670,7 +707,11 @@ homeAction=function(action)
     if isAndroid then
       -- Stop Node's isolated Android service NOW, even if the game stays open.
       if client then client:close();client=nil end
-      hosted:stop()
+      local stopped,stopError=hosted:stop()
+      if not stopped then
+        home:setStatus(stopError or "Nao foi possivel encerrar a hospedagem.",true)
+        return
+      end
       home.hosting=false;home.starting=false
       home.hostAddress="";home.hostCode=""
       home:setStatus("Sala encerrada. Servidor desligado; memoria liberada.")
@@ -702,6 +743,9 @@ homeAction=function(action)
   elseif action=="fullscreen" then
     local ok,err=love.window.setFullscreen(home.fullscreen)
     if not ok then home:setStatus(tostring(err),true) end
+  elseif action=="hud_changed" then
+    saveHudSettings()
+    home:setStatus("HUD atualizado. Tamanho e opacidade salvos no aparelho.")
   end
 end
 
@@ -723,7 +767,7 @@ local function openProfile(sid)
     return false
   end
   profile:open(sid)
-  if mobile then mobile:reset();mobileAttackSent=false end
+  if mobile then mobile:stopForOverlay();mobileAttackSent=false end
   panels:close()
   clans:close()
   chatOpen=false;chatDraft=""
@@ -758,7 +802,8 @@ local function stopGameplay(owned)
     or "Voce saiu da partida. A sala do anfitriao continua online.")
 end
 local function stopPlayerControls()
-  if mobile then mobile:reset();mobileAttackSent=false;mobileInteractLeft=0 end
+  -- Opening pause/options suspends held pointers, not server auto-attack.
+  if mobile then mobile:stopForOverlay();mobileAttackSent=false;mobileInteractLeft=0 end
   input.keys={}
   lastMove=false
   mouseAttack=false;spaceAttack=false
@@ -780,6 +825,15 @@ local function pauseAction(action)
     home.fullscreen=not home.fullscreen
     local ok,err=love.window.setFullscreen(home.fullscreen)
     if not ok then home.fullscreen=not home.fullscreen;home:setStatus(tostring(err),true) end
+  elseif action=="hud_smaller" or action=="hud_bigger"
+    or action=="opacity_less" or action=="opacity_more" then
+    if action=="hud_smaller" then home.hudScale=math.max(.85,home.hudScale-.10)
+    elseif action=="hud_bigger" then home.hudScale=math.min(1.55,home.hudScale+.10)
+    elseif action=="opacity_less" then home.hudOpacity=math.max(.50,home.hudOpacity-.10)
+    elseif action=="opacity_more" then home.hudOpacity=math.min(1,home.hudOpacity+.10) end
+    home.hudScale=math.floor(home.hudScale*100+.5)/100
+    home.hudOpacity=math.floor(home.hudOpacity*100+.5)/100
+    saveHudSettings()
   elseif action=="copy_invite" then
     local invite=home:roomInvite()
     if pause.owner and hosted.state=="ready" and invite~="" then
@@ -859,7 +913,7 @@ function love.keypressed(key)
     and client.state=="spawn_confirmed" and not died then
     chatOpen=true;chatDraft=""
     if mobile then
-      mobile:reset();mobileAttackSent=false
+      mobile:stopForOverlay();mobileAttackSent=false
       if love.keyboard and love.keyboard.setTextInput then
         local w,h=love.graphics.getDimensions()
         love.keyboard.setTextInput(true,math.floor(w*.22),math.floor(h*.27),
@@ -883,10 +937,30 @@ function love.keypressed(key)
       openProfile(world.sid)
       return
     end
-    if key=="e" then client:send("K",{1});return end
+    if key=="e" then
+      local ok=client:send("K",{1})
+      if ok and mobile then mobile.auto=not mobile.auto end
+      return
+    end
     if key=="x" then
+      -- Lock exactly the last authoritative facing, even if the last
+      -- short Android aim movement has not reached the normal network tick.
+      if not lockDir then
+        local dir=currentAttackDir()
+        local sent=client:send("D",{dir})
+        if not sent then return end
+        lastAim=dir
+      end
       local ok=client:send("K",{0})
-      if ok then lockDir=not lockDir end
+      if ok then
+        lockDir=not lockDir
+        if mobile then mobile:setDirectionLock(lockDir) end
+        if not lockDir then
+          local dir=currentAttackDir()
+          local updated=client:send("D",{dir})
+          if updated then lastAim=dir end
+        end
+      end
       return
     end
     if key=="r" then client:send("S",{1});return end
@@ -958,7 +1032,7 @@ function love.keyreleased(key)
 end
 function love.focus(focused)
   if not focused and client and client.state=="spawn_confirmed" then
-    if mobile then mobile:reset();mobileAttackSent=false end
+    if mobile then mobile:stopForOverlay();mobileAttackSent=false end
     client:send("e",{})
     client:send("F",{0,Pack.null})
     mouseAttack=false;spaceAttack=false
@@ -994,7 +1068,7 @@ function love.mousepressed(x,y,button)
       if consumed then return end
     end
     if clans:click(x,y,w,h,false,client and client.authToken) then
-      if mobile then mobile:reset();mobileAttackSent=false end
+      if mobile then mobile:stopForOverlay();mobileAttackSent=false end
       if clans:isOpen() and panels:isOpen() then panels:close() end
       -- Keep the permanent Clan window exclusive with Shop and Tribe,
       -- matching how the original client hides competing overlays.
@@ -1022,7 +1096,7 @@ function love.mousepressed(x,y,button)
         -- stop gathering while the menu takes keyboard/mouse focus.
         chatOpen=false;chatDraft=""
         if panels:isOpen() then
-          if mobile then mobile:reset();mobileAttackSent=false end
+          if mobile then mobile:stopForOverlay();mobileAttackSent=false end
           input.keys={}
           lastMove=false
           mouseAttack=false;spaceAttack=false
@@ -1104,13 +1178,26 @@ local function mobileSelect(kind,slot)
   end
 end
 local function mobileAction(action,payload)
+  if action=="top_toggle" then return end
   if action=="pause" then love.keypressed("escape");return end
+  if action=="shop_open" or action=="clan_open" or action=="tribe_open" then
+    mobileStop()
+    if client and client.state=="spawn_confirmed" then
+      chatOpen=false;chatDraft="";input.keys={}
+      if action=="shop_open" then
+        clans:close();panels:toggle("store")
+      elseif action=="tribe_open" then
+        clans:close();panels:toggle("tribe")
+      else
+        panels:close();clans:toggle(client.authToken)
+      end
+    end
+    return
+  end
   if action=="map_open" or action=="chat_open" or action=="rank_open" then
     mobileStop()
-    if mobile.auto and client and client.state=="spawn_confirmed" then
-      local ok=client:send("K",{1}) -- E: disable previous auto-gather
-      if ok then mobile.auto=false end
-    end
+    -- Never toggle K here: auto-gather is a persistent SERVER mode.
+    -- F(0) above only releases the manual attack state.
     if action=="rank_open" and client and client.state=="spawn_confirmed" then
       client:send("Y",{payload or mobile.rankingCategory})
       mobile.rankRefresh=3
@@ -1131,18 +1218,52 @@ local function mobileAction(action,payload)
     client:send("Y",{payload})
   elseif action=="ping_here" then
     client:send("S",{1}) -- Same real team ping as keyboard R on Windows
+  elseif action=="lock_aim" then
+    -- Use the EXACT existing MooMoo.io K(0) lock toggle (Windows X).
+    -- This freezes direction only, not movement, attack or AUTO.
+    if not lockDir then
+      local dir=currentAttackDir()
+      local sent,sendErr=client:send("D",{dir})
+      if not sent then
+        latestEvent="Nao foi possivel fixar a mira: "..tostring(sendErr)
+        return
+      end
+      lastAim=dir
+    end
+    local ok,err=client:send("K",{0})
+    if ok then
+      lockDir=not lockDir
+      mobile:setDirectionLock(lockDir)
+      if not lockDir then
+        local dir=currentAttackDir()
+        local updated=client:send("D",{dir})
+        if updated then lastAim=dir end
+      end
+    else
+      latestEvent="Trava de mira indisponivel: "..tostring(err)
+    end
   elseif action=="server_auto" then
     local ok,err=client:send("K",{1}) -- Same toggle as E on Windows
     if not ok then
       mobile.auto=not mobile.auto
       latestEvent="Ataque automatico indisponivel: "..tostring(err)
     end
-  elseif action=="skill" then
-    -- The first four use the same mapping as the middle strip.
-    local itemId,isWeapon=require("src.mobile.slots").at(world,payload)
-    if itemId~=nil then
-      client:send("z",{itemId,isWeapon})
-    else latestEvent="Atalho "..tostring(payload).." ainda sem item." end
+  elseif action=="skill" or action=="slot" then
+    -- The bottom row is a set of real ACTIONS, not a paginated inventory.
+    -- A touch selects weapons; food and structures execute using the
+    -- authoritative Node z/F protocol. Do not change the AUTO K toggle.
+    local now=love.timer.getTime()
+    if not mobileAbilitySentAt or now-mobileAbilitySentAt>=.17 then
+      mobileAbilitySentAt=now
+      local ok,why=Abilities.activate(world,payload,currentAttackDir(),
+        function(packet,args) return client:send(packet,args) end,
+        Pack.null,mobile:attacking())
+      if ok then
+        mobile:abilityFeedback(payload,now)
+      else
+        latestEvent="Habilidade nao executada: "..tostring(why)
+      end
+    end
   elseif action=="attack" then
     local active=mobile:attacking()
     if active~=mobileAttackSent then
@@ -1150,9 +1271,6 @@ local function mobileAction(action,payload)
         active and currentAttackDir() or Pack.null})
       if ok then mobileAttackSent=active end
     end
-  elseif action=="slot" then
-    local id,isWeapon=require("src.mobile.slots").at(world,payload)
-    if id~=nil then client:send("z",{id,isWeapon}) end
   elseif action=="ping" and payload then
     local ok,err=client:send("U",{payload.x,payload.y})
     if ok then world.mapMarker={x=payload.x,y=payload.y}
@@ -1202,14 +1320,15 @@ end
 function love.touchmoved(id,x,y)
   if not mobile or phase~="playing" or pause:isOpen() then return end
   local w,h=love.graphics.getDimensions()
-  local action=mobile:moved(id,x,y,w,h)
-  -- The attack thumb IS the aim control. Send real Node direction packets
-  -- promptly during a drag (max 25 Hz). The normal 70-ms tick remains a
-  -- fallback when Android coalesces touch events.
-  if action=="aim" and mobile:attacking() and not chatOpen and client
+  local action,attackChanged=mobile:moved(id,x,y,w,h)
+  -- The same thumb has TWO zones: short drag = aim only, outer drag =
+  -- aim + manual attack. DIRECTION must update even during aim-only.
+  -- On a threshold transition, send the latest D before F(1)/F(0)
+  -- instead of waiting for the usual 70-ms player update.
+  if action=="aim" and not chatOpen and client
     and client.state=="spawn_confirmed" then
     local now=love.timer.getTime()
-    if now-mobileAimSentAt>=.04 then
+    if not lockDir and (attackChanged or now-mobileAimSentAt>=.04) then
       local dir=currentAttackDir()
       if not lastAim or math.abs(dir-lastAim)>.02 then
         local ok=client:send("D",{dir})
@@ -1217,12 +1336,17 @@ function love.touchmoved(id,x,y)
       end
       mobileAimSentAt=now
     end
+    if attackChanged then
+      -- Only crossing the attack threshold sends F: simply aiming NEVER
+      -- fires, and moving inward stops fire without disabling server AUTO.
+      mobileAction("attack")
+    end
   end
 end
 function love.touchreleased(id)
   if not mobile then return end
-  local action=mobile:released(id)
-  if action then mobileAction(action) end
+  local action,payload=mobile:released(id)
+  if action then mobileAction(action,payload) end
 end
 function love.quit()
   if not allowQuit and (hosted.state=="ready" or hosted.state=="starting") then

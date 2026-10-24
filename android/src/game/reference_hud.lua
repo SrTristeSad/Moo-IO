@@ -285,49 +285,30 @@ function H.hoveredItem(world,w,h,x,y)
   return nil
 end
 local function mobileStats(world,w,h)
+  -- Real MooMoo.io resource IDs: food, wood and stone. Only show the
+  -- game's own resource icons and server values; no invented display names.
+  -- The desktop HUD and the authoritative world state use these same IDs.
   local g=love.graphics
-  local p=world:localPlayer()
-  local values=world.resources or {}
-  local unit=math.max(.55,math.min(w/1280,h/720,1.8))
-  -- Horizontal top status bar: keep the minimap, ping and chat unobstructed.
-  -- All numbers come from the authoritative world snapshots (not mock HUD data).
-  local x=269*unit
-  local y=13*unit
-  local width=math.max(380*unit,math.min(675*unit,w-x-360*unit))
-  local height=64*unit
-  local health=math.max(0,tonumber(p and p.health) or 0)
-  local maximum=math.max(1,tonumber(p and p.maxHealth) or 100)
-  local name=(p and p.name or "Moo IO"):sub(1,16)
+  local values=world and world.resources or {}
+  local u=math.max(.50,math.min(2.15,math.min(w/1280,h/720)*1.20))
+  local x=23*u
+  local startY=211*u
+  local resources={"food","wood","stone"}
   g.push("all")
-  g.setColor(.03,.085,.071,.88)
-  g.rectangle("fill",x,y,width,height,8*unit,8*unit)
-  g.setLineWidth(1.6*unit)
-  g.setColor(.40,.64,.49,.75)
-  g.rectangle("line",x,y,width,height,8*unit,8*unit)
-  g.setFont(fontSmall)
-  g.setColor(.95,.96,.88,1)
-  g.print(name,x+10*unit,y+7*unit)
-  local lifeX=x+145*unit
-  local lifeW=math.max(75*unit,math.min(160*unit,width*.31))
-  local lifeY=y+8*unit
-  g.setColor(.19,.22,.19,1)
-  g.rectangle("fill",lifeX,lifeY,lifeW,17*unit,4*unit,4*unit)
-  g.setColor(.77,.24,.22,1)
-  g.rectangle("fill",lifeX,lifeY,lifeW*math.min(1,health/maximum),17*unit,4*unit,4*unit)
-  g.setColor(.97,.97,.93,1)
-  g.printf("VIDA "..math.floor(health).."/"..math.floor(maximum),
-    lifeX,lifeY+2*unit,lifeW,"center")
-  g.setColor(.98,.84,.46,1)
-  g.print("OURO "..math.floor(values.points or 0),lifeX+lifeW+12*unit,y+8*unit)
-  g.setColor(.93,.95,.91,1)
-  local food="COMIDA "..math.floor(values.food or 0)
-  local wood="MADEIRA "..math.floor(values.wood or 0)
-  local stone="PEDRA "..math.floor(values.stone or 0)
-  local kills="ABATES "..math.floor(values.kills or 0)
-  g.print(food,x+10*unit,y+38*unit)
-  g.print(wood,x+145*unit,y+38*unit)
-  g.print(stone,x+285*unit,y+38*unit)
-  g.print(kills,x+width-110*unit,y+38*unit)
+  for i,key in ipairs(resources) do
+    local y=startY+(i-1)*64*u
+    g.setColor(.015,.085,.083,.84)
+    g.rectangle("fill",x,y,134*u,50*u,23*u,23*u)
+    g.setColor(.30,.74,.69,.92)
+    g.setLineWidth(2*u)
+    g.circle("line",x+27*u,y+25*u,24*u)
+    g.setColor(.09,.22,.22,.95)
+    g.circle("fill",x+27*u,y+25*u,21*u)
+    Assets.draw("resources",key.."_ico.png",x+27*u,y+25*u,32*u,32*u)
+    g.setColor(1,1,1,1)
+    g.setFont(fontMedium)
+    g.print(number(values[key]),x+65*u,y+13*u)
+  end
   g.pop()
 end
 function H.draw(world,chatActive,chatText,suppressItemInfo)

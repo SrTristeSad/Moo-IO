@@ -403,13 +403,13 @@ local function labelHealth(health,maxHealth,friendly,entityScale)
   love.graphics.rectangle("fill",-bar,offset+pad,bar*2*ratio,
     17-pad*2,7,7)
 end
-local function labels(world,camera,w,h)
+local function labels(world,camera,w,h,players,animals)
   local previous=love.graphics.getFont()
   -- Original Canvas lists all players before animals, in creation order.
-  for _,p in ipairs(world:orderedPlayers()) do
+  for _,p in ipairs(players) do
     -- The reference draws all server-visible bodies and labels, even when
     -- the centre is outside the viewport; broad cosmetics can cross an edge.
-    if p.x and p.y and p.invisible~=1 then
+    if p.x and p.y and p.invisible~=1 and see(p,camera,w,h,160) then
       if View.playerNameVisible(world,p) then
         local x,y=camera:worldToScreen(p.visualX or p.x,p.visualY or p.y)
         local s=p.scale or C.playerScale
@@ -434,8 +434,8 @@ local function labels(world,camera,w,h)
       end
     end
   end
-  for _,a in ipairs(world:orderedAnimals()) do
-    if a.x and a.y then
+  for _,a in ipairs(animals) do
+    if a.x and a.y and see(a,camera,w,h,180) then
       local kind=world and world:animalKind(a.index) or Animals.byId(a.index)
       if kind then
         local x,y=camera:worldToScreen(a.visualX or a.x,a.visualY or a.y)
@@ -453,14 +453,18 @@ local function labels(world,camera,w,h)
   -- before chat speech bubbles. The lifetime advances in World:update.
   CombatText.draw(world.combatText,camera)
   -- In client/src/index.js speech bubbles come after all world name/HP labels.
-  for _,p in ipairs(world:orderedPlayers()) do
-    if p.x and p.y and p.invisible~=1 then
+  for _,p in ipairs(players) do
+    if p.x and p.y and p.invisible~=1 and see(p,camera,w,h,160) then
       local x,y=camera:worldToScreen(p.visualX or p.x,p.visualY or p.y)
       drawChatBubble(p,x,y,(p.scale or C.playerScale)*camera.zoom)
     end
   end
 end
 function View.draw(world,camera,dt,options)
+  -- Gameplay draws every frame, so distribute cold sprites across frames.
+  -- The menu background is a cached Canvas redrawn infrequently; permit
+  -- enough sprites there to avoid leaving placeholder gaps until refresh.
+  Objects.beginFrame(options and options.localAim~=nil and 3 or 64)
   local w,h=love.graphics.getDimensions()
   -- Aiming is local presentation only. The actual attack and target
   -- direction are still transmitted via the original D/F Node packets.
@@ -507,6 +511,6 @@ function View.draw(world,camera,dt,options)
   love.graphics.setColor(0,0,70/255,0.35)
   love.graphics.rectangle("fill",0,0,w,h)
   love.graphics.setColor(1,1,1,1)
-  labels(world,camera,w,h)
+  labels(world,camera,w,h,players,animals)
 end
 return View

@@ -1,6 +1,6 @@
--- Moo-IO touchscreen HUD: fixed regions, pointer ownership and original game icons.
--- Left joystick moves; ATACAR is the second joystick for aiming.
--- Hold ATACAR to hit, drag that SAME finger to choose attack direction.
+-- Moo-IO Android: two independent FLOATING joysticks and a compact survival HUD.
+-- Left touch moves; right floating control aims in the inner zone and attacks in the outer zone.
+-- Buttons remain server-authoritative and never create imaginary abilities.
 local Slots=require("src.mobile.slots")
 local Catalog=require("src.game.catalog")
 local Icons=require("src.game.reference_icons")
@@ -25,76 +25,175 @@ local function fonts()
 end
 function M.new()
  return setmetatable({moveId=nil,fireId=nil,moveX=0,moveY=0,
-   moveOrigin=nil,aimDir=0,fireOffsetX=0,fireOffsetY=0,
+   moveOrigin=nil,fireOrigin=nil,fireActive=false,aimDir=0,
+   aimLocked=false,lockedDir=nil,fireOffsetX=0,fireOffsetY=0,
+   uiScale=1.20,uiOpacity=.90,moveScale=1,fireScale=1,deadzone=.15,
    auto=false,rankOpen=false,mapOpen=false,
-   rankRefresh=0,rankingCategory="gold",page=1,lastPoint=nil,
+   rankRefresh=0,rankingCategory="gold",lastPoint=nil,
+   barScroll=0,barCount=0,barTouchId=nil,barTouchX=nil,
+   barTouchMoved=false,barTouchIndex=nil,
+   topCollapsed=false,abilityPulse=nil,abilityPulseAt=0,
    cachedW=0,cachedH=0,cachedLayout=nil},M)
 end
 function M:reset()
  self.moveId=nil;self.fireId=nil
- self.moveX=0;self.moveY=0;self.moveOrigin=nil
- self.fireOffsetX=0;self.fireOffsetY=0
+ self.moveX=0;self.moveY=0;self.moveOrigin=nil;self.fireOrigin=nil
+ self.fireOffsetX=0;self.fireOffsetY=0;self.fireActive=false
+ self.barTouchId=nil;self.barTouchX=nil;self.barTouchIndex=nil
+ self.barTouchMoved=false;self.barTouchDistance=0
+ self.barScroll=0;self.barCount=0
  self.mapOpen=false;self.rankOpen=false;self.rankRefresh=0;self.auto=false
+ self.aimLocked=false;self.lockedDir=nil
 end
 function M:stopForOverlay()
  self.moveId=nil;self.fireId=nil
- self.moveOrigin=nil;self.moveX=0;self.moveY=0
- self.fireOffsetX=0;self.fireOffsetY=0
+ self.moveOrigin=nil;self.fireOrigin=nil;self.moveX=0;self.moveY=0
+ self.fireOffsetX=0;self.fireOffsetY=0;self.fireActive=false
+ self.barTouchId=nil;self.barTouchX=nil;self.barTouchIndex=nil
+ self.barTouchMoved=false;self.barTouchDistance=0
+end
+function M:configure(size,opacity,movement,attack,deadzone)
+ local nextSize=clamp(tonumber(size) or 1.20,.85,1.55)
+ local nextOpacity=clamp(tonumber(opacity) or .90,.50,1)
+ local nextMove=clamp(tonumber(movement) or 1,.75,1.50)
+ local nextFire=clamp(tonumber(attack) or 1,.75,1.50)
+ local nextDeadzone=clamp(tonumber(deadzone) or .15,.05,.30)
+ if self.uiScale~=nextSize or self.moveScale~=nextMove
+   or self.fireScale~=nextFire then self.cachedLayout=nil end
+ self.uiScale=nextSize;self.uiOpacity=nextOpacity
+ self.moveScale=nextMove;self.fireScale=nextFire;self.deadzone=nextDeadzone
+end
+function M:abilityFeedback(index,now)
+ self.abilityPulse=index
+ self.abilityPulseAt=tonumber(now) or 0
 end
 function M:layout(w,h)
  if self.cachedW==w and self.cachedH==h and self.cachedLayout then
    return self.cachedLayout
  end
- local u=clamp(min(w/1280,h/720),.52,1.8)
+ local u=clamp(min(w/1280,h/720)*self.uiScale,.50,2.15)
  local board=min(h*.78,w*.58)
  local panelW=min(w*.76,735*u)
  local panelH=min(h*.82,555*u)
- -- Left thumb moves. The ATACAR circle controls both direction and hits.
- -- The strip for slots 5+ sits BETWEEN the two thumb joysticks.
- local stripX=w*.50
- local skills={
-   {x=w-279*u,y=h-104*u,r=35*u},
-   {x=w-342*u,y=h-191*u,r=35*u},
-   {x=w-261*u,y=h-276*u,r=35*u},
-   {x=w-143*u,y=h-315*u,r=35*u}
- }
- local l={u=u,move={x=137*u,y=h-137*u,r=77*u},
-   fire={x=w-108*u,y=h-125*u,r=64*u},
-   auto={x=w-155*u,y=h-223*u,r=36*u},
-   skills=skills,chat={x=w-276*u,y=49*u,r=37*u},
-   rank={x=w-155*u,y=49*u,r=35*u},
-   pause={x=w-48*u,y=49*u,r=30*u},
-   ping={x=220*u,y=77*u,r=30*u},
-   mark={x=220*u,y=158*u,r=30*u},
+ -- Only the weapons, constructions and consumables actually unlocked by
+ -- the MooMoo.io server appear in one continuous, centered bottom row.
+ -- Overflow is touch-scrollable in the SAME row, never split into pages.
+ -- Touch joysticks have no static base until a finger touches the playfield.
+ local barX=w*.50
+ local topY=53*u
+ local l={u=u,move={x=142*u,y=h-128*u,r=86*u*self.moveScale},
+   fire={x=w-135*u,y=h-132*u,r=86*u*self.fireScale},
+   auto={x=w-88*u,y=h*.47,r=39*u},
+   lock={x=w-88*u,y=h*.47+96*u,r=35*u},
+   hotbar={x=barX,y=h-76*u,r=35*u,step=73*u,
+     clipX=w*.255,clipW=w*.49},
+   shop={x=w-452*u,y=topY,r=35*u},
+   clan={x=w-531*u,y=topY,r=35*u},
+   tribe={x=w-373*u,y=topY,r=35*u},
+   chat={x=w-294*u,y=topY,r=35*u},
+   rank={x=w-215*u,y=topY,r=35*u},
+   pause={x=w-136*u,y=topY,r=35*u},
+   fold={x=w-57*u,y=topY,r=35*u},
+   ping={x=235*u,y=85*u,r=37*u},
+   mark={x=235*u,y=181*u,r=37*u},
    minimap={x=21*u,y=20*u,w=167*u,h=167*u},
    bigmap={x=(w-board)/2,y=(h-board)/2,w=board,h=board},
    close={x=w-52*u,y=45*u,r=30*u},
    rankPanel={x=(w-panelW)/2,y=(h-panelH)/2,w=panelW,h=panelH},
-   strip={x=stripX,y=h-48*u,r=28*u,step=60*u},
-   stripPrev={x=stripX-181*u,y=h-47*u,r=23*u},
-   stripNext={x=stripX+181*u,y=h-47*u,r=23*u},
-   chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
+    chatPanel={x=w*.17,y=h*.17,w=w*.66,h=h*.23},
    chatSend={x=w*.70,y=h*.275,w=w*.12,h=h*.079},
    chatCancel={x=w*.77,y=h*.182,w=w*.055,h=h*.06}}
  self.cachedW=w;self.cachedH=h;self.cachedLayout=l
  return l
 end
+-- A single, continuous skill/quick-action row. The authoritative V packets
+-- decide which weapon/build options are available. No client-side unlocks.
+-- If too many exist to fit between the two thumbs, swipe the SAME row.
+function M:hotbar(total,w,h)
+ local l=self:layout(w,h)
+ total=max(0,math.floor(tonumber(total) or 0))
+ local view=l.hotbar
+ -- Respect the requested HUD scale, but keep at least six buttons usable
+ -- when enough screen space exists. New unlocks extend the same line.
+ local rowU=min(l.u,view.clipW/(6*73))
+ local step=73*rowU
+ local radius=35*rowU
+ -- Include outline, active pulse and shadow in the horizontal scroll extent:
+ -- first/last ability circles must not be cut at the clipping boundary.
+ local edge=radius+8*rowU
+ local width=total>0 and ((total-1)*step+2*edge) or 0
+ local overflow=max(0,width-view.clipW)
+ if total~=self.barCount then
+   -- When a new unlock arrives after spawn, bring it into view automatically.
+   self.barScroll=total>self.barCount and self.barCount>0 and overflow or 0
+   self.barCount=total
+ end
+ self.barScroll=clamp(self.barScroll,0,overflow)
+ local left=view.clipX+max(0,(view.clipW-width)/2)+edge-self.barScroll
+ local slots={}
+ for i=1,total do
+   slots[i]={x=left+(i-1)*step,y=view.y,r=radius,index=i}
+ end
+ -- The action-number badges are below the ring and its shadow. Previous
+ -- vertical scissor used just 5*rowU and cut off the bottom of the circles.
+ local top=view.y-radius-11*rowU
+ local bottom=min(h,view.y+radius+25*rowU)
+ return slots,{scroll=self.barScroll,maxScroll=overflow,
+   clipX=view.clipX,clipW=view.clipW,top=top,bottom=bottom,
+   rowU=rowU,edge=edge}
+end
+
+-- Geometry shared by HP/level drawing and regression checks: all numbers
+-- live INSIDE the corresponding bar/capsule, not floating above the HUD.
+function M:statusLayout(w,h)
+ local u=self:layout(w,h).u
+ local hpW=240*u
+ local xpW=146*u
+ local gap=12*u
+ local hpX=(w-hpW-xpW-gap)/2
+ local y=h-154*u
+ local height=29*u
+ return {life={x=hpX,y=y,w=hpW,h=height},
+   level={x=hpX+hpW+gap,y=y,w=xpW,h=height}}
+end
 function M:movement()
  if self.moveId then return self.moveX,self.moveY end
  return 0,0
 end
-function M:aimAngle()return self.aimDir end
-function M:attacking()return self.fireId~=nil end
--- Use the same captured attack pointer for targeting. It keeps control even
--- after the finger leaves the button's visual boundary.
+function M:aimAngle()
+ if self.aimLocked and self.lockedDir~=nil then return self.lockedDir end
+ return self.aimDir
+end
+-- Only call after the Node K(0) command was sent successfully.
+-- Freezing the facing direction never turns AUTO or manual fire on/off.
+function M:setDirectionLock(locked)
+ locked=locked==true
+ if locked and not self.aimLocked then self.lockedDir=self:aimAngle() end
+ self.aimLocked=locked
+ if not locked then self.lockedDir=nil end
+ return self.aimLocked
+end
+-- The floating right control is always a single pointer. Aiming does not
+-- imply firing: firing is enabled only after moving past the outer threshold.
+function M:attacking()return self.fireId~=nil and self.fireActive end
+function M:aiming()return self.fireId~=nil end
 function M:attackJoystick(x,y,l)
- local dx,dy=x-l.fire.x,y-l.fire.y
+ local origin=self.fireOrigin or l.fire
+ local dx,dy=x-origin.x,y-origin.y
  local distance=sqrt(dx*dx+dy*dy)
- if distance<=12*l.u then
+ local dead=12*l.u
+ -- Hysteresis avoids spamming F(1)/F(0) while the thumb hovers around
+ -- the boundary between aiming and firing.
+ if self.fireActive then
+   if distance<=l.fire.r*.56 then self.fireActive=false end
+ elseif distance>=l.fire.r*.72 then
+   self.fireActive=true
+ end
+ if distance<=dead then
    self.fireOffsetX=0;self.fireOffsetY=0
    return false
  end
- local radius=l.fire.r*.62
+ local radius=l.fire.r*.75
  local factor=min(distance,radius)/distance
  self.fireOffsetX=dx*factor
  self.fireOffsetY=dy*factor
@@ -104,7 +203,7 @@ end
 function M:joystick(x,y,l)
  local dx,dy=x-self.moveOrigin.x,y-self.moveOrigin.y
  local magnitude=sqrt(dx*dx+dy*dy)
- if magnitude<l.move.r*.15 then
+ if magnitude<l.move.r*self.deadzone then
    self.moveX=0;self.moveY=0
  else
    self.moveX=dx/magnitude;self.moveY=dy/magnitude
@@ -134,89 +233,115 @@ function M:pressed(id,x,y,w,h,scale,total)
    end
    return nil
  end
- if near(x,y,l.pause) then return "pause" end
- if near(x,y,l.chat) then self:stopForOverlay();return "chat_open" end
- if near(x,y,l.rank) then
-   self:stopForOverlay();self.rankOpen=true
-   return "rank_open",self.rankingCategory
+ if near(x,y,l.fold) then
+   self.topCollapsed=not self.topCollapsed
+   return "top_toggle",self.topCollapsed
+ end
+ if not self.topCollapsed then
+   if near(x,y,l.pause) then return "pause" end
+   if near(x,y,l.shop) then self:stopForOverlay();return "shop_open" end
+   if near(x,y,l.clan) then self:stopForOverlay();return "clan_open" end
+   if near(x,y,l.tribe) then self:stopForOverlay();return "tribe_open" end
+   if near(x,y,l.chat) then self:stopForOverlay();return "chat_open" end
+   if near(x,y,l.rank) then
+     self:stopForOverlay();self.rankOpen=true
+     return "rank_open",self.rankingCategory
+   end
  end
  if near(x,y,l.ping) then return "ping_here" end
  if near(x,y,l.mark) or inside(x,y,l.minimap) then
    self:stopForOverlay();self.mapOpen=true
    return "map_open"
  end
- -- Centre strip receives touches BEFORE the generic movement/aim zones.
- total=total or 0
- if total>4 then
-   local pages=max(1,math.ceil((total-4)/5))
-   self.page=clamp(self.page,1,pages)
-   if pages>1 and near(x,y,l.stripPrev) then
-     self.page=max(1,self.page-1);return "page",self.page
-   end
-   if pages>1 and near(x,y,l.stripNext) then
-     self.page=min(pages,self.page+1);return "page",self.page
-   end
-   local first=5+(self.page-1)*5
-   local count=min(5,total-first+1)
-   for i=1,count do
-     local slot={x=l.strip.x+(i-3)*l.strip.step,y=l.strip.y,r=l.strip.r}
-     if near(x,y,slot) then return "slot",first+i-1 end
-   end
- end
- -- ATACAR serves as a directional attack joystick, not a static button.
- if near(x,y,l.fire) then
-   if self.fireId==nil then
-     self.fireId=id
-     self:attackJoystick(x,y,l)
-     return "attack"
-   end
-   return nil
- end
+ -- The bottom shortcuts form ONE persistent line, not an inventory page.
+ -- Capture the pointer until release so swiping never accidentally equips.
  if near(x,y,l.auto) then self.auto=not self.auto;return "server_auto",self.auto end
- for i,p in ipairs(l.skills) do
-   if near(x,y,p) then return "skill",i end
+ if near(x,y,l.lock) then return "lock_aim" end
+ local slots,bar=self:hotbar(total,w,h)
+ if self.barTouchId==nil and x>=bar.clipX and x<=bar.clipX+bar.clipW
+   and y>=bar.top and y<=bar.bottom then
+   self.barTouchId=id
+   self.barTouchX=x
+   self.barTouchMoved=false
+   self.barTouchIndex=nil
+   for _,p in ipairs(slots) do
+     if near(x,y,p) then self.barTouchIndex=p.index;break end
+   end
+   return "bar_hold"
  end
- -- A left thumb remains captured even if it crosses the screen.
+ -- Floating left movement: any open place in the lower-left touch zone.
  if x<w*.35 and y>h*.38 and self.moveId==nil then
    self.moveId=id;self.moveOrigin={x=x,y=y}
    self:joystick(x,y,l)
    return "move"
  end
- -- No invisible separate right-side aiming joystick.
- -- Aiming works ONLY while holding the ATACAR button.
+ -- Single floating right control: touch starts aim-only; pull outward
+ -- to attack+aim. Returning inward stops only manual fire, not AUTO.
+ if x>w*.68 and y>h*.38 and self.fireId==nil then
+   self.fireId=id;self.fireActive=false;self.fireOrigin={x=x,y=y}
+   self:attackJoystick(x,y,l)
+   return "attack"
+ end
  return nil
 end
 function M:moved(id,x,y,w,h)
+ if id==self.barTouchId then
+   local previous=self.barTouchX or x
+   local delta=x-previous
+   self.barTouchX=x
+   if not self.barTouchMoved and math.abs(delta)>0 then
+     self.barTouchDistance=(self.barTouchDistance or 0)+math.abs(delta)
+     if self.barTouchDistance>=12*self:layout(w,h).u then
+       self.barTouchMoved=true
+     end
+   end
+   if self.barTouchMoved then
+     local _,bar=self:hotbar(self.barCount,w,h)
+     self.barScroll=clamp(self.barScroll-delta,0,bar.maxScroll)
+   end
+   return "bar_scroll"
+ end
  if id==self.moveId and self.moveOrigin then
    self:joystick(x,y,self:layout(w,h))
    return "move"
  end
  if id==self.fireId then
-   self:attackJoystick(x,y,self:layout(w,h))
-   return "aim"
+   local previous=self.fireActive
+   local aimed=self:attackJoystick(x,y,self:layout(w,h))
+   -- Even when the thumb changes direction only, relay aim immediately.
+   -- When crossing the boundary, the client also sends F(1) / F(0).
+   return "aim",previous~=self.fireActive
  end
  return nil
 end
 function M:released(id)
+ if id==self.barTouchId then
+   local index=not self.barTouchMoved and self.barTouchIndex or nil
+   self.barTouchId=nil;self.barTouchX=nil
+   self.barTouchIndex=nil;self.barTouchMoved=false;self.barTouchDistance=0
+   if index then return "slot",index end
+   return "bar_release"
+ end
  if self.moveId==id then
    self.moveId=nil;self.moveOrigin=nil;self.moveX=0;self.moveY=0;return "move"
  end
  if self.fireId==id then
-   self.fireId=nil
+   self.fireId=nil;self.fireOrigin=nil;self.fireActive=false
    self.fireOffsetX=0;self.fireOffsetY=0
    return "attack"
  end
  return nil
 end
+local currentHudOpacity=1
 local function ring(g,p,active,accent)
  -- Small number of primitive draws; no new textures, canvases or shaders per frame.
  local r=p.r
- g.setColor(.015,.036,.037,.67);g.circle("fill",p.x+2,p.y+3,r+4)
- g.setColor(active and .23 or .09,active and .41 or .17,active and .26 or .19,.92)
+ g.setColor(.015,.036,.037,.67*currentHudOpacity);g.circle("fill",p.x+2,p.y+3,r+4)
+ g.setColor(active and .23 or .09,active and .41 or .17,active and .26 or .19,.92*currentHudOpacity)
  g.circle("fill",p.x,p.y,r)
- g.setColor(accent and .89 or .45,accent and .76 or .75,accent and .35 or .72,1)
+ g.setColor(accent and .89 or .45,accent and .76 or .75,accent and .35 or .72,currentHudOpacity)
  g.setLineWidth(2.4);g.circle("line",p.x,p.y,r-1)
- g.setColor(.87,.96,.93,.22);g.arc("line","open",p.x,p.y,r-5,math.pi*1.09,math.pi*1.86)
+ g.setColor(.87,.96,.93,.22*currentHudOpacity);g.arc("line","open",p.x,p.y,r-5,math.pi*1.09,math.pi*1.86)
 end
 local function words(g,str,p,size)
  g.setColor(.97,.98,.94,1)
@@ -239,6 +364,32 @@ local function glyph(g,kind,p,u,active)
    g.setColor(1,.86,.44,1)
    g.rectangle("fill",-20,10,40,6,2,2)
    g.rectangle("fill",-3,15,6,14,2,2)
+ elseif kind=="shop" then
+   g.setColor(.95,.83,.44,1)
+   g.rectangle("line",-18,-17,36,33,3,3)
+   g.line(-21,-17,-12,-26,12,-26,21,-17)
+   g.line(-4,-17,-4,16);g.line(5,-17,5,16)
+ elseif kind=="tribe" then
+   g.setColor(.89,.81,.52,1)
+   g.line(-15,23,-15,-24)
+   g.polygon("fill",-12,-23,18,-16,3,-2,-12,-8)
+ elseif kind=="clan" then
+   g.setColor(.66,.9,.73,1)
+   g.polygon("line",0,-24,20,-14,17,14,0,24,-17,14,-20,-14)
+   g.line(-11,0,11,0);g.line(0,-12,0,13)
+ elseif kind=="lock" then
+   -- A small padlock: open when free, closed and highlighted when fixed.
+   g.setColor(active and .98 or .71,active and .79 or .90,
+     active and .38 or .85,1)
+   g.setLineWidth(3.2)
+   if active then
+     g.arc("line","open",0,-7,10,math.pi,2*math.pi)
+   else
+     g.arc("line","open",-4,-7,10,math.pi*.85,math.pi*1.87)
+   end
+   g.rectangle("line",-16,-7,32,28,4,4)
+   g.circle("fill",0,3,3.8)
+   g.rectangle("fill",-1.5,3,3,8)
  elseif kind=="auto" then
    g.setColor(active and .91 or .67,active and .9 or .82,.48,1)
    g.arc("line","open",0,0,18,-.3,math.pi*1.37)
@@ -342,6 +493,7 @@ function M:draw(world,scale)
  local w,h=g.getDimensions()
  local l=self:layout(w,h)
  local u=l.u
+ currentHudOpacity=self.uiOpacity
  fonts()
  g.push("all")
  if self.mapOpen or self.rankOpen then
@@ -390,67 +542,195 @@ function M:draw(world,scale)
  map(g,world,l.minimap,scale)
  ring(g,l.ping,false,true);glyph(g,"ping",l.ping,u)
  ring(g,l.mark,false,false);glyph(g,"map",l.mark,u)
- ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
- ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
- ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
- ring(g,l.move,self.moveId~=nil,false)
- local x=self.moveOrigin and self.moveOrigin.x or l.move.x
- local y=self.moveOrigin and self.moveOrigin.y or l.move.y
- g.setColor(.67,.94,.79,.93)
- g.circle("fill",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,26*u)
- g.setColor(.12,.31,.23,1)
- g.circle("line",x+self.moveX*l.move.r*.48,y+self.moveY*l.move.r*.48,25*u)
- ring(g,l.fire,self:attacking(),true)
- if self:attacking() then
-   local px=l.fire.x+self.fireOffsetX
-   local py=l.fire.y+self.fireOffsetY
-   if self.fireOffsetX~=0 or self.fireOffsetY~=0 then
-     g.setColor(.95,.80,.40,.56)
-     g.setLineWidth(4*u)
-     g.line(l.fire.x,l.fire.y,px,py)
-   end
-   g.setColor(.89,.74,.41,.95)
-   g.circle("fill",px,py,23*u)
-   g.setColor(.16,.28,.21,1)
-   g.setLineWidth(2*u)
-   g.circle("line",px,py,23*u)
-   glyph(g,"attack",{x=px,y=py},u*.66,true)
+ -- Keep the actual map and ping actions visible next to the minimap.
+ g.setFont(small);g.setColor(.97,.97,.94,self.uiOpacity)
+ g.printf("PING",l.ping.x-31*u,l.ping.y+29*u,62*u,"center")
+ g.printf("MAPA",l.mark.x-31*u,l.mark.y+29*u,62*u,"center")
+ -- Collapse the busy top-right navigation to one small touch control.
+ -- This does not hide ping/map, auto attack, joystick or the skill line.
+ if not self.topCollapsed then
+   ring(g,l.shop,false,true);glyph(g,"shop",l.shop,u)
+   ring(g,l.clan,false,false);glyph(g,"clan",l.clan,u)
+   ring(g,l.tribe,false,false);glyph(g,"tribe",l.tribe,u)
+   ring(g,l.chat,false,false);glyph(g,"chat",l.chat,u)
+   ring(g,l.rank,false,false);glyph(g,"ranking",l.rank,u)
+   ring(g,l.pause,false,false);glyph(g,"pause",l.pause,u)
+   g.setFont(small);g.setColor(1,1,1,self.uiOpacity)
+   g.printf("LOJA",l.shop.x-35*u,l.shop.y+25*u,70*u,"center")
+   g.printf("CLA",l.clan.x-35*u,l.clan.y+25*u,70*u,"center")
+   g.printf("TRIBO",l.tribe.x-35*u,l.tribe.y+25*u,70*u,"center")
+   g.printf("CHAT",l.chat.x-35*u,l.chat.y+25*u,70*u,"center")
+   g.printf("TOP",l.rank.x-35*u,l.rank.y+25*u,70*u,"center")
+   g.printf("MENU",l.pause.x-35*u,l.pause.y+25*u,70*u,"center")
+ end
+ ring(g,l.fold,false,true)
+ g.setColor(.88,.94,.82,self.uiOpacity);g.setLineWidth(3*u)
+ local x,y=l.fold.x,l.fold.y
+ if self.topCollapsed then
+   g.line(x-12*u,y-7*u,x+12*u,y-7*u)
+   g.line(x-12*u,y,x+12*u,y)
+   g.line(x-12*u,y+7*u,x+12*u,y+7*u)
  else
-   glyph(g,"attack",l.fire,u,false)
+   g.line(x-10*u,y-7*u,x+10*u,y-7*u)
+   g.line(x-10*u,y+7*u,x+10*u,y+7*u)
+ end
+ g.setFont(small);g.setColor(1,1,1,self.uiOpacity)
+ g.printf(self.topCollapsed and "ABRIR" or "OCULTAR",
+   l.fold.x-39*u,l.fold.y+25*u,78*u,"center")
+ -- No anchored joystick circles: bases are created at the finger-down points.
+ if self.moveOrigin then
+   local base={x=self.moveOrigin.x,y=self.moveOrigin.y,r=l.move.r}
+   ring(g,base,true,false)
+   local x=base.x+self.moveX*l.move.r*.48
+   local y=base.y+self.moveY*l.move.r*.48
+   g.setColor(.67,.94,.79,self.uiOpacity)
+   g.circle("fill",x,y,27*u*self.moveScale)
+   g.setColor(.12,.31,.23,1);g.circle("line",x,y,26*u*self.moveScale)
+ end
+ if self.fireOrigin then
+   local base={x=self.fireOrigin.x,y=self.fireOrigin.y,r=l.fire.r}
+   -- Inner cyan radius = precision aim only. Outer gold threshold =
+   -- aim+manual fire. No second combat button is introduced.
+   ring(g,base,self.fireActive,self.fireActive)
+   g.setLineWidth(2*u)
+   g.setColor(.28,.88,.93,.80*self.uiOpacity)
+   g.circle("line",base.x,base.y,base.r*.56)
+   g.setColor(.96,.75,.29,.92*self.uiOpacity)
+   g.circle("line",base.x,base.y,base.r*.72)
+   local px=base.x+self.fireOffsetX
+   local py=base.y+self.fireOffsetY
+   if self.fireOffsetX~=0 or self.fireOffsetY~=0 then
+     g.setColor(self.fireActive and .99 or .34,
+       self.fireActive and .67 or .82,
+       self.fireActive and .23 or .93,.77*self.uiOpacity)
+     g.setLineWidth(3*u);g.line(base.x,base.y,px,py)
+   end
+   g.setColor(self.fireActive and .96 or .38,
+     self.fireActive and .70 or .86,
+     self.fireActive and .31 or .93,self.uiOpacity)
+   g.circle("fill",px,py,23*u*self.fireScale)
+   g.setColor(.12,.27,.25,1);g.setLineWidth(2*u)
+   g.circle("line",px,py,23*u*self.fireScale)
+   glyph(g,"attack",{x=px,y=py},u*.66,self.fireActive)
+   g.setFont(small);g.setColor(1,1,1,self.uiOpacity)
+   g.printf(self.fireActive and "MIRA + ATAQUE" or "SOMENTE MIRA",
+     base.x-75*u,base.y+base.r+8*u,150*u,"center")
  end
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
- -- The first four are the exact first four quick slots, not fake cooldown skills.
- for i,p in ipairs(l.skills) do
-   ring(g,p,false,false)
-   local id,weapon=Slots.at(world,i)
-   local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
-   if item and Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) then
-     g.setColor(.04,.13,.12,.92);g.circle("fill",p.x+p.r*.6,p.y+p.r*.6,10*u)
-     g.setFont(small);g.setColor(1,1,1,1)
-     g.printf(tostring(i),p.x+p.r*.6-10*u,p.y+p.r*.6-6*u,20*u,"center")
-   else
-     words(g,tostring(i),p)
+ g.setColor(.97,.97,.94,1);g.setFont(small)
+ g.printf(self.auto and "AUTO ON" or "AUTO",l.auto.x-41*u,l.auto.y+43*u,82*u,"center")
+ -- Fixed-direction action is independent from AUTO and both joysticks.
+ ring(g,l.lock,self.aimLocked,self.aimLocked)
+ glyph(g,"lock",l.lock,u*.80,self.aimLocked)
+ g.setFont(small);g.setColor(.97,.97,.94,1)
+ g.printf(self.aimLocked and "MIRA FIXA" or "TRAVAR",
+   l.lock.x-46*u,l.lock.y+39*u,92*u,"center")
+ -- Compact, lined-up HP and level capsules directly over the skill row.
+ -- Health numbers are centered *inside* the health bar. No heart icon.
+ local player=world and world.localPlayer and world:localPlayer()
+ local life=max(0,tonumber(player and player.health) or 0)
+ local maxLife=max(1,tonumber(player and player.maxHealth) or 100)
+ local xp=max(0,tonumber(world and world.xp) or 0)
+ local maxXP=max(1,tonumber(world and world.maxXP) or 300)
+ local level=max(1,math.floor(tonumber(world and world.age) or 1))
+ local status=self:statusLayout(w,h)
+ local hp=status.life
+ g.setColor(.025,.075,.075,.92*self.uiOpacity)
+ g.rectangle("fill",hp.x,hp.y,hp.w,hp.h,hp.h*.45,hp.h*.45)
+ g.setColor(.89,.20,.26,self.uiOpacity)
+ g.rectangle("fill",hp.x+3*u,hp.y+3*u,
+   (hp.w-6*u)*clamp(life/maxLife,0,1),hp.h-6*u,
+   hp.h*.38,hp.h*.38)
+ g.setColor(.75,.92,.86,.92*self.uiOpacity)
+ g.setLineWidth(2*u)
+ g.rectangle("line",hp.x,hp.y,hp.w,hp.h,hp.h*.45,hp.h*.45)
+ -- Keep the text INSIDE the bar even at smaller mobile resolutions.
+ local statusFont=hp.h>=font:getHeight()+4*u and font or small
+ g.setFont(statusFont)
+ local hpText=math.floor(life).."/"..math.floor(maxLife)
+ local hpTextY=hp.y+(hp.h-statusFont:getHeight())*.5
+ g.setColor(0,0,0,.72*self.uiOpacity)
+ g.printf(hpText,hp.x+1*u,hpTextY+1*u,hp.w,"center")
+ g.setColor(1,1,1,1)
+ g.printf(hpText,hp.x,hpTextY,hp.w,"center")
+ -- The "Nv" label belongs inside the rounded level capsule; experience
+ -- progress has its own quiet track on the right, all within this capsule.
+ local xpBox=status.level
+ g.setColor(.025,.075,.075,.94*self.uiOpacity)
+ g.rectangle("fill",xpBox.x,xpBox.y,xpBox.w,xpBox.h,
+   xpBox.h*.48,xpBox.h*.48)
+ g.setColor(.70,.85,.71,.92*self.uiOpacity)
+ g.setLineWidth(2*u)
+ g.rectangle("line",xpBox.x,xpBox.y,xpBox.w,xpBox.h,
+   xpBox.h*.48,xpBox.h*.48)
+ local levelW=68*u
+ g.setColor(.20,.31,.24,.95*self.uiOpacity)
+ g.rectangle("fill",xpBox.x+2*u,xpBox.y+2*u,levelW,xpBox.h-4*u,
+   (xpBox.h-4*u)*.45,(xpBox.h-4*u)*.45)
+ g.setFont(statusFont)
+ g.setColor(.98,.87,.47,1)
+ g.printf("Nv "..level,xpBox.x+2*u,
+   xpBox.y+(xpBox.h-statusFont:getHeight())*.5,levelW,"center")
+ local trackX=xpBox.x+76*u
+ local trackY=xpBox.y+xpBox.h*.37
+ local trackW=xpBox.w-85*u
+ local trackH=xpBox.h*.26
+ g.setColor(.10,.19,.18,.9*self.uiOpacity)
+ g.rectangle("fill",trackX,trackY,trackW,trackH,trackH*.5,trackH*.5)
+ g.setColor(.98,.80,.34,self.uiOpacity)
+ g.rectangle("fill",trackX,trackY,trackW*clamp(xp/maxXP,0,1),
+   trackH,trackH*.5,trackH*.5)
+ -- The auto-gather/attack mode is an independent toggle: a held manual
+ -- attack and opening an overlay never change the active auto state.
+ local slots,bar=self:hotbar(Slots.total(world),w,h)
+ -- Clip only the bottom row. More unlocked options extend horizontally,
+ -- and the same row can be swiped. No arrows, pages or invented skills.
+ g.setScissor(bar.clipX,bar.top,bar.clipW,bar.bottom-bar.top)
+ for _,p in ipairs(slots) do
+   if p.x+p.r>=bar.clipX and p.x-p.r<=bar.clipX+bar.clipW then
+     local id,weapon=Slots.at(world,p.index)
+     local selected=false
+     if player and type(player.buildIndex)=="number" then
+       if player.buildIndex>=0 then
+         selected=not weapon and id==player.buildIndex
+       else
+         selected=weapon and id==player.weaponIndex
+       end
+     end
+     local pulse=0
+     if self.abilityPulse==p.index and love.timer and love.timer.getTime then
+       pulse=clamp(1-(love.timer.getTime()-self.abilityPulseAt)/.27,0,1)
+     end
+     ring(g,p,selected or pulse>0,selected or pulse>0)
+     if pulse>0 then
+       g.setLineWidth((1+3*pulse)*bar.rowU)
+       g.setColor(.98,.86,.42,.8*pulse)
+       g.circle("line",p.x,p.y,p.r+4*bar.rowU)
+     end
+     local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
+     if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.3) end
+     -- Draw a proper circular keycap as part of the ability wheel, rather
+     -- than placing a number on top of the bottom ring where it gets cut.
+     local badgeR=p.r*.31
+     local badgeY=p.y+p.r*.80
+     g.setColor(.018,.045,.056,.97*self.uiOpacity)
+     g.circle("fill",p.x,badgeY,badgeR)
+     g.setColor(selected and .99 or .34,selected and .77 or .86,
+       selected and .35 or .86,self.uiOpacity)
+     g.setLineWidth(2*bar.rowU)
+     g.circle("line",p.x,badgeY,badgeR-1*bar.rowU)
+     g.setColor(1,1,1,1);g.setFont(small)
+     g.printf(tostring(p.index),p.x-badgeR,
+       badgeY-small:getHeight()*.5,2*badgeR,"center")
    end
  end
- -- All inventory entries from #5 onward, horizontally in the centre.
- local total=Slots.total(world)
- local pageCount=Slots.pages(world,5)
- self.page=clamp(self.page,1,pageCount)
- if total>4 then
-   local first=5+(self.page-1)*5
-   local count=min(5,total-first+1)
-   for i=1,count do
-     local p={x=l.strip.x+(i-3)*l.strip.step,y=l.strip.y,r=l.strip.r}
-     ring(g,p,false,false)
-     local id,weapon=Slots.at(world,first+i-1)
-     local item=id and (weapon and Catalog.weaponById(id) or Catalog.itemById(id))
-     if item then Icons.draw(weapon and "weapon" or "item",item,p.x,p.y,p.r*1.34) end
-   end
-   if pageCount>1 then
-     ring(g,l.stripPrev,false,false);words(g,"<",l.stripPrev)
-     ring(g,l.stripNext,false,false);words(g,">",l.stripNext)
-     g.setColor(1,1,1,1);g.setFont(small)
-     g.printf(self.page.."/"..pageCount,l.strip.x-38*u,h-104*u,76*u,"center")
+ g.setScissor()
+ -- Subtle edge marks indicate more unlocked actions off-screen.
+ if bar.maxScroll>0 then
+   g.setFont(font);g.setColor(.74,.97,.86,.88*self.uiOpacity)
+   if bar.scroll>0 then g.print("<",bar.clipX-13*l.u,l.hotbar.y-13*l.u) end
+   if bar.scroll<bar.maxScroll then
+     g.print(">",bar.clipX+bar.clipW+2*l.u,l.hotbar.y-13*l.u)
    end
  end
  g.pop()

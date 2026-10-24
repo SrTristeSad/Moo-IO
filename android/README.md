@@ -31,15 +31,19 @@ e contém o identificador correto.
 limpa, obtenha a mensagem do instalador ou o resultado de `adb install` para
 distinguir arquitetura, versão Android e falta de espaço.
 
-## HUD tático mobile — quatro atalhos e rankings
+## HUD de sobrevivência — joysticks flutuantes
 
-O layout Android é original, inspirado na organização funcional de MOBAs mobile: joystick esquerdo, mira independente na direita, **quatro botões de atalhos circulares** exibindo as quatro primeiras armas/estruturas realmente desbloqueadas, e **ataque manual grande**. Esses atalhos selecionam equipamentos existentes validados pelo Node (teclas 1–4); **ainda não existem quatro novos poderes/feitiços** com tempo de recarga. Eles poderão receber habilidades quando o sistema de habilidades for definido.
+O antigo arranjo MOBA foi substituído por controles próprios para o survival. Dois joysticks flutuantes surgem exatamente onde os polegares encostam, sem bases fixas desenhadas quando não estão em uso. O toque à esquerda inicia movimento; à direita, **um único joystick flutuante** oferece mira sem disparar na zona interna e mira + ataque na zona externa. A barra inferior é **uma única linha de atalhos progressivos**, inicialmente curta: novas opções são acrescentadas apenas após escolhas de evolução confirmadas pelo servidor. Ela se recentraliza enquanto couber na tela. Quando ficar comprida, o jogador desliza a própria linha na horizontal; **não existem páginas de inventário nem botões artificiais de habilidades**.
 
-- **AUTO** na região do botão Flash de um MOBA: envia o mesmo comando `K(1)` da tecla **E** do Windows, alternando a coleta/ataque automático no servidor. Não simula um mouse continuamente pressionado.
+Os botões maiores de LOJA, CLÃ e TRIBO abrem, respectivamente, os sistemas existentes de compra/equipamentos, clãs permanentes e alianças temporárias da partida. Clãs de conta e Tribes são mecanismos diferentes. Os botões Loja, Clã, Tribo, Chat, TOP e Menu estão na faixa superior. As ofertas de evolução aparecem abaixo desses atalhos, mesmo com a escala máxima do HUD.
+
+- **AUTO**: envia o mesmo comando de coleta/ataque automático do Windows.
 - **Ping (!) ao lado do minimapa**: envia `S(1)`, igual à tecla **R** no Windows, para sinalizar a posição atual aos aliados.
 - **MAP**: abre o mapa completo; toque num ponto para enviar `U(x,y)` aos aliados. O servidor valida coordenadas e cooldown.
 - **TOP10**: abre um ranking com abas **OURO, VIDA, COMIDA, MADEIRA, PEDRA, ABATES e PONTOS**. As classificações vêm exclusivamente do servidor (pacote de pedido `Y`, resposta `n`), até dez jogadores por categoria e ocultação de identidades anônimas.
-- A área sob o minimapa mostra **vida, ouro, comida, madeira, pedra e abates** obtidos das mensagens reais do jogo.
+- A coluna esquerda usa apenas os **ícones originais de food, wood e stone** e suas quantidades recebidas do servidor, sem inventar nomes de recursos; os botões **PING** e **MAPA** continuam visíveis ao lado do minimapa.
+- **Vida** aparece em barra vermelha acima da linha de atalhos; **nível e XP** ficam ao lado da vida, com valores autoritativos.
+- **AUTO** continua ativo ao abrir Loja, Clã, Tribo, Chat, TOP, mapa e configurações. Ataque manual não altera o toggle automático. Só AUTO ou a tecla E enviam o toggle `K(1)`.
 
 O APK Beta com servidor integrado precisa ser gerado pela Action **Moo IO Android autonomo - APK com servidor**. O workflow recompila o servidor Node a partir dos módulos atuais antes de incorporá-lo ao APK; evita Top 10 antigo/ausente em salas hospedadas no próprio Android.
 
@@ -57,7 +61,7 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 ## Modo solo e multiplayer
 
 1. Instale o `Moo-IO-Android-Beta-Instalavel.apk` gerado pela action **Moo IO Android autonomo - APK com servidor**.
-2. Abra o aplicativo, escolha **Jogar → Criar minha sala**. A interface só apresenta a sala como pronta após receber resposta real do servidor Node.
+2. Abra o aplicativo, escolha **Jogar**, selecione opcionalmente **0 a 8 bots** e pressione **Criar minha sala**. A interface só confirma a sala após resposta real do Node.
 3. Clique **Jogar agora**. Sem Wi-Fi, o servidor usa `127.0.0.1`; a partida solo não exige internet.
 4. Para receber amigos, conecte o telefone a uma rede Wi-Fi/hotspot privado e compartilhe o IP:8080 e o código da sala. Os convidados Windows ou Android escolhem **Entrar em outra sala** e digitam essas informações.
 5. Se mudar de rede, feche e abra novamente o aplicativo para atualizar o endereço do servidor. O serviço permanece ativo apenas enquanto a sala estiver explicitamente hospedada; sair da sala o encerra.
@@ -68,11 +72,14 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 
 | Controle | Função |
 |---|---|
-| Região inferior esquerda / joystick | movimento 360°; um dedo capturado nunca vira ataque |
-| ATACAR — segurar e arrastar | **o próprio botão é o joystick de mira e ataque**: mantém o ataque enquanto o dedo está pressionado e aponta os golpes para onde o dedo arrasta; soltar para de atacar |
-| Região direita fora de ATACAR | não ativa mira separada; use o botão ATACAR para controlar a direção dos golpes |
-| Quatro botões à direita | seleção dos quatro primeiros itens/armas realmente disponíveis |
-| Faixa central inferior | itens a partir do quinto, em páginas de até cinco com setas |
+| Parte inferior esquerda (livre) | o joystick de movimento surge onde o dedo toca; arraste para mover |
+| Parte inferior direita (livre) | o joystick único surge no toque: até 56% do raio, apenas mira; a partir de 72%, começa mira + ataque; voltar até 56% interrompe o tiro manual; soltar finaliza o gesto |
+| Linha de atalhos inferior | cresce com armas, ferramentas, estruturas e consumíveis desbloqueados durante a evolução real do MooMoo.io |
+| Deslizar horizontalmente na linha | revela opções fora da área visível, sem trocar de página nem equipar durante o gesto |
+| Toque simples em um atalho | seleciona a opção correspondente após soltar o dedo; o servidor valida o equipamento |
+| LOJA | abre o Shop real do servidor, com compras e equipamentos |
+| CLÃ | abre a interface de clãs permanentes da conta |
+| TRIBO | abre as alianças temporárias da partida |
 | AUTO | alterna o comando original da tecla **E** do PC |
 | CHAT | abre entrada de texto Android, teclado, ENVIAR e X para fechar |
 | ! | ping rápido da posição, como R no PC |
@@ -80,12 +87,12 @@ O controle de ligar/desligar está restrito a `127.0.0.1:8082` com um token alea
 | TOP10 | tabela por recurso, pontuação, vida e abates |
 | II | menu de pausa |
 
-Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removidos. A seleção de armas e estruturas fica no inventário horizontal real, sem menus artificiais. Os quatro primeiros ainda são atalhos de itens; habilidades especiais novas não estão implementadas.
+Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removidos. A seleção de armas e estruturas fica na linha contínua de atalhos, sem inventário paginado ou menus artificiais. O jogo não ganha habilidades inexistentes: os desbloqueios são os permitidos pelo servidor do MooMoo.io.
 
 ### Ajustes de estabilidade
 
-- Layout dos controles calculado uma vez por resolução e reutilizado durante desenho/movimento.
-- Toques independentes por identificador: polegar esquerdo movimenta o personagem e o botão ATACAR, pressionado com o polegar direito, também direciona a mira. O ataque continua mesmo se esse dedo ultrapassar o limite visual do botão; soltar interrompe o golpe. Não existe segundo joystick de mira invisível.
+- Layout dos controles calculado pela resolução e pelos ajustes individuais, reutilizado durante desenho e movimento.
+- Toques independentes por identificador, com origem flutuante para cada polegar. Um dedo não assume o controle do outro; o joystick direito começa **somente mirando**. Ao arrastar para fora de 72% do raio, passa a atirar enquanto mira; voltando para dentro de 56%, para de atirar, mantendo a mira. Essa diferença entre 56% e 72% impede disparos intermitentes perto do limite. Soltar interrompe o ataque manual e encerra o gesto, preservando a direção escolhida.
 - Renderização de estruturas otimizada com classificação por camadas reaproveitável, preservando a ordem original.
 - Prévia de fundo do menu Android desenhada em resolução reduzida e atualizada com menor frequência.
 - Intervalos de animação visual limitados após engasgos, sem alterar o tempo de rede do servidor.
@@ -95,10 +102,51 @@ Os botões fictícios **Correr, Bolsa, Coleta, Construir e Trocar** foram removi
 
 A marcação por coordenada utiliza o pacote `U`, com validação de limites e cooldown no servidor. Versões Android e Windows devem utilizar protocolo compatível.
 
+## Ajustar tamanho e comportamento dos botões
+
+Em **Configurações**, altere o tamanho geral e a opacidade do HUD. Toque em **Ajustar joysticks** para mudar individualmente o tamanho do movimento, o tamanho do ataque+mira e a zona morta. Em **Pausa → Configurações** também é possível alterar tamanho geral e opacidade. Todas as escolhas são salvas no armazenamento privado do app e restauradas ao abri-lo novamente.
+
+## Bots reais no Android
+
+A criação de sala passa a quantidade de bots selecionada (0–8) para o processo Node por meio de um endpoint privado de loopback protegido por token. O servidor recebe essa quantidade na variável de ambiente MOO_IO_BOT_COUNT, informa a quantidade efetiva no endpoint de status e o cliente recusa marcar a sala como pronta se houver divergência. Para trocar a quantidade, encerre a sala e crie outra. O cliente não inventa personagens.
+
+## Correções da auditoria pós-PR #8
+
+- O servidor Node embutido é atualizado por **SHA-256 do ZIP** e não mais apenas pelo versionCode do aplicativo, impedindo uso silencioso de JavaScript antigo após atualização da mesma Beta.
+- A confirmação de sala pronta exige que o status do processo Node informe também a quantidade real de bots. A resposta sem esse campo não autoriza a interface a dizer que a sala está pronta.
+- Se a solicitação de encerramento nativo falhar, o cliente mostra erro e não declara que a RAM foi liberada. Essa confirmação indica o aceite do controle nativo; a verificação de morte do processo continua coberta pelo teste de emulador.
+- Testes de regressão acrescentados para encerramento não confirmado e resposta incompleta do servidor.
+
+## Acabamento visual e correção de corte das habilidades
+
+A área recortada da linha única inferior agora contempla a borda completa das rodas de habilidade, sua sombra, a animação de seleção e os indicadores circulares de tecla. A largura de rolagem também reserva margem nas extremidades para que o primeiro e o último círculo não fiquem cortados. Ao desbloquear novas ações, os botões seguem em **uma única linha horizontal funcional**, sem paginação.
+
+Os valores reais de **vida** são centralizados vertical e horizontalmente **dentro** da barra vermelha; o valor de **nível** aparece dentro da cápsula arredondada de XP. O ícone de coração foi removido. O tamanho da fonte acompanha a altura disponível em celulares menores. A regressão de geometria verifica a integridade das rodas, dos números e a separação entre a linha de habilidades e os indicadores de status para 1280×720, 1600×757 e 800×360.
+
+## TRAVAR MIRA — direção fixa no Android
+
+O botão **TRAVAR** aparece logo abaixo do **AUTO**, com um cadeado. Toque nele para enviar **`K(0)`** ao servidor MooMoo.io (mesma ação da tecla **X** no Windows); o botão passa a exibir **MIRA FIXA** somente se o envio for aceito. O personagem mantém a última direção confirmada mesmo andando, soltando o joystick de mira, abrindo Loja/Clã/Chat ou usando habilidades. O controle manual continua podendo **mirar sem disparar ou disparar** conforme as zonas, porém a orientação permanece fixa enquanto a trava está ativa.
+
+Toque novamente em **MIRA FIXA** para destravar e voltar a orientar a arma pelo joystick. A mudança nunca altera o botão **AUTO** (`K(1)`), não começa nem encerra ataque manual e não desativa movimento. A trava é reiniciada no **respawn**, acompanhando o estado limpo do servidor. Testes automatizados cobrem as zonas, direção preservada, liberação do dedo, persistência em menus, modo automático e reinício.
+
+## Controle único de combate: mira interna e ataque externo
+
+O joystick direito não foi duplicado. Sua base aparece **sob o dedo**, e dois anéis mostram as zonas: o interno (ciano) permite mirar sem atacar; ultrapassar o externo (dourado) dispara também, com direção `D` e ataque `F(1)` transmitidos ao servidor. Regressar à região interna envia `F(0)` apenas se o ataque manual estava ativo, e soltar encerra o toque. As mudanças de direção `D` continuam sendo transmitidas enquanto se usa **somente mira**, com atualização limitada para não sobrecarregar a rede. AUTO permanece um modo independente, sem comando `K` emitido por esse gesto.
+
+## Linha de habilidades funcionais e otimização do Android
+
+A faixa inferior é uma **linha de habilidades/ações executáveis**, e não uma tela de inventário: o cliente recebe as armas, consumíveis e estruturas desbloqueadas pelo servidor do MooMoo.io. Um toque em arma envia o pacote original de equipar (`z`); um toque em consumível ou estrutura aciona a seleção `z` e o uso `F(1)` seguido de `F(0)`. Se o jogador já estiver segurando o joystick de ataque, a opção será selecionada sem soltar artificialmente o ataque manual. Os recursos, a construção, o dano e a validade continuam decididos pelo Node; o cliente não cria habilidades fora do jogo.
+
+A linha é única e desliza horizontalmente quando há mais ações do que cabem na tela. Arrastar **não** ativa habilidades. Cada toque válido recebe um efeito visual breve, sem marcar como confirmado um equipamento que o servidor não aceitou.
+
+A barra superior (Clã, Loja, Tribo, Chat, TOP e Menu) pode ser recolhida/restaurada por **OCULTAR / ABRIR**. Vida e nível/XP estão menores; os botões AUTO, PING e MAPA não desaparecem com a barra recolhida.
+
+Para reduzir engasgos, a criação de novas texturas Canvas de recursos e estruturas foi distribuída por quadros (até três texturas inéditas por quadro), os arrays de personagens e animais são reutilizados no desenho das etiquetas e o desenho fora da tela é evitado. Durante a criação da sala, a consulta HTTP local não aguarda mais até 400 ms por tentativa (novo limite: 120 ms). Essas alterações têm testes automatizados de protocolo e HUD, mas **a fluidez ainda deve ser avaliada em aparelhos físicos**.
+
 ## Build e testes
 
 - [APK autônomo](../.github/workflows/android-host-apk.yml): LÖVE + Node.js Mobile, bibliotecas nativas ARM64/x86_64 e servidor completo no APK.
-- [Emulador Android](../.github/workflows/android-host-emulator.yml): primeiro testa Node mínimo e depois o servidor Moo-IO real; verifica resposta do controlador e presença dos dois processos Android.
+- [Emulador do APK atual](../.github/workflows/android-host-apk.yml): instala o artefato do mesmo commit, testa 0 e 5 bots e confirma a parada do processo Node.
 - [Testes de hospedagem Lua](../.github/workflows/android-host-tests.yml): não confirma a sala antes da resposta efetiva do Node, simula falhas e timeout.
 - [Crossplay Lua/Node](../.github/workflows/game-e2e.yml): confirma conexão e jogo com o mesmo protocolo autoritativo.
 - [Windows](../.github/workflows/package-windows.yml): ZIP com servidor Node Windows pronto.
@@ -107,7 +155,7 @@ A build Android faz um ajuste específico de compatibilidade nas expressões reg
 
 ### Validação conhecida e limitações
 
-O APK com servidor integrado **compilou** e o emulador confirmou inicialização do Node Mobile, inicialização do servidor completo, resposta real na porta de controle e dois processos Android ativos. O pacote offline de servidor também passou em testes HTTP no Linux. **Ainda não foram comprovadas a entrada no mundo, combate e estabilidade em celulares físicos**; trate-o como beta e reporte erros do aparelho.
+O APK com servidor integrado **compila** nas Actions. A validação de ciclo de vida no emulador ainda apresentou falhas em algumas execuções: iniciar o app não deve iniciar Node automaticamente, e o teste também precisa confirmar a porta do servidor e o encerramento do processo. Não considere o teste de emulador aprovado para uma nova build sem verificar a execução específica. O pacote offline de servidor também passou em testes HTTP no Linux. **Ainda não foram comprovadas a entrada no mundo, combate e estabilidade em celulares físicos**; trate-o como beta e reporte erros do aparelho.
 
 Somente durante a hospedagem o serviço de Node opera em primeiro plano com uma notificação; ao encerrar a sala ou fechar o app, essa notificação é removida e o processo isolado é finalizado. Em caso de falha, `files/mooio-data/node-boot.log` (armazenamento privado) registra diagnósticos do Node. A versão antiga `Moo-IO-Android-Teste.apk` e o arquivo `.love` não incluem o servidor.
 

@@ -58,7 +58,14 @@ local boxes={
   join={704,430,421,54},joinRetry={704,506,421,49},
   serverLite={159,274,433,58},serverFirebase={661,274,433,58},
   serverToPlay={381,526,518,54},
-  grid={355,280,570,57},fullscreen={355,364,570,57},
+  grid={355,236,570,52},fullscreen={355,301,570,52},
+  hudSmaller={355,391,120,54},hudBigger={805,391,120,54},
+  opacityLess={355,467,120,54},opacityMore={805,467,120,54},
+  hudReset={529,537,222,51},
+  moveMinus={355,245,120,54},movePlus={805,245,120,54},
+  attackMinus={355,326,120,54},attackPlus={805,326,120,54},
+  deadzoneMinus={355,407,120,54},deadzonePlus={805,407,120,54},
+  controlsReset={529,509,222,52},
   overlayCopy={478,395,322,55},overlayClose={880,177,55,43}
 }
 local function button(id,text,primary)
@@ -107,7 +114,9 @@ function Home.new()
     status="",error=false,hosting=false,starting=false,
     hostAddress="",hostCode="",connectionState="idle",serverLog="",
     showGrid=true,fullscreen=false,sessionTitle="",
-    roomOverlay=false,botsEnabled=false,botCount=2
+    roomOverlay=false,botsEnabled=false,botCount=2,
+    hudScale=1.20,hudOpacity=.90,
+    moveScale=1,fireScale=1,deadzone=.15
   },Home)
 end
 function Home:scale(x,y)
@@ -126,7 +135,8 @@ end
 function Home:click(sx,sy)
   local x,y=self:scale(sx,sy)
   if self.screen~="home" and inside(x,y,boxes.back) then
-    self.screen="home";self.focus=nil;return "back"
+    self.screen=self.screen=="controls" and "settings" or "home"
+    self.focus=nil;return "back"
   end
   if self.screen=="home" then
     if inside(x,y,boxes.homePlay) then
@@ -141,6 +151,20 @@ function Home:click(sx,sy)
     if inside(x,y,boxes.joinIP) then self.focus="invite";return "focus" end
     if inside(x,y,boxes.joinCode) then self.focus="joinCode";return "focus" end
     if isAndroid and not self.hosting and not self.starting then
+      if inside(x,y,boxes.botsToggle) then
+        self.botsEnabled=not self.botsEnabled
+        return "bots_toggle"
+      end
+      if inside(x,y,boxes.botsMinus) then
+        self.botCount=math.max(0,self.botCount-1)
+        self.botsEnabled=self.botCount>0
+        return "bots_count"
+      end
+      if inside(x,y,boxes.botsPlus) then
+        self.botCount=math.min(8,self.botCount+1)
+        self.botsEnabled=true
+        return "bots_count"
+      end
       if inside(x,y,boxes.createLan) then
         self.focus=nil
         return "create"
@@ -186,6 +210,54 @@ function Home:click(sx,sy)
   elseif self.screen=="settings" then
     if inside(x,y,boxes.grid) then self.showGrid=not self.showGrid;return "grid" end
     if inside(x,y,boxes.fullscreen) then self.fullscreen=not self.fullscreen;return "fullscreen" end
+    if inside(x,y,boxes.hudSmaller) then
+      self.hudScale=math.max(.85,math.floor((self.hudScale-.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.hudBigger) then
+      self.hudScale=math.min(1.55,math.floor((self.hudScale+.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.opacityLess) then
+      self.hudOpacity=math.max(.50,math.floor((self.hudOpacity-.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.opacityMore) then
+      self.hudOpacity=math.min(1,math.floor((self.hudOpacity+.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.hudReset) then
+      self.screen="controls";return "controls_tab"
+    end
+  elseif self.screen=="controls" then
+    if inside(x,y,boxes.moveMinus) then
+      self.moveScale=math.max(.75,math.floor((self.moveScale-.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.movePlus) then
+      self.moveScale=math.min(1.50,math.floor((self.moveScale+.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.attackMinus) then
+      self.fireScale=math.max(.75,math.floor((self.fireScale-.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.attackPlus) then
+      self.fireScale=math.min(1.50,math.floor((self.fireScale+.10)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.deadzoneMinus) then
+      self.deadzone=math.max(.05,math.floor((self.deadzone-.05)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.deadzonePlus) then
+      self.deadzone=math.min(.30,math.floor((self.deadzone+.05)*100+.5)/100)
+      return "hud_changed"
+    end
+    if inside(x,y,boxes.controlsReset) then
+      self.moveScale=1;self.fireScale=1;self.deadzone=.15
+      return "hud_changed"
+    end
   end
   return nil
 end
@@ -195,7 +267,10 @@ local function removeLast(s)
   return s:sub(1,i-1)
 end
 function Home:keypressed(key)
-  if key=="escape" then self.screen="home";self.focus=nil;return "back" end
+  if key=="escape" then
+    self.screen=self.screen=="controls" and "settings" or "home"
+    self.focus=nil;return "back"
+  end
   if self.focus then
     if key=="backspace" then self[self.focus]=removeLast(self[self.focus]) end
     if key=="v" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then
@@ -282,24 +357,36 @@ function Home:draw(state,detail,showWorld)
   love.graphics.scale(z)
   if not showWorld then love.graphics.clear(C.bg) end
   decorate(showWorld)
-  -- Fixed header: the back button lives at the upper right, never over logo.
-  love.graphics.setColor(0.09,0.12,0.095)
-  love.graphics.rectangle("fill",58,72,325,83)
-  love.graphics.setColor(0.20,0.29,0.19)
-  love.graphics.rectangle("fill",63,77,315,73)
-  printText("MOO",88,78,44,C.white)
-  printText("IO",222,78,44,C.green)
-  printText("MULTIPLAYER",91,127,13,C.muted)
+  -- Block-survival launcher: a strong title and grass-topped stone plate.
+  panel(58,65,370,101,{0.22,0.28,0.23},0)
+  love.graphics.setColor(.36,.59,.21,1)
+  love.graphics.rectangle("fill",58,65,370,10)
+  love.graphics.setColor(.58,.78,.34,.92)
+  love.graphics.rectangle("fill",58,65,370,4)
+  printText("MOO",84,83,49,C.white)
+  printText("IO",247,83,49,C.green)
+  printText("SURVIVAL  /  MULTIPLAYER",85,137,13,C.muted)
   if self.screen=="home" then
-    printText("ESCOLHA COMO JOGAR",96,213,29,C.white)
+    printText("ESCOLHA COMO JOGAR",96,213,28,C.white)
     button("homePlay","JOGAR",true)
     button("homeServers","SERVIDORES",false)
     button("homeSettings","CONFIGURACOES",false)
     panel(583,202,575,340,C.panel,0)
-    printText("SEU MUNDO, SUAS REGRAS",608,255,25,C.white)
-    printText(isAndroid and "Entre numa sala pelo IP." or "Crie sua sala somente se quiser.",612,325,20,C.green)
-    printText(isAndroid and "Jogue com os amigos do Windows." or "Entre sozinho ou chame amigos.",612,363,18,C.muted)
-    printText("Sem configurar um terminal.",612,406,17,C.muted)
+    love.graphics.setColor(.40,.66,.26)
+    love.graphics.rectangle("fill",583,202,575,10)
+    printText("UM MUNDO PARA SOBREVIVER",608,247,26,C.white)
+    printText("COLETE   /   CONSTRUA   /   LUTE",608,300,17,C.green)
+    printText("Crie sua sala no celular ou entre com amigos.",608,349,18,C.white)
+    printText("Solo, multiplayer LAN e bots opcionais.",608,390,17,C.muted)
+    -- Decorative voxel silhouettes, not fake players or server entities.
+    local blocks={{650,460,.36,.60,.25},{689,447,.30,.50,.22},
+      {731,466,.47,.69,.30},{773,445,.28,.44,.21},{811,459,.36,.59,.24}}
+    for _,b in ipairs(blocks) do
+      love.graphics.setColor(b[3],b[4],b[5],.95)
+      love.graphics.rectangle("fill",b[1],b[2],37,40)
+      love.graphics.setColor(.18,.28,.15,.9)
+      love.graphics.rectangle("fill",b[1],b[2]+35,37,5)
+    end
   else
     button("back","< VOLTAR",false)
     if self.screen=="play" then
@@ -309,9 +396,15 @@ function Home:draw(state,detail,showWorld)
       printText("01  CRIAR MINHA SALA",155,204,19,C.green)
       field("nickname",self.nickname,"Seu apelido",self.focus=="nickname")
       if isAndroid and not self.hosting and not self.starting then
-        printText("SERVIDOR NO CELULAR",155,316,22,C.green)
-        printText("Partida solo sem internet ou PC.",155,371,16,C.white)
-        printText("Na rede Wi-Fi, amigos tambem podem entrar.",155,405,16,C.muted)
+        printText("SERVIDOR NO CELULAR",155,307,20,C.green)
+        printText("Jogue sozinho ou com amigos pelo Wi-Fi.",155,351,16,C.white)
+        printText("Bots reais no servidor, de 0 a 8:",155,389,16,C.muted)
+        button("botsToggle",self.botsEnabled and "BOTS: LIGADOS" or
+          "BOTS: DESLIGADOS",self.botsEnabled)
+        button("botsMinus","-")
+        printText(tostring(self.botsEnabled and self.botCount or 0).." / 8",
+          276,482,20,C.white,222,"center")
+        button("botsPlus","+")
         button("createLan","CRIAR MINHA SALA",true)
       elseif self.hosting then
         printText(self.botsEnabled and self.botCount>0 and
@@ -374,12 +467,31 @@ function Home:draw(state,detail,showWorld)
         printText("Nao hospeda o motor do jogo.",661,414,16,C.muted)
       end
       button("serverToPlay","ENTRAR COM IP NO JOGAR",false)
-    else
-      printText("CONFIGURACOES",336,190,31,C.white)
+    elseif self.screen=="settings" then
+      printText("CONFIGURACOES",336,171,30,C.white)
       button("grid","GRADE DO MAPA     "..(self.showGrid and "LIGADA" or "DESLIGADA"),false)
       button("fullscreen","TELA CHEIA       "..(self.fullscreen and "LIGADA" or "DESLIGADA"),false)
-      printText("Convide amigos pela tela da sala ou pelo menu ESC.",360,477,16,C.muted)
-      printText("ESC na partida: voltar e alterar as configuracoes.",360,505,16,C.muted)
+      printText("CONTROLES E HUD",355,368,18,C.green)
+      button("hudSmaller","-")
+      printText("TAMANHO  "..math.floor(self.hudScale*100+.5).."%",475,409,19,C.white,330,"center")
+      button("hudBigger","+")
+      button("opacityLess","-")
+      printText("OPACIDADE  "..math.floor(self.hudOpacity*100+.5).."%",475,486,19,C.white,330,"center")
+      button("opacityMore","+")
+      button("hudReset","AJUSTAR JOYSTICKS",false)
+    else
+      printText("CONTROLES FLUTUANTES",340,171,30,C.white)
+      printText("Cada joystick aparece onde voce encosta o dedo.",356,210,16,C.muted)
+      button("moveMinus","-")
+      printText("MOVIMENTO  "..math.floor(self.moveScale*100+.5).."%",475,262,19,C.white,330,"center")
+      button("movePlus","+")
+      button("attackMinus","-")
+      printText("ATAQUE + MIRA  "..math.floor(self.fireScale*100+.5).."%",475,343,19,C.white,330,"center")
+      button("attackPlus","+")
+      button("deadzoneMinus","-")
+      printText("ZONA MORTA  "..math.floor(self.deadzone*100+.5).."%",475,423,19,C.white,330,"center")
+      button("deadzonePlus","+")
+      button("controlsReset","RESTAURAR PADRAO",false)
     end
   end
   panel(83,614,1111,57,{0.13,0.17,0.15},0)

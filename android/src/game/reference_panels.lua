@@ -164,10 +164,10 @@ end
 function P:click(world,x,y,w,h)
   if type(x)~="number" or type(y)~="number" then return nil end
   local storeX,tribeX,top,size=self:buttons(w)
-  if inside(x,y,storeX,top,size,size) then
+  if not self.hideButtons and inside(x,y,storeX,top,size,size) then
     self:toggle("store");return {consumed=true}
   end
-  if inside(x,y,tribeX,top,size,size) then
+  if not self.hideButtons and inside(x,y,tribeX,top,size,size) then
     self:toggle("tribe");return {consumed=true}
   end
   -- Join request notifications are independent of the open window.
@@ -190,7 +190,7 @@ function P:click(world,x,y,w,h)
     self:close()
     return {consumed=true}
   end
-  if inside(x,y,px+pw-43,py+11,32,32) then
+  if inside(x,y,px+pw-51,py+8,44,44) then
     self:close();return {consumed=true}
   end
   if self.opened=="store" then
@@ -218,7 +218,7 @@ function P:click(world,x,y,w,h)
       if inside(x,y,px+17,row,pw-34,50) then
         local entry=list[self.scroll+i]
         self.hoverItem=entry
-        if inside(x,y,px+328,row+7,105,36) then
+        if inside(x,y,px+328,row+5,105,42) then
           local order=self:storeAction(world,entry)
           if order then order.consumed=true;return order end
           self.message="Not enough gold."
@@ -307,11 +307,14 @@ local function preview(entry,accessory,x,y)
   return Assets.draw(accessory and "accessories" or "hats",
     filename,x+24,y+24,43,43)
 end
-function P:draw(world)
+function P:draw(world,showButtons)
   local w,h=love.graphics.getDimensions()
-  local storeX,tribeX,top,size=self:buttons(w)
-  button("Shop",storeX,top,size,size,self.opened=="store",true)
-  button("Tribe",tribeX,top,size,size,self.opened=="tribe",true)
+  self.hideButtons=showButtons==false
+  if not self.hideButtons then
+    local storeX,tribeX,top,size=self:buttons(w)
+    button("Shop",storeX,top,size,size,self.opened=="store",true)
+    button("Tribe",tribeX,top,size,size,self.opened=="tribe",true)
+  end
   if world.tribeOwner and #world.joinRequests>0 then
     local first=world.joinRequests[1]
     rect(w-440,88,190,49,0,0,0,0.64)
@@ -325,7 +328,7 @@ function P:draw(world)
   rect(0,0,w,h,0,0,0,0.28)
   rect(px,py,pw,ph,0.10,0.12,0.12,0.90)
   center(self.opened=="store" and "STORE" or "TRIBES",px+20,py+17,pw-40,24)
-  button("X",px+pw-43,py+11,32,32,false,true)
+  button("X",px+pw-51,py+8,44,44,false,true)
   love.graphics.setScissor(px+15,py+98,pw-30,math.max(1,ph-174))
   if self.opened=="store" then
     -- Shop from exact server-side shared/config/store.js order and prices.
@@ -350,7 +353,7 @@ function P:draw(world)
         text("Owned",px+77,ry+26,12,0.65,0.9,0.58)
       end
       local label=self:storeButtonLabel(world,entry)
-      button(label,px+328,ry+7,105,36,
+      button(label,px+328,ry+5,105,42,
         label=="Equip" or label=="Unequip",label~="No gold")
     end
   else

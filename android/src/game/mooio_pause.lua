@@ -13,9 +13,11 @@ local rects={
   settings={410,301,460,53},
   leave={410,425,460,53},
   rootInvite={410,363,460,53},
-  grid={410,246,460,58},
-  fullscreen={410,316,460,58},
-  back={410,386,460,58},
+  grid={410,218,460,45},
+  fullscreen={410,273,460,45},
+  hudSmaller={410,338,95,47},hudBigger={775,338,95,47},
+  opacityLess={410,406,95,47},opacityMore={775,406,95,47},
+  back={410,466,460,44},
   copyInvite={410,359,460,58},
   inviteBack={410,431,460,52},
   confirm={410,404,216,56},
@@ -108,6 +110,10 @@ function Pause:click(screenX,screenY)
   elseif self.page=="settings" then
     if which("grid") then return "toggle_grid" end
     if which("fullscreen") then return "toggle_fullscreen" end
+    if which("hudSmaller") then return "hud_smaller" end
+    if which("hudBigger") then return "hud_bigger" end
+    if which("opacityLess") then return "opacity_less" end
+    if which("opacityMore") then return "opacity_more" end
     if which("back") then self.page="root";return "back" end
   elseif self.page=="invite" then
     if which("copyInvite") then return "copy_invite" end
@@ -122,7 +128,7 @@ function Pause:click(screenX,screenY)
   end
   return nil
 end
-function Pause:draw(grid,fullscreen,inviteText)
+function Pause:draw(grid,fullscreen,inviteText,hudScale,hudOpacity)
   if not self.page then return end
   local w,h=love.graphics.getDimensions()
   love.graphics.push("all")
@@ -158,6 +164,12 @@ function Pause:draw(grid,fullscreen,inviteText)
       {0.77,0.82,0.75})
     button("GRADE DO MAPA: "..(grid and "LIGADA" or "DESLIGADA"),"grid")
     button("TELA CHEIA: "..(fullscreen and "LIGADA" or "DESLIGADA"),"fullscreen")
+    button("-","hudSmaller")
+    label("HUD  "..math.floor((hudScale or 1.20)*100+.5).."%",511,338,260,47,19)
+    button("+","hudBigger")
+    button("-","opacityLess")
+    label("OPACIDADE  "..math.floor((hudOpacity or .90)*100+.5).."%",511,406,260,47,19)
+    button("+","opacityMore")
     button("VOLTAR","back")
   elseif self.page=="invite" then
     label("CONVIDAR AMIGOS",395,146,490,58,31)

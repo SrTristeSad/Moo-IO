@@ -6,6 +6,13 @@ local Catalog=require("src.game.catalog")
 local P=require("src.game.reference_primitives")
 local O={}
 local cache={}
+-- Large first-time Canvas creation during draw caused visible Android
+-- frame spikes when new terrain/structures appeared at once. Spread cold
+-- sprite generation over multiple frames; cached sprites never cost budget.
+local newSpritesRemaining=nil
+function O.beginFrame(maxNew)
+  newSpritesRemaining=math.max(1,math.floor(tonumber(maxNew) or 3))
+end
 local pi=math.pi
 local cos,sin=math.cos,math.sin
 local function randomInt(a,b)
@@ -148,6 +155,10 @@ end
 
 local function buildSprite(key,size,rotation,draw)
   if cache[key]~=nil then return cache[key] or nil end
+  if newSpritesRemaining~=nil then
+    if newSpritesRemaining<=0 then return nil end
+    newSpritesRemaining=newSpritesRemaining-1
+  end
   local dim=math.floor(size)
   if dim<2 or dim>1200 then return nil end
   local image=love.graphics.newCanvas(dim,dim)

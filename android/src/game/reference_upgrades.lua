@@ -8,6 +8,16 @@ local U={}
 local SLOT=66
 local GAP=10
 local TOP=10
+local MOBILE=love.system and love.system.getOS and love.system.getOS()=="Android"
+  or os.getenv("MOO_IO_FORCE_ANDROID_E2E")=="1"
+local function topFor()
+  if not MOBILE then return TOP end
+  local w,h=love.graphics.getDimensions()
+  -- Allow room for the entire top-row touch targets even at maximum HUD scale.
+  -- Upgrade choices stay below the Clã/Loja/Chat/TOP/Menu buttons.
+  local maxScale=math.max(.50,math.min(2.15,math.min(w/1280,h/720)*1.55))
+  return math.ceil(103*maxScale)
+end
 
 local function owns(entries,id)
   for _,v in ipairs(entries or {}) do
@@ -48,22 +58,24 @@ function U.draw(world,w)
   local n=#offers
   if n==0 then return end
   local left=leftFor(w,n)
+  local top=topFor()
   for i,entry in ipairs(offers) do
     local x=left+(i-1)*(SLOT+GAP)
     love.graphics.setColor(0,0,0,0.25)
-    love.graphics.rectangle("fill",x,TOP,SLOT,SLOT,4,4)
-    Icons.draw(entry.kind,entry.data,x+SLOT/2,TOP+SLOT/2,SLOT)
+    love.graphics.rectangle("fill",x,top,SLOT,SLOT,4,4)
+    Icons.draw(entry.kind,entry.data,x+SLOT/2,top+SLOT/2,SLOT)
   end
   local font=love.graphics.getFont()
   love.graphics.setColor(1,1,1)
   love.graphics.printf("Select Items ("..tostring(world.upgradePoints)..")",
-    0,95,w,"center")
+    0,top+SLOT+13,w,"center")
   love.graphics.setFont(font)
 end
 
 function U.hitTest(world,w,x,y)
   if type(x)~="number" or type(y)~="number" then return nil end
-  if y<TOP or y>=TOP+SLOT then return nil end
+  local top=topFor()
+  if y<top or y>=top+SLOT then return nil end
   local offers=U.offers(world)
   if #offers==0 then return nil end
   local start=leftFor(w,#offers)

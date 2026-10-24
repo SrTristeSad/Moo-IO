@@ -31,14 +31,17 @@ public final class MooIOServerService extends android.app.Service {
         if(android.os.Build.VERSION.SDK_INT>=29) {
             startForeground(4201,n,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         } else startForeground(4201,n);
-        synchronized (MooIOServerService.class) {
-            if (started) return;
-            started=true;
-        }
-        new Thread(this::runServer, "MooIO-Node").start();
     }
     @Override public int onStartCommand(android.content.Intent intent,int flags,int startId) {
-        return START_NOT_STICKY; // Do not resurrect a room after Android kills its app.
+        final int requested = intent == null ? 0 : intent.getIntExtra("mooio.bot_count", 0);
+        final int bots = Math.max(0, Math.min(8, requested));
+        synchronized (MooIOServerService.class) {
+            if (started) return START_NOT_STICKY;
+            started = true;
+        }
+        // Read launch extras BEFORE spawning Node; onCreate is too early.
+        new Thread(() -> runServer(bots), "MooIO-Node").start();
+        return START_NOT_STICKY; // Never resurrect a stopped room.
     }
     @Override public android.os.IBinder onBind(android.content.Intent intent) {
         return null;
@@ -58,7 +61,7 @@ public final class MooIOServerService extends android.app.Service {
         Log.i("MooIO-Host", "Offline room stopped; releasing native Node process");
         android.os.Process.killProcess(android.os.Process.myPid());
     }
-    private void runServer() {
+    private void runServer(int botCount) {
         try {
             File root=new File(getFilesDir(),"mooio-host");
             File data=new File(getFilesDir(),"mooio-data");
@@ -66,9 +69,12 @@ public final class MooIOServerService extends android.app.Service {
             if(!data.exists()&&!data.mkdirs())throw new IOException("Cannot create data dir");
             File entry=new File(root,"server/src/offline.mjs");
             File version=new File(root,"server-version.txt");
-            String revision="v"+getPackageManager().getPackageInfo(getPackageName(),0).versionCode;
+            // The APK versionCode is NOT a reliable server revision: test APKs
+            // frequently reuse it. Hash the bundled payload before deciding to skip.
+            String revision=assetSha256("mooio-server.zip");
             if(!entry.isFile()||!version.isFile()||!revision.equals(read(version).trim())) {
                 unpack("mooio-server.zip",root);
+                if(!entry.isFile()) throw new IOException("Server entry missing after extraction");
                 write(version,revision);
             }
             String code=getSharedPreferences("mooio_host",MODE_PRIVATE).getString("room_code","");
@@ -85,7 +91,7 @@ public final class MooIOServerService extends android.app.Service {
             String[] args={"node",(bootstrap.isFile()?bootstrap:entry).getAbsolutePath()};
             String[] vars={"HOST="+ip,"PORT=8080","MOO_IO_ROOM_CODE="+code,
                 "MOO_IO_NETWORK_MODE=lan","MOO_IO_GUI_HOST=1",
-                "MOO_IO_BOT_COUNT=0","DATA_DIR="+data.getAbsolutePath(),
+                "MOO_IO_BOT_COUNT="+botCount,"DATA_DIR="+data.getAbsolutePath(),
                 "PROTOCOL_BUILD_FILE="+new File(data,"protocol-build.json").getAbsolutePath()};
             int exit=MooIONodeBridge.start(args,vars,root.getAbsolutePath());
             Log.i("MooIO-Host","Embedded Node exited: "+exit);
@@ -112,6 +118,17 @@ public final class MooIOServerService extends android.app.Service {
         for(String ip:candidates)if(ip.startsWith("10."))return ip;
         for(String ip:candidates)if(ip.startsWith("172."))return ip;
         return "127.0.0.1"; // no network = standalone solo
+    }
+    private String assetSha256(String name)throws Exception {
+        java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");
+        try(InputStream input=getAssets().open(name)){
+            byte[] buf=new byte[16384]; int n;
+            while((n=input.read(buf))!=-1)digest.update(buf,0,n);
+        }
+        StringBuilder hex=new StringBuilder(64);
+        for(byte b:digest.digest())
+            hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
+        return hex.toString();
     }
     private static String read(File f)throws IOException{
         ByteArrayOutputStream buffer=new ByteArrayOutputStream();

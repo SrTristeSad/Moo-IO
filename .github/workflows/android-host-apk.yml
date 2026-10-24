@@ -1,7 +1,7 @@
 name: Moo IO Android autonomo - APK com servidor
 on:
   push:
-    branches: [feature/android-offline-host, feature/android-moba-hud, feature/android-attack-aim-joystick, fix/android-beta-install-real-hud, fix/android-server-lifecycle, main]
+    branches: [feature/android-offline-host, feature/android-moba-hud, feature/android-attack-aim-joystick, fix/android-beta-install-real-hud, fix/android-server-lifecycle, feat/android-floating-controls-ui-bots, main]
     paths:
       - "android/**"
       - "windows/server/src/**"
@@ -182,3 +182,31 @@ jobs:
           path: dist/Moo-IO-Android-Beta-Instalavel.apk
           retention-days: 30
           if-no-files-found: error
+
+  # Install the APK produced by this SAME commit, never a hardcoded old run.
+  emulator-lifecycle:
+    needs: standalone-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download current APK
+        uses: actions/download-artifact@v4
+        with:
+          name: Moo-IO-Android-Beta-Instalavel
+          path: dist
+      - name: Enable Android emulator hardware virtualization
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify zero bots, five bots, start and stop Node
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: bash android/tests/native_lifecycle_emulator.sh

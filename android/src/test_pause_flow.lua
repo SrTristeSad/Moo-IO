@@ -28,8 +28,11 @@ return function(pause,hosted,home,setPhase,getPhase,getClient,setClient,
   love.mousepressed(620,347,1)
   assert(pause.page=="settings","Settings button must be clickable")
   local grid=home.showGrid
-  love.mousepressed(620,275,1)
+  love.mousepressed(620,240,1)
   assert(home.showGrid~=grid,"Grid toggle must work inside the match")
+  local hudBefore=home.hudScale
+  love.mousepressed(830,360,1)
+  assert(home.hudScale>hudBefore,"Pause must adjust HUD scale while playing")
   love.keypressed("escape")
   assert(pause.page=="root","ESC from settings must go back")
   love.keypressed("escape")
