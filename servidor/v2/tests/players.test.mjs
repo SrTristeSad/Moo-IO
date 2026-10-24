@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { V2ModerationJournal } from "../../../windows/server/src/admin/v2-moderation.js";
+import { ModerationStore } from "../../../windows/server/src/anticheat/index.js";
 import { createPlayerAdmin } from "../../../windows/server/src/admin/v2-players.js";
 
 const id1="1020304050607080",id2="aabbccddeeff0011",id3="ffeeddccbbaa1122";
@@ -97,5 +98,26 @@ test("unauthenticated guests without device identity cannot be persistently bann
   try{
     const ctl=createPlayerAdmin(new Map([["LC",game]]),{moderation,dataDir:dir});
     assert.throws(()=>ctl.execute({action:"ban",playerId:id2,minutes:5,reason:"x"}),/sem identificador persistente/);
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test("authoritative ModerationStore enforces and expires timed account and device bans",()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"v2-real-ban-"));
+  try{
+    const moderation=new ModerationStore(dir);
+    const now=Date.now();
+    moderation.ban({accountId:"acct-123",name:"Jogador",until:now+60000,reason:"Teste"},{name:"panel"});
+    moderation.ban({did:"device-123",name:"Visitante",until:now+60000,reason:"Teste"},{name:"panel"});
+    assert.equal(moderation.isBanned("1.2.3.4","acct-123",null),true);
+    assert.equal(moderation.isBanned("5.6.7.8",null,"device-123"),true);
+    assert.equal(moderation.isBanned("1.2.3.4","unrelated",null),false);
+    const loaded=new ModerationStore(dir);
+    assert.equal(loaded.isBanned(null,"acct-123",null),true);
+    loaded.unbanAccount("acct-123");
+    assert.equal(loaded.isBanned(null,"acct-123",null),false);
+    loaded.bans.devices["device-123"].until=Date.now()-1;
+    loaded.saveBans();
+    assert.equal(loaded.isBanned(null,null,"device-123"),false);
+    assert.equal(new ModerationStore(dir).isBanned(null,null,"device-123"),false);
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
