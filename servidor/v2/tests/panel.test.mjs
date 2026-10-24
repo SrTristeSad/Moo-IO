@@ -121,8 +121,8 @@ test("Painel cria e inicia sala nova com controlador ativo sem parar primeira sa
     const activity=await fetch(base+"/api/rooms/arena/events",{
       headers:{"Cookie":cookie}
     });
-    assert.equal(activity.status,200,await activity.text());
-    const activityJson=await activity.json().catch(()=>null);
+    assert.equal(activity.status,200);
+    const activityJson=await activity.json();
     assert.equal(activityJson?.id,"arena");
     assert.ok(activityJson.events.some(row=>row.kind==="started"));
     assert.ok(activityJson.events.length<=20);
@@ -136,7 +136,7 @@ test("Painel cria e inicia sala nova com controlador ativo sem parar primeira sa
       method:"POST",headers:{"Origin":base,"Cookie":cookie,
         "X-CSRF-Token":csrf,"Content-Type":"application/json"},body:"{}"
     });
-    assert.equal(stopped.status,200,await stopped.text());
+    assert.equal(stopped.status,200);
     assert.equal((await stopped.json()).result.status,"stopped");
     await new Promise(r=>setTimeout(r,500));
     assert.equal((await probeRoom({id:"arena",file:newFile,room:config},{timeout:350})).online,false);
