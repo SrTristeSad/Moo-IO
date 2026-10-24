@@ -7,11 +7,13 @@ import path from "node:path";
 import net from "node:net";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { newRoom, createRoom } from "../core/config.mjs";
+import { createRequire } from "node:module";
+import { newRoom, createRoom, updateRoom } from "../core/config.mjs";
 import { discoverRooms, checkRooms, probeRoom } from "../core/supervisor.mjs";
 
 const root=fileURLToPath(new URL("../../../",import.meta.url));
 const manager=path.join(root,"servidor/v2/manager.mjs");
+const WebSocket=createRequire(path.join(root,"windows/server/package.json"))("ws");
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function freePort(){
   const server=net.createServer();
@@ -64,7 +66,7 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     assert.equal(run.status,0,run.stderr);
   }
   const entries=await checkRooms(discoverRooms(dir));
-  let child,logs="";
+  let child,logs="",normalSocket;
   const a="http://127.0.0.1:"+firstPort,b="http://127.0.0.1:"+secondPort;
   try{
     child=spawn(process.execPath,[manager,"start","--rooms",dir],{cwd:root,stdio:["ignore","pipe","pipe"]});
@@ -133,7 +135,63 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     const health=command(["health","--rooms",dir,"--json"]);
     assert.equal(health.exit,0,health.output);
     assert.equal(JSON.parse(health.output).healthy,true);
+
+    // Keep a LIVE authenticated websocket on the normal room. Reload only
+    // the other room's mods and confirm this connection survives unchanged.
+    const normalJoin=await ticket(a,normal.roomCode,normalToken);
+    assert.equal(normalJoin.status,200);
+    const normalJoinToken=(await normalJoin.json()).ticket;
+    normalSocket=await new Promise((resolve,reject)=>{
+      const ws=new WebSocket("ws://127.0.0.1:"+firstPort+"/s/LC?b="+normalPing.build+
+        "&token=tk:"+normalJoinToken,{headers:{Origin:a}});
+      const timeout=setTimeout(()=>{ws.terminate();reject(Error("Handshake normal timeout"));},3500);
+      ws.once("message",()=>{clearTimeout(timeout);resolve(ws);});
+      ws.once("error",error=>{clearTimeout(timeout);reject(error);});
+    });
+
+    // Invalid mods: the restart MUST fail BEFORE touching the working room.
+    updateRoom(moddedFile,{...modded,mods:["mod-inexistente"]});
+    const invalid=command(["restart","lobos","--rooms",dir]);
+    assert.notEqual(invalid.exit,0,"invalid mod cannot stop working server");
+    assert.equal((await fetch(b+"/mooio/status").then(r=>r.json())).v2.animals.wolfHealth,1000);
+
+    // Changed port/host would break the gateway: refuse hot reload.
+    updateRoom(moddedFile,{...modded,port:secondPort+1});
+    const portEdit=command(["restart","lobos","--rooms",dir]);
+    assert.notEqual(portEdit.exit,0,"port change requires planned full restart");
+    assert.equal((await fetch(b+"/mooio/status").then(r=>r.json())).v2.capacity,24);
+
+    // Valid mod change is picked up by a SINGLE worker restart.
+    const changed={...modded,mods:["colheita-farta"]};
+    updateRoom(moddedFile,changed);
+    const restarted=command(["restart","lobos","--rooms",dir]);
+    assert.equal(restarted.exit,0,restarted.output);
+    assert.match(restarted.output,/lobos.*restarted/);
+    const unknown=command(["restart","sala-fantasma","--rooms",dir]);
+    assert.notEqual(unknown.exit,0,"unknown room refused");
+    let updated=false;
+    for(let i=0;i<90;i++){
+      try{
+        const cur=await fetch(b+"/mooio/status",{signal:AbortSignal.timeout(500)}).then(r=>r.json());
+        if(cur.v2?.mods?.length===1&&cur.v2.mods[0]==="colheita-farta"){
+          assert.equal(cur.v2.animals.wolfHealth,300);
+          assert.equal(cur.v2.animals.cowHealth,650);
+          assert.equal(cur.v2.world.treesPerArea,15);
+          updated=true;break;
+        }
+      }catch{}
+      await sleep(120);
+    }
+    assert.equal(updated,true,"new mod only in the restarted room; logs: "+logs.slice(-2000));
+    assert.equal(normalSocket.readyState,WebSocket.OPEN,"neighboring room remains connected");
+    const unaffected=await fetch(a+"/mooio/status").then(r=>r.json());
+    assert.deepEqual(unaffected.v2.mods,[]);
+    assert.equal(unaffected.v2.world.treesPerArea,9);
+    const newStatus=command(["status","--rooms",dir,"--json"]);
+    assert.equal(newStatus.exit,0,newStatus.output);
+    assert.equal(JSON.parse(newStatus.output).healthy,true);
   }finally{
+    normalSocket?.terminate();
     if(child&&child.exitCode===null){
       if(process.platform==="win32")spawnSync("taskkill",["/PID",String(child.pid),"/T","/F"],{stdio:"ignore"});
       else child.kill("SIGTERM");
