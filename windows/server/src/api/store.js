@@ -124,14 +124,15 @@ export class AccountStore {
     }
 
     // AUTH TOKENS (JWT, HS256) - mimics FRVR access tokens: payload.extra.{verified, identifier}
-    issueToken(account) {
+    issueToken(account,{ttlSeconds=60*60*24*30}={}) {
+        if(!Number.isInteger(ttlSeconds)||ttlSeconds<60||ttlSeconds>60*60*24*30)throw Error("Duracao do token invalida");
         const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
         const now = Math.floor(Date.now() / 1000);
         const payload = b64url(JSON.stringify({
             secureAuth: this.passwordMode ? 1 : undefined,
             sub: account.id,
             iat: now,
-            exp: now + 60 * 60 * 24 * 30,
+            exp: now + ttlSeconds,
             extra: { verified: true, identifier: account.email }
         }));
         const sig = b64url(createHmac("sha256", this.secret).update(header + "." + payload).digest());
