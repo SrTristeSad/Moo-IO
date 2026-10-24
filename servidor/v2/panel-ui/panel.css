@@ -8,3 +8,8 @@
 .player-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 1px;border-bottom:1px solid #254052;color:#c6dded;font-size:12px;overflow-wrap:anywhere}
 .player-row:last-child{border-bottom:0}
 .player-row button{padding:6px 10px;font-size:11px;flex-shrink:0}
+
+.moderation-list{margin-top:12px;max-height:350px;overflow:auto;padding:13px;background:#0a1a26;border:1px solid #385364;border-radius:10px}
+.moderation-list strong{display:block;margin:8px 0;color:#b9d9df;font-size:12px}
+.moderation-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #264353;white-space:pre-wrap;overflow-wrap:anywhere;color:#bcd0df;font-size:11px}
+.moderation-row button{font-size:11px;padding:6px 10px;flex-shrink:0}
