@@ -1,0 +1,14 @@
+{
+  "name": "moo-io-dedicated-server-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "create": "node cli.mjs init",
+    "start": "node cli.mjs start",
+    "doctor": "node cli.mjs doctor",
+    "test": "node --test tests/*.test.mjs",
+    "package": "node tools/package.mjs"
+  }
+}

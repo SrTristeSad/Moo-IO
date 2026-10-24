@@ -1,0 +1,75 @@
+name: Moo-IO - servidor V2 dedicado
+on:
+  push:
+    paths:
+      - "servidor/**"
+      - "windows/server/src/**"
+      - "windows/server/package.json"
+      - "windows/shared/**"
+      - ".github/workflows/server-v2.yml"
+  pull_request:
+    paths:
+      - "servidor/**"
+      - "windows/server/src/**"
+      - "windows/server/package.json"
+      - "windows/shared/**"
+      - ".github/workflows/server-v2.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dedicated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install authoritative engine dependencies (build-time only)
+        run: npm install --prefix windows/server --no-audit --no-fund
+      - name: Unit tests + real Node/WebSocket smoke
+        run: node --test servidor/v2/tests/*.test.mjs
+      - name: Package independent V2 with dependencies
+        run: node servidor/v2/tools/package.mjs
+      - name: Verify packaged server is standalone
+        run: |
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/server/src/index.js
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/shared/config.js
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/package.json
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/LICENSE
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/licenses/upstream-server-APACHE-2.0.txt
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/server/node_modules/ws/package.json
+          cd servidor/v2/dist/Moo-IO-Servidor-V2
+          node --test servidor/v2/tests/*.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moo-IO-Servidor-V2
+          path: servidor/v2/dist/Moo-IO-Servidor-V2/
+          retention-days: 14
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install authoritative engine dependencies
+        working-directory: windows/server
+        run: npm install --no-audit --no-fund
+      - name: Real Windows unit and gameplay smoke
+        run: node --test servidor/v2/tests/config.test.mjs servidor/v2/tests/smoke.test.mjs
+      - name: Prepare Windows dedicated server folder
+        run: node servidor/v2/tools/package.mjs
+      - name: Verify Windows offline folder
+        run: |
+          node --test servidor/v2/dist/Moo-IO-Servidor-V2/servidor/v2/tests/config.test.mjs servidor/v2/dist/Moo-IO-Servidor-V2/servidor/v2/tests/smoke.test.mjs
+          if (!(Test-Path 'servidor/v2/dist/Moo-IO-Servidor-V2/INICIAR-SERVIDOR.cmd')) { exit 1 }
+          if (!(Test-Path 'servidor/v2/dist/Moo-IO-Servidor-V2/LICENSE')) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moo-IO-Servidor-V2-Windows
+          path: servidor/v2/dist/Moo-IO-Servidor-V2/
+          retention-days: 14
