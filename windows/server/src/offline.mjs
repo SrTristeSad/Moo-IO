@@ -36759,6 +36759,7 @@ function createApiRouter({ store, moderation: moderation2, servers: servers2, ga
   const loginBuckets = /* @__PURE__ */ new Map();
   let activeLogins = 0;
   const allowBridgeAttempt = rateLimiter(30, 6e4);
+  const allowPkcePoll = rateLimiter(150, 6e5);
   function allowPasswordAttempt(req) {
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase().slice(0, 120) : "invalid";
     const key = (req.socket.remoteAddress || "unknown") + "|" + email;
@@ -36814,6 +36815,45 @@ function createApiRouter({ store, moderation: moderation2, servers: servers2, ga
     if (!account) return res.status(403).json({ type: "accountNotActive" });
     res.json({ token: store.issueToken(account), email: account.email, id: account.id });
   });
+  function identityPort() {
+    const port = process.env.MOO_IO_V2_AUTH_PORT || "8788";
+    if (!/^[0-9]{4,5}$/.test(port) || Number(port) < 1024 || Number(port) > 65534)
+      throw Error("Invalid hub port");
+    return port;
+  }
+  async function hubPost(route, payload, headers = {}) {
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 2500);
+    try {
+      return await fetch("http://127.0.0.1:" + identityPort() + route, {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify(payload)
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  async function accountFromIdentity(token) {
+    const secretFile = path5.join(process.env.MOO_IO_V2_AUTH_DIR, "hub.secret");
+    const st = fs5.lstatSync(secretFile);
+    if (!st.isFile() || st.isSymbolicLink() || st.size !== 64 || process.platform !== "win32" && (st.mode & 63) !== 0)
+      throw Error("Invalid private hub key");
+    const secret = fs5.readFileSync(secretFile, "utf8");
+    if (!/^[a-f0-9]{64}$/.test(secret)) throw Error("Invalid private hub key");
+    const response = await hubPost(
+      "/internal/introspect",
+      { token },
+      { "X-MooIO-Internal-Secret": secret }
+    );
+    if (!response.ok) throw Error("Hub unavailable");
+    const identity = await response.json();
+    if (identity?.active !== true || typeof identity.email !== "string" || identity.email.length > 120) return null;
+    return store.accountForEmail(identity.email);
+  }
+  function roomToken(account) {
+    return { token: store.issueToken(account, { ttlSeconds: 900 }), id: account.id, email: account.email };
+  }
   router.post("/auth/browser", async (req, res) => {
     if (!securePasswords || !process.env.MOO_IO_V2_AUTH_DIR)
       return res.status(404).json({ type: "notAvailable" });
@@ -36822,34 +36862,68 @@ function createApiRouter({ store, moderation: moderation2, servers: servers2, ga
       return res.status(400).json({ type: "invalidToken" });
     if (!allowBridgeAttempt(clientIp(req))) return res.status(429).json({ type: "rateLimited" });
     try {
-      const secretFile = path5.join(process.env.MOO_IO_V2_AUTH_DIR, "hub.secret");
-      const st = fs5.lstatSync(secretFile);
-      if (!st.isFile() || st.isSymbolicLink() || st.size !== 64 || process.platform !== "win32" && (st.mode & 63) !== 0)
-        throw Error("Invalid private hub key");
-      const secret = fs5.readFileSync(secretFile, "utf8");
-      if (!/^[a-f0-9]{64}$/.test(secret)) throw Error("Invalid private hub key");
-      const port = process.env.MOO_IO_V2_AUTH_PORT || "8788";
-      if (!/^[0-9]{4,5}$/.test(port)) throw Error("Invalid hub port");
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2500);
-      let response;
-      try {
-        response = await fetch("http://127.0.0.1:" + port + "/internal/introspect", {
-          method: "POST",
-          signal: controller.signal,
-          headers: { "Content-Type": "application/json", "X-MooIO-Internal-Secret": secret },
-          body: JSON.stringify({ token })
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-      if (!response.ok) throw Error("Identity unavailable");
-      const identity = await response.json();
-      if (identity?.active !== true || typeof identity.email !== "string" || identity.email.length > 120) return res.status(403).json({ type: "notAuthenticated" });
-      const account = store.accountForEmail(identity.email);
-      if (!account) throw Error("Unable to map account");
+      const account = await accountFromIdentity(token);
+      if (!account) return res.status(403).json({ type: "notAuthenticated" });
       res.set("Cache-Control", "no-store");
-      return res.json({ token: store.issueToken(account, { ttlSeconds: 900 }), id: account.id, email: account.email });
+      return res.json(roomToken(account));
+    } catch {
+      return res.status(503).json({ type: "identityUnavailable" });
+    }
+  });
+  router.post("/auth/v2/start", async (req, res) => {
+    if (!securePasswords || !process.env.MOO_IO_V2_AUTH_DIR)
+      return res.status(404).json({ type: "notAvailable" });
+    const challenge = req.body?.challenge;
+    if (typeof challenge !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(challenge))
+      return res.status(400).json({ type: "invalidChallenge" });
+    if (!allowBridgeAttempt(clientIp(req))) return res.status(429).json({ type: "rateLimited" });
+    try {
+      const response = await hubPost("/v1/authorize/start", { challenge });
+      if (!response.ok) return res.status(503).json({ type: "identityUnavailable" });
+      const result = await response.json();
+      const uri = typeof result.verificationUri === "string" ? new URL(result.verificationUri) : null;
+      const localTesting = process.env.MOO_IO_V2_TEST_HTTP === "1" && uri?.protocol === "http:" && ["localhost", "127.0.0.1"].includes(uri.hostname);
+      if (typeof result.id !== "string" || !/^[a-f0-9]{40}$/.test(result.id) || !uri || !(uri.protocol === "https:" || localTesting))
+        throw Error("Untrusted login URL");
+      res.set("Cache-Control", "no-store");
+      return res.json({
+        id: result.id,
+        verificationUri: result.verificationUri,
+        expiresIn: result.expiresIn,
+        interval: result.interval
+      });
+    } catch {
+      return res.status(503).json({ type: "identityUnavailable" });
+    }
+  });
+  router.post("/auth/v2/token", async (req, res) => {
+    if (!securePasswords || !process.env.MOO_IO_V2_AUTH_DIR)
+      return res.status(404).json({ type: "notAvailable" });
+    const { id, verifier } = req.body || {};
+    if (typeof id !== "string" || !/^[a-f0-9]{40}$/.test(id) || typeof verifier !== "string" || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier))
+      return res.status(400).json({ type: "invalidAuthorization" });
+    if (!allowPkcePoll(clientIp(req) + "|" + id)) return res.status(429).json({ type: "rateLimited" });
+    try {
+      const response = await hubPost("/v1/authorize/token", { id, verifier });
+      if (response.status === 202) return res.status(202).json({ status: "pending" });
+      if (response.status === 403) return res.status(403).json({ type: "invalidAuthorization" });
+      if (response.status === 410) return res.status(410).json({ type: "expired" });
+      if (!response.ok) throw Error("Hub failed");
+      const result = await response.json();
+      if (typeof result.token !== "string" || !/^[a-f0-9]{64}$/.test(result.token))
+        throw Error("Invalid hub grant");
+      let account;
+      try {
+        account = await accountFromIdentity(result.token);
+      } finally {
+        await hubPost("/v1/session/revoke", {}, {
+          "Authorization": "Bearer " + result.token
+        }).catch(() => {
+        });
+      }
+      if (!account) return res.status(403).json({ type: "notAuthenticated" });
+      res.set("Cache-Control", "no-store");
+      return res.json({ status: "authorized", ...roomToken(account) });
     } catch {
       return res.status(503).json({ type: "identityUnavailable" });
     }
@@ -39705,6 +39779,7 @@ app.get(/^\/assets\/index-[\w-]+\.js$/, (req, res, next) => {
 });
 app.use("/assets", import_express5.default.static(path10.join(OFFICIAL_DIR, "assets"), { fallthrough: false }));
 app.use("/api/join", (req, res, next) => requireRoomInvite(ROOM_CODE, req, res, next));
+app.use(["/api/auth/v2/start", "/api/auth/v2/token"], (req, res, next) => requireRoomInvite(ROOM_CODE, req, res, next));
 app.use("/api", createApiRouter({ store: accounts, moderation, servers, game: gameApi, social, stream, chat }));
 app.get("/player/:name", (req, res) => res.redirect(302, "/?profile=" + encodeURIComponent(req.params.name)));
 app.get("/clan/:name", (req, res) => res.redirect(302, "/?clan=" + encodeURIComponent(req.params.name)));
