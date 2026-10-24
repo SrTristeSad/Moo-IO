@@ -25,6 +25,9 @@ fs.mkdirSync(path.join(target, "servidor/v2"), { recursive: true });
 fs.cpSync(path.join(server, "src"), path.join(target, "windows/server/src"), { recursive: true });
 fs.cpSync(path.join(server, "node_modules"), path.join(target, "windows/server/node_modules"), { recursive: true });
 fs.copyFileSync(path.join(server, "package.json"), path.join(target, "windows/server/package.json"));
+// Keep the parent CommonJS package boundary: windows/shared/*.js uses module.exports.
+// Without windows/package.json, Node 22 syntax-detects these files as ESM.
+fs.copyFileSync(path.join(root, "windows/package.json"), path.join(target, "windows/package.json"));
 fs.cpSync(path.join(root, "windows/shared"), path.join(target, "windows/shared"), { recursive: true });
 for (const name of ["cli.mjs", "package.json", "README.md"]) {
   fs.copyFileSync(path.join(source, name), path.join(target, "servidor/v2", name));
