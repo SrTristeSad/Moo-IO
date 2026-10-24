@@ -51,7 +51,7 @@ export function createPlayerAdmin(games,{moderation=null,dataDir=null,journal=nu
     if(audit.data.active.some(x=>x.kind===kind&&x.key===key))
       throw Error("Jogador ja possui banimento temporario ativo");
     const until=Date.now()+minutes*60000;
-    moderation.ban({...kind==="account"?{accountId:key}:{did:key},
+    moderation.ban({...(kind==="account"?{accountId:key}:{did:key}),
       name:player.name,reason,until},{name:"V2 panel"});
     const record=audit.add({name:player.name,reason,minutes,kind,key});
     player.kick("banned");
