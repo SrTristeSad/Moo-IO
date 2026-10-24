@@ -15,7 +15,7 @@ export function validateBaseDomain(value){
   if(labels.length<2||labels.some(label=>!validDnsLabel(label))||
     labels[labels.length-1].length<2||/^[0-9]+$/.test(labels.at(-1))||
     labels[0]==="localhost"||labels.at(-1)==="local"||
-    labels.some(label=>label.includes("--")&&label.startsWith("xn--")===false&&label.length===0))
+    labels.at(-1)==="localhost")
     throw Error("Dominio DNS invalido; requer dominio publico e rotulos DNS validos.");
   return value;
 }

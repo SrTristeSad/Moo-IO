@@ -2,6 +2,63 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Gateway HTTPS/WSS para VPS (novo)
+
+O gateway publica **cada sala com um subdominio** usando o proxy Caddy.
+O motor de jogo continua em portas **exclusivamente loopback** (127.0.0.1);
+nao alteramos os clientes nem abrimos as portas internas. O proxy gerencia
+certificados HTTPS e upgrades para WebSocket (WSS).
+
+Exemplo: com duas salas `normal.json` e `lobos.json` e dominio base
+`jogo.exemplo.com`, os jogadores usariam
+`https://normal.jogo.exemplo.com` e `https://lobos.jogo.exemplo.com`.
+O WebSocket usa `wss://normal.jogo.exemplo.com/s/LC` e o jogo continua
+protegido por codigo de convite **e** conta/senha V2.
+
+**Etapas do administrador da VPS:**
+
+1. Ter um dominio real. Criar registros DNS A (e AAAA somente se a VPS
+   aceita IPv6) para cada subdominio apontando para o IP publico da VPS.
+2. Manter `servidor/v2/rooms/*.json` com `"host": "127.0.0.1"` e
+   `"network": "lan"`, usando uma porta diferente por sala.
+3. Instalar Caddy pelo gerenciador de pacotes/distribuicao (fora deste
+   programa). Gerar e conferir o arquivo:
+
+```bash
+node servidor/v2/gateway.mjs plan --domain jogo.seudominio.com
+node servidor/v2/gateway.mjs write --domain jogo.seudominio.com
+caddy adapt --config servidor/v2/deploy/Caddyfile.generated --adapter caddyfile
+```
+
+4. **Depois de revisar** os dominios e as portas, copiar o arquivo
+   validado para a configuracao real do Caddy (em uma VPS dedicada):
+```bash
+sudo install -m 644 servidor/v2/deploy/Caddyfile.generated /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+   Isso substitui a configuracao existente do Caddy; se voce ja hospeda
+   sites na VPS, incorpore os blocos de salas a configuracao atual em vez
+   de substitui-la. Nunca instale Caddy diretamente com permissao de root
+   para rodar o motor de jogo.
+5. Liberar **somente portas TCP 80 e 443** para o Caddy e manter fechadas
+   as portas internas 8080, 8083, etc. O motor nao deve aceitar conexoes
+   publicas diretas.
+
+`gateway.mjs generate --domain ...` imprime o Caddyfile sem gravar;
+`write` cria `Caddyfile.generated` sem sobrescrever, a menos que voce
+peça `--force`. Use `--rooms pasta` caso as salas fiquem em outro
+diretorio. O arquivo gerado bloqueia rotas administrativas, limpa
+cabecalhos de proxy falsificados e preserva o Host, necessario ao
+handshake WebSocket. Mods continuam separados por sala.
+
+**Limites atuais:** e uma primeira etapa de gateway, nao uma plataforma
+publica endurecida. Ainda sao necessarios protecao contra DDoS,
+monitoramento/cotas, rotacao de tokens, cadastro/redefinicao de senhas
+e testes E2E com clientes Windows/Android apontando para WSS.
+O `gateway.mjs` nao instala Caddy nem modifica o firewall;
+TLS so funciona depois de configurar dominio/DNS e iniciar o Caddy.
+Nao configure CDN na frente do proxy sem revisar confianca de IPs.
+
 ## Autenticacao de jogadores na V2 (nova)
 
 Salas V2 agora **exigem conta e senha real** antes de emitir tickets de
