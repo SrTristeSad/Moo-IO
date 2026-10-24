@@ -123,6 +123,12 @@ A área recortada da linha única inferior agora contempla a borda completa das 
 
 Os valores reais de **vida** são centralizados vertical e horizontalmente **dentro** da barra vermelha; o valor de **nível** aparece dentro da cápsula arredondada de XP. O ícone de coração foi removido. O tamanho da fonte acompanha a altura disponível em celulares menores. A regressão de geometria verifica a integridade das rodas, dos números e a separação entre a linha de habilidades e os indicadores de status para 1280×720, 1600×757 e 800×360.
 
+## TRAVAR MIRA — direção fixa no Android
+
+O botão **TRAVAR** aparece logo abaixo do **AUTO**, com um cadeado. Toque nele para enviar **`K(0)`** ao servidor MooMoo.io (mesma ação da tecla **X** no Windows); o botão passa a exibir **MIRA FIXA** somente se o envio for aceito. O personagem mantém a última direção confirmada mesmo andando, soltando o joystick de mira, abrindo Loja/Clã/Chat ou usando habilidades. O controle manual continua podendo **mirar sem disparar ou disparar** conforme as zonas, porém a orientação permanece fixa enquanto a trava está ativa.
+
+Toque novamente em **MIRA FIXA** para destravar e voltar a orientar a arma pelo joystick. A mudança nunca altera o botão **AUTO** (`K(1)`), não começa nem encerra ataque manual e não desativa movimento. A trava é reiniciada no **respawn**, acompanhando o estado limpo do servidor. Testes automatizados cobrem as zonas, direção preservada, liberação do dedo, persistência em menus, modo automático e reinício.
+
 ## Controle único de combate: mira interna e ataque externo
 
 O joystick direito não foi duplicado. Sua base aparece **sob o dedo**, e dois anéis mostram as zonas: o interno (ciano) permite mirar sem atacar; ultrapassar o externo (dourado) dispara também, com direção `D` e ataque `F(1)` transmitidos ao servidor. Regressar à região interna envia `F(0)` apenas se o ataque manual estava ativo, e soltar encerra o toque. As mudanças de direção `D` continuam sendo transmitidas enquanto se usa **somente mira**, com atualização limitada para não sobrecarregar a rede. AUTO permanece um modo independente, sem comando `K` emitido por esse gesto.
