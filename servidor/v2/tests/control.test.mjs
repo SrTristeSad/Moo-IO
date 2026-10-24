@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
-import { startControlServer, requestRoomRestart, requestRoomStart, controlPaths } from "../core/control.mjs";
+import { startControlServer, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents, controlPaths } from "../core/control.mjs";
 
 const makeDir=()=>fs.mkdtempSync(path.join(os.tmpdir(),"mooio-v2-control-"));
 const responseFrom=(endpoint,request)=>new Promise((resolve,reject)=>{
@@ -23,7 +23,9 @@ test("controlador local exige autenticacao e so aceita o comando autorizado", {t
   try{
     server=await startControlServer(dir,{
       onRestart:async id=>{called.push("restart:"+id);return {id,status:"restarted"};},
-      onStart:async id=>{called.push("start:"+id);return {id,status:"starting"};}
+      onStart:async id=>{called.push("start:"+id);return {id,status:"starting"};},
+      onStop:async id=>{called.push("stop:"+id);return {id,status:"stopped"};},
+      onEvents:async id=>({id,stopped:false,events:[{at:"2026-10-24T00:00:00.000Z",kind:"started"}]})
     });
     const paths=controlPaths(dir);
     if(process.platform!=="win32"){
@@ -45,10 +47,19 @@ test("controlador local exige autenticacao e so aceita o comando autorizado", {t
     const started=await requestRoomStart(dir,"arena");
     assert.deepEqual(started,{id:"arena",status:"starting"});
     assert.deepEqual(called,["restart:normal","start:arena"]);
+    const stopped=await requestRoomStop(dir,"arena");
+    assert.deepEqual(stopped,{id:"arena",status:"stopped"});
+    const events=await requestRoomEvents(dir,"arena");
+    assert.equal(events.events[0].kind,"started");
+    assert.deepEqual(called,["restart:normal","start:arena","stop:arena"]);
     await assert.rejects(()=>requestRoomRestart(dir,"../normal"),/ID da sala invalido/);
     await assert.rejects(()=>requestRoomStart(dir,"../arena"),/ID da sala invalido/);
-    const denied=await responseFrom(paths.endpoint,{token:validToken,command:"stop",room:"normal"});
+    await assert.rejects(()=>requestRoomStop(dir,"../arena"),/ID da sala invalido/);
+    await assert.rejects(()=>requestRoomEvents(dir,"../arena"),/ID da sala invalido/);
+    const denied=await responseFrom(paths.endpoint,{token:validToken,command:"delete",room:"normal"});
     assert.equal(denied.error,"invalidCommand");
+    const bad=await responseFrom(paths.endpoint,{token:"0".repeat(64),command:"stop",room:"normal"});
+    assert.equal(bad.error,"unauthorized");
     await assert.rejects(()=>startControlServer(dir,{onRestart:()=>{}}),/ja usa o socket|ocupado|EADDRINUSE/);
   }finally{
     if(server)await server.close();

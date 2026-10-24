@@ -62,9 +62,11 @@ async function clearStaleSocket(endpoint){
   if(active)throw Error("Outro supervisor ja usa o socket privado.");
   fs.unlinkSync(endpoint);
 }
-export async function startControlServer(roomsDirectory,{onRestart,onStart}){
+export async function startControlServer(roomsDirectory,{onRestart,onStart,onStop,onEvents}){
   if(typeof onRestart!=="function")throw Error("Callback de reinicio ausente");
   if(onStart!==undefined&&typeof onStart!=="function")throw Error("Callback de inicializacao invalido");
+  if(onStop!==undefined&&typeof onStop!=="function")throw Error("Callback de parada invalido");
+  if(onEvents!==undefined&&typeof onEvents!=="function")throw Error("Callback de eventos invalido");
   const {privateDir,endpoint,tokenFile}=controlPaths(roomsDirectory);
   ensureControlDirectory(privateDir);
   const token=loadToken(tokenFile,{create:true});
@@ -86,12 +88,20 @@ export async function startControlServer(roomsDirectory,{onRestart,onStart}){
       if(!equalToken(request?.token,token)){
         socket.end('{"ok":false,"error":"unauthorized"}\n');return;
       }
-      if(!["restart","start"].includes(request.command)||typeof request.room!=="string"||!ID.test(request.room)||
-         (request.command==="start"&&typeof onStart!=="function")){
+      if(!["restart","start","stop","events"].includes(request.command)||
+         typeof request.room!=="string"||!ID.test(request.room)||
+         (request.command==="start"&&typeof onStart!=="function")||
+         (request.command==="stop"&&typeof onStop!=="function")||
+         (request.command==="events"&&typeof onEvents!=="function")){
         socket.end('{"ok":false,"error":"invalidCommand"}\n');return;
       }
       try{
-        const result=request.command==="start"?await onStart(request.room):await onRestart(request.room);
+        const result=await ({
+          start:onStart,
+          restart:onRestart,
+          stop:onStop,
+          events:onEvents
+        })[request.command](request.room);
         if(!socket.destroyed)socket.end(JSON.stringify({ok:true,result})+"\n");
       }catch(error){
         if(!socket.destroyed)socket.end(JSON.stringify({ok:false,error:String(error.message).slice(0,240)})+"\n");
@@ -149,3 +159,5 @@ async function requestRoomCommand(roomsDirectory,id,command){
 
 export function requestRoomRestart(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"restart");}
 export function requestRoomStart(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"start");}
+export function requestRoomStop(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"stop");}
+export function requestRoomEvents(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"events");}

@@ -2,6 +2,31 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Encerramento individual e eventos operacionais (novo)
+
+O painel agora oferece **Encerrar sala** e **Eventos**. O encerramento
+afeta apenas a partida escolhida: quem estiver nela sera desconectado
+e o supervisor **nao a reiniciara automaticamente**. Outras salas
+continuam em execucao. Para reabrir a partida use **Iniciar sala** ou
+o comando `start-room`.
+
+```bash
+node servidor/v2/manager.mjs stop-room lobos
+node servidor/v2/manager.mjs events lobos
+node servidor/v2/manager.mjs start-room lobos
+```
+
+O historico mostra os ultimos 20 eventos estruturados por sala
+(inicio, parada, reinicio, watchdog e falha), em memoria. Ele nao
+mostra saida bruta do motor, tokens, senhas ou codigos de convite.
+O supervisor guarda no maximo 40 eventos por sala e perde esse
+historico ao reiniciar; para historico persistente do servico use
+`journalctl --user -u mooio-v2.service` no SSH com acesso autorizado.
+
+Os comandos passam pelo socket de controle privado da VPS; nenhuma
+nova porta administrativa e aberta. No painel, a parada requer
+confirmacao e a autenticacao/CSRF ja existentes.
+
 ## Painel administrativo da VPS (novo)
 
 O painel V2 funciona **no navegador**, sem WebView nos clientes, para

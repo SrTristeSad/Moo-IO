@@ -219,6 +219,41 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     assert.equal(liveReport.totals.online,3);
     assert.equal(liveReport.totals.capacity,51);
     assert.doesNotMatch(live.output,new RegExp(third.roomCode));
+    // Stop only arena. Verify it stays stopped (no supervisor auto-restart),
+    // keeps neighbors connected, and can subsequently start again.
+    const stopped=command(["stop-room","arena","--rooms",dir]);
+    assert.equal(stopped.exit,0,stopped.output);
+    assert.match(stopped.output,/arena: stopped/);
+    for(let i=0;i<35;i++){
+      const row=await probeRoom({id:"arena",file:thirdFile,room:third},{timeout:180});
+      if(!row.online)break;
+      await sleep(90);
+    }
+    await sleep(1400);
+    assert.equal((await probeRoom({id:"arena",file:thirdFile,room:third},{timeout:400})).online,false,
+      "Supervisor should not auto-restart an intentionally stopped room");
+    assert.equal(normalSocket.readyState,WebSocket.OPEN,"Normal room must survive arena shutdown");
+    assert.equal((await probeRoom({id:"lobos",file:moddedFile,room:changed},{timeout:500})).online,true);
+    const stoppedEvents=command(["events","arena","--rooms",dir]);
+    assert.equal(stoppedEvents.exit,0,stoppedEvents.output);
+    const activity=JSON.parse(stoppedEvents.output);
+    assert.equal(activity.id,"arena");
+    assert.equal(activity.stopped,true);
+    assert.ok(activity.events.some(x=>x.kind==="stopped"));
+    assert.doesNotMatch(stoppedEvents.output,new RegExp(third.roomCode+"|"+normal.roomCode));
+    assert.ok(activity.events.length<=20);
+    assert.ok(activity.events.every(x=>["started","stopped","restarting","crashed","watchdog","disabled"].includes(x.kind)));
+    const again=command(["start-room","arena","--rooms",dir]);
+    assert.equal(again.exit,0,again.output);
+    let resumed=false;
+    for(let i=0;i<90;i++){
+      if((await probeRoom({id:"arena",file:thirdFile,room:third},{timeout:350})).online){
+        resumed=true;break;
+      }
+      await sleep(100);
+    }
+    assert.equal(resumed,true,"Arena failed to start after intentional stop");
+    assert.equal(normalSocket.readyState,WebSocket.OPEN);
     // Do not allow a new room to bind on an already active neighbor's port.
     createRoom(path.join(dir,"collision.json"),newRoom({port:firstPort}));
     const conflict=command(["start-room","collision","--rooms",dir]);

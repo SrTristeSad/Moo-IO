@@ -14,6 +14,8 @@
     "rooms:watch": "node manager.mjs watch",
     "rooms:restart": "node manager.mjs restart",
     "rooms:start": "node manager.mjs start-room",
+    "rooms:stop": "node manager.mjs stop-room",
+    "rooms:events": "node manager.mjs events",
     "panel:serve": "node panel.mjs serve",
     "panel:password": "node panel.mjs password",
     "panel:check": "node panel.mjs check",

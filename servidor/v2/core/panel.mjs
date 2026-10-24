@@ -7,7 +7,7 @@ import http from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { LocalCredentials } from "../../../windows/server/src/api/credentials.js";
-import { controlPaths, requestRoomRestart, requestRoomStart } from "./control.mjs";
+import { controlPaths, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents } from "./control.mjs";
 import { newRoom, createRoom, readRoom, readModFile, listMods, updateRoom } from "./config.mjs";
 import { discoverRooms, checkRooms, DEFAULT_ROOMS, MAX_ROOMS } from "./supervisor.mjs";
 import { scanRooms } from "./monitor.mjs";
@@ -93,7 +93,7 @@ function catalog(){
   });
 }
 function safeIdFromPathname(url){
-  const match=/^\/api\/rooms\/([^/]+)(\/(?:restart|start))?$/.exec(url);
+  const match=/^\/api\/rooms\/([^/]+)(\/(?:restart|start|stop|events))?$/.exec(url);
   if(!match)return null;
   return {id:ensureRoomId(match[1]),action:match[2]?.slice(1)||null};
 }
@@ -258,6 +258,13 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
         return send(res,200,await safeOverview(folder));
       if(req.method==="GET"&&url.pathname==="/api/mods")
         return send(res,200,{mods:catalog()});
+      if(req.method==="GET"){
+        const match=safeIdFromPathname(url.pathname);
+        if(match?.action==="events"){
+          if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
+          return send(res,200,await requestRoomEvents(folder,match.id));
+        }
+      }
       if(req.method==="POST"){
         formRequest(req,allowed,session);
         if(url.pathname==="/api/rooms"){
@@ -268,6 +275,10 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
         if(match?.action==="start"){
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           return send(res,200,{result:await requestRoomStart(folder,match.id)});
+        }
+        if(match?.action==="stop"){
+          if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
+          return send(res,200,{result:await requestRoomStop(folder,match.id)});
         }
         if(match?.action==="restart"){
           // Fail-closed: cannot restart a room that no longer exists.

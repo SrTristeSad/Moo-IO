@@ -94,7 +94,38 @@ function renderRooms(){
       });
       buttons.append(start);
     }
-    append(buttons,configure,restart);
+    const stop=element("button","Encerrar sala","subtle");
+    stop.type="button";
+    stop.addEventListener("click",async()=>{
+      if(!confirm("Encerrar somente “"+room.name+"”? Os jogadores desta sala serão desconectados e a sala NÃO reiniciará automaticamente."))return;
+      stop.disabled=true;
+      try{
+        const result=await api("/api/rooms/"+encodeURIComponent(room.id)+"/stop","POST",{});
+        notify("Sala "+room.id+": "+result.result.status+". As outras salas continuam.");
+        await refresh();
+      }catch(error){notify(error.message,true);}
+      finally{stop.disabled=false;}
+    });
+    const events=element("button","Eventos","subtle");
+    events.type="button";
+    events.addEventListener("click",async()=>{
+      events.disabled=true;
+      try{
+        const result=await api("/api/rooms/"+encodeURIComponent(room.id)+"/events");
+        const names={
+          started:"Sala iniciada",restarting:"Reinicio solicitado",stopped:"Parada pelo administrador",
+          crashed:"Processo encerrou inesperadamente",watchdog:"Watchdog detectou falha",
+          disabled:"Desativada apos repetidas falhas"
+        };
+        const lines=(result.events||[]).map(row=>row.at+"  "+(names[row.kind]||"Evento"));
+        const viewer=element("pre",lines.join("\n")||"Nenhum evento recente.","event-log");
+        const old=card.querySelector(".event-log");
+        if(old)old.remove();
+        else info.append(viewer);
+      }catch(error){notify(error.message,true);}
+      finally{events.disabled=false;}
+    });
+    append(buttons,configure,restart,stop,events);
     append(card,info,buttons);
     list.append(card);
   }

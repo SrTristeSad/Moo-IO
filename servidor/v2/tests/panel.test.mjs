@@ -116,6 +116,39 @@ test("Painel cria e inicia sala nova com controlador ativo sem parar primeira sa
       "Origin":base,"Content-Type":"application/json","Cookie":cookie,"X-CSRF-Token":csrf
     },body:"{}"});
     assert.notEqual(duplicate.status,200);
+    const eventsUnauth=await fetch(base+"/api/rooms/arena/events");
+    assert.equal(eventsUnauth.status,401);
+    const activity=await fetch(base+"/api/rooms/arena/events",{
+      headers:{"Cookie":cookie}
+    });
+    assert.equal(activity.status,200);
+    const activityJson=await activity.json();
+    assert.equal(activityJson?.id,"arena");
+    assert.ok(activityJson.events.some(row=>row.kind==="started"));
+    assert.ok(activityJson.events.length<=20);
+    assert.equal(JSON.stringify(activityJson).includes(config.roomCode),false);
+    const forged=await fetch(base+"/api/rooms/arena/stop",{
+      method:"POST",headers:{"Origin":"https://evil.invalid","Cookie":cookie,
+        "X-CSRF-Token":csrf,"Content-Type":"application/json"},body:"{}"
+    });
+    assert.equal(forged.status,403);
+    const stopped=await fetch(base+"/api/rooms/arena/stop",{
+      method:"POST",headers:{"Origin":base,"Cookie":cookie,
+        "X-CSRF-Token":csrf,"Content-Type":"application/json"},body:"{}"
+    });
+    assert.equal(stopped.status,200);
+    assert.equal((await stopped.json()).result.status,"stopped");
+    await new Promise(r=>setTimeout(r,500));
+    assert.equal((await probeRoom({id:"arena",file:newFile,room:config},{timeout:350})).online,false);
+    assert.equal((await probeRoom({id:"normal",file:firstFile,room},{timeout:350})).online,true);
+    const eventAfter=await fetch(base+"/api/rooms/arena/events",{headers:{"Cookie":cookie}});
+    const history=await eventAfter.json();
+    assert.ok(history.events.some(row=>row.kind==="stopped"));
+    const startAgain=await fetch(base+"/api/rooms/arena/start",{
+      method:"POST",headers:{"Origin":base,"Cookie":cookie,
+        "X-CSRF-Token":csrf,"Content-Type":"application/json"},body:"{}"
+    });
+    assert.equal(startAgain.status,200,await startAgain.text());
   }finally{
     if(panel)await panel.close();
     if(child&&child.exitCode===null){
