@@ -82,9 +82,13 @@ test("Painel systemd gerado separadamente, somente localhost e senha obrigatoria
   assert.match(unit,/After=network.target mooio-v2.service/);
   assert.doesNotMatch(unit,/0\.0\.0\.0|reverse_proxy|sudo|curl/);
   assert.throws(()=>panelUnitContent({port:443}),/Porta/);
-  const generated=spawnSync(process.execPath,[cli,"panel-unit","--rooms","/opt/Moo IO/rooms","--port","8787"],
-    {cwd:ROOT,encoding:"utf8"});
-  assert.equal(generated.status,0,generated.stderr);
-  assert.match(generated.stdout,/panel.mjs" serve/);
-  assert.doesNotMatch(generated.stdout,/senha|password.*=.*[a-f0-9]{64}/i);
+  // The CLI renders a service for the machine it runs on: invoke it only
+  // on Linux. On Windows, the pure generator above verifies POSIX paths.
+  if(process.platform!=="win32"){
+    const generated=spawnSync(process.execPath,[cli,"panel-unit","--rooms","/opt/Moo IO/rooms","--port","8787"],
+      {cwd:ROOT,encoding:"utf8"});
+    assert.equal(generated.status,0,generated.stderr);
+    assert.match(generated.stdout,/panel.mjs" serve/);
+    assert.doesNotMatch(generated.stdout,/senha|password.*=.*[a-f0-9]{64}/i);
+  }
 });
