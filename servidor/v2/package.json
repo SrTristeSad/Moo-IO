@@ -12,6 +12,7 @@
     "rooms:status": "node manager.mjs status",
     "rooms:health": "node manager.mjs health",
     "rooms:watch": "node manager.mjs watch",
+    "rooms:restart": "node manager.mjs restart",
     "vps:setup": "node vps.mjs setup",
     "vps:doctor": "node vps.mjs doctor",
     "vps:unit": "node vps.mjs unit",
