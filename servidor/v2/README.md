@@ -2,6 +2,31 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Administrar jogadores conectados (novo)
+
+A V2 agora permite visualizar **os jogadores conectados a cada sala**
+e expulsar apenas uma sessao, pelo painel ou pelo terminal do servidor.
+
+```bash
+node servidor/v2/manager.mjs players normal
+node servidor/v2/manager.mjs kick normal ID_DA_SESSAO
+```
+
+No painel local da VPS, use **Jogadores** na sala escolhida. A lista
+exibe nome, funcao (convidado, jogador, moderador ou administrador) e
+um identificador de sessao. **Nao expõe IP, e-mail, senha, convite nem
+token de autenticacao.** O botao **Expulsar** requer confirmacao e
+atua exclusivamente na sessao selecionada. Contas classificadas como
+moderador ou administrador nao podem ser expulsas por este controle.
+
+A expulsao desconecta a sessao, mas **nao e um banimento**. O jogador
+pode entrar novamente se continuar autorizado. A interface nao concede
+cargos ou altera permissoes de contas nesta etapa; somente a senha
+administrativa do painel permite esses controles. A operacao passa
+pelo socket privado ja autenticado do supervisor e por um segundo
+canal IPC entre supervisor e motor, sem criar qualquer endpoint
+HTTP publico para expulsao.
+
 ## Encerramento individual e eventos operacionais (novo)
 
 O painel agora oferece **Encerrar sala** e **Eventos**. O encerramento
