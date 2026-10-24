@@ -7,6 +7,9 @@
   "scripts": {
     "help": "node cli.mjs help",
     "mods": "node cli.mjs mods",
+    "rooms": "node manager.mjs start",
+    "rooms:check": "node manager.mjs check",
+    "rooms:status": "node manager.mjs status",
     "test": "node --test tests/*.test.mjs"
   }
 }

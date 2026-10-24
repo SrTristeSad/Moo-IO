@@ -3,7 +3,8 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { buildPlan, applyPlan, summary } from "./core/mods.mjs";
+import { applyPlan, summary } from "./core/mods.mjs";
+import { planRoom } from "./core/loader.mjs";
 import { DEFAULT_ROOM, MOD_DIR, createRoom, listMods, newRoom, readModFile, readRoom, updateRoom } from "./core/config.mjs";
 
 const root=fileURLToPath(new URL("../../",import.meta.url));
@@ -26,13 +27,6 @@ function flags(args){
 function pathname(opts){return path.resolve(opts.file||DEFAULT_ROOM);}
 function onlyFile(opts){
   for(const key of Object.keys(opts)) if(key!=="file"&&key!=="_") throw new Error("--"+key+" nao e valido neste comando");
-}
-async function planRoom(room){
-  const config=refRequire(path.join(root,"windows/shared/config.js"));
-  const items=refRequire(path.join(root,"windows/shared/config/items.js"));
-  const {AI_TYPES}=await import(new URL("../../windows/server/src/moomoo/modules/aiManager.js",import.meta.url));
-  const mods=room.mods.map(id=>{const manifest=readModFile(id);if(manifest.id!==id)throw Error("O id do arquivo e do manifesto nao coincidem: "+id);return manifest;});
-  return {plan:buildPlan(mods,{config,items,aiTypes:AI_TYPES}),mods};
 }
 function usage(){
   console.log(`Servidor privado Moo-IO V2 — configuracao simples e mods JSON

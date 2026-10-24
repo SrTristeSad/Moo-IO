@@ -34,7 +34,7 @@ jobs:
         working-directory: windows/server
         run: npm install --no-audit --no-fund
       - name: Validate mod system and real networking
-        run: node --test servidor/v2/tests/mods.test.mjs servidor/v2/tests/smoke.test.mjs
+        run: node --test servidor/v2/tests/mods.test.mjs servidor/v2/tests/smoke.test.mjs servidor/v2/tests/multiroom.test.mjs
       - name: Preview sample mod
         shell: bash
         run: |
