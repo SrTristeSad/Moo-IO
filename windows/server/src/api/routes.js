@@ -5,6 +5,8 @@
 // real verification.
 
 import express from "express";
+import fs from "node:fs";
+import path from "node:path";
 import { createSocialRouter } from "./social.js";
 import { ANTICHEAT_CONFIG } from "../anticheat/config.js";
 
@@ -117,6 +119,48 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
         const account = store.verifyToken(req.body && req.body.token);
         if (!account) return res.status(403).json({ type: "accountNotActive" });
         res.json({ token: store.issueToken(account), email: account.email, id: account.id });
+    });
+
+    // V2: a shared VPS browser identity is exchanged for this room's own JWT.
+    // No password ever enters the native/Lua game client.
+    router.post("/auth/browser",async(req,res)=>{
+        if(!securePasswords||!process.env.MOO_IO_V2_AUTH_DIR)
+            return res.status(404).json({type:"notAvailable"});
+        const token=req.body?.token;
+        if(typeof token!=="string"||!/^[a-f0-9]{64}$/.test(token))
+            return res.status(400).json({type:"invalidToken"});
+        if(!allowPasswordAttempt(req))return res.status(429).json({type:"rateLimited"});
+        try{
+            const secretFile=path.join(process.env.MOO_IO_V2_AUTH_DIR,"hub.secret");
+            const st=fs.lstatSync(secretFile);
+            if(!st.isFile()||st.isSymbolicLink()||st.size!==64||
+               (process.platform!=="win32"&&(st.mode&0o077)!==0))
+                throw Error("Invalid private hub key");
+            const secret=fs.readFileSync(secretFile,"utf8");
+            if(!/^[a-f0-9]{64}$/.test(secret))throw Error("Invalid private hub key");
+            const port=process.env.MOO_IO_V2_AUTH_PORT||"8788";
+            if(!/^[0-9]{4,5}$/.test(port))throw Error("Invalid hub port");
+            const controller=new AbortController();
+            const timer=setTimeout(()=>controller.abort(),2500);
+            let response;
+            try{
+                response=await fetch("http://127.0.0.1:"+port+"/internal/introspect",{
+                    method:"POST",signal:controller.signal,
+                    headers:{"Content-Type":"application/json","X-MooIO-Internal-Secret":secret},
+                    body:JSON.stringify({token})
+                });
+            }finally{clearTimeout(timer);}
+            if(!response.ok)throw Error("Identity unavailable");
+            const identity=await response.json();
+            if(identity?.active!==true||typeof identity.email!=="string"||
+               identity.email.length>120)return res.status(403).json({type:"notAuthenticated"});
+            const account=store.accountForEmail(identity.email);
+            if(!account)throw Error("Unable to map account");
+            res.set("Cache-Control","no-store");
+            return res.json({token:store.issueToken(account),id:account.id,email:account.email});
+        }catch{
+            return res.status(503).json({type:"identityUnavailable"});
+        }
     });
 
     // ---------- servers / join ----------
