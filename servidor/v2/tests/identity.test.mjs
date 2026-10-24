@@ -23,7 +23,7 @@ async function port(){
 const verifier="a".repeat(64);
 const challenge=createHash("sha256").update(verifier).digest("base64url");
 async function post(url,body,extraHeaders={}){
-  return fetch(url,{method:"POST",headers:{"Content-Type":"application/json",...extraHeaders},
+  return fetch(url,{method:"POST",headers:{"Content-Type":"application/json","Connection":"close",...extraHeaders},
     body:JSON.stringify(body)});
 }
 async function authorize(base,email,password,{register=true}={}){
