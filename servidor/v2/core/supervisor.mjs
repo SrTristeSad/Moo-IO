@@ -109,10 +109,54 @@ export class RoomSupervisor{
     this.states=new Map(entries.map(entry=>[entry.id,{
       entry,child:null,crashes:[],timer:null,forceTimer:null,
       misses:0,startedAt:0,restartRequested:false,disabled:false,lastExit:null,
-      manualRestart:null
+      manualRestart:null,stopping:false,events:[]
     }]));
     this.closing=false;
     this.started=false;
+  }
+  // Deliberately expose only structured supervisor lifecycle events. Child
+  // stdout/stderr may contain tokens and must NEVER enter the admin UI.
+  recordEvent(state,kind){
+    if(!["started","restarting","stopped","crashed","watchdog","disabled"].includes(kind))
+      throw Error("Evento operacional invalido");
+    state.events??=[];
+    state.events.push({at:new Date(this.clock()).toISOString(),kind});
+    if(state.events.length>40)state.events.splice(0,state.events.length-40);
+  }
+  roomEvents(id){
+    const state=this.states.get(id);
+    if(!state)throw Error("Sala nao encontrada: "+id);
+    return {id,onlineProcess:!!state.child,stopped:!!state.disabled,
+      events:(state.events||[]).slice(-20).map(event=>({...event}))};
+  }
+  async stopRoom(id){
+    if(this.closing||!this.started)throw Error("Supervisor nao esta ativo");
+    const state=this.states.get(id);
+    if(!state)throw Error("Sala nao encontrada: "+id);
+    if(state.stopping||state.manualRestart||state.restartRequested)
+      throw Error("Sala ocupada com reinicio/encerramento: "+id);
+    if(state.disabled&&!state.child)return {id,status:"already-stopped"};
+    // Mark disabled BEFORE signals are sent, so the child's exit handler
+    // cannot schedule an automatic restart.
+    state.disabled=true;
+    state.stopping=true;
+    if(state.timer){clearTimeout(state.timer);state.timer=null;}
+    if(state.forceTimer){clearTimeout(state.forceTimer);state.forceTimer=null;}
+    state.misses=0;
+    const child=state.child;
+    try{
+      if(child){
+        this.terminateProcess(child);
+        if(!await waitForExit(child,3200)){
+          this.terminateProcess(child,true);
+          if(!await waitForExit(child,1800))
+            throw Error("Processo ainda nao encerrou; verifique a sala "+id);
+        }
+      }
+      this.recordEvent(state,"stopped");
+      this.logger("["+id+"] Sala parada pelo administrador (sem auto-reinicio).");
+      return {id,status:"stopped"};
+    }finally{state.stopping=false;}
   }
   // Start a newly created room while all existing game processes remain alive.
   // Re-read the real directory, validate ALL ports/IDs, then mutate state only
@@ -137,7 +181,7 @@ export class RoomSupervisor{
       }
       const current=this.states.get(id);
       if(current){
-        if(current.child||current.manualRestart||current.timer||current.restartRequested)
+        if(current.child||current.manualRestart||current.timer||current.restartRequested||current.stopping)
           throw Error("Sala ja iniciada ou reiniciando: "+id);
         if(current.entry.room.host!==entry.room.host||
            current.entry.room.port!==entry.room.port||
@@ -152,7 +196,7 @@ export class RoomSupervisor{
       if(this.states.size>=MAX_ROOMS)throw Error("Limite de "+MAX_ROOMS+" salas por controlador");
       const state={entry,child:null,crashes:[],timer:null,forceTimer:null,
         misses:0,startedAt:0,restartRequested:false,disabled:false,lastExit:null,
-        manualRestart:null};
+        manualRestart:null,stopping:false,events:[]};
       this.states.set(id,state);
       this.entries.push(entry);
       try{this.launch(state);}catch(error){
@@ -168,7 +212,7 @@ export class RoomSupervisor{
     if(this.closing||!this.started)throw Error("Supervisor nao esta ativo");
     const state=this.states.get(id);
     if(!state)throw Error("Sala nao encontrada: "+id);
-    if(state.manualRestart||state.restartRequested)throw Error("Sala ja esta reiniciando: "+id);
+    if(state.manualRestart||state.restartRequested||state.stopping)throw Error("Sala ja esta reiniciando: "+id);
 
     // Parse and validate the current on-disk config before touching the live
     // worker. A broken mod must leave the old match and other rooms untouched.
@@ -198,6 +242,7 @@ export class RoomSupervisor{
       timer.unref?.();
       state.manualRestart={resolve,reject,timer};
       this.logger("["+id+"] Reinicio solicitado pelo administrador.");
+      this.recordEvent(state,"restarting");
       try{this.terminateProcess(child);}
       catch(error){clearTimeout(timer);state.manualRestart=null;reject(error);return;}
       state.forceTimer=setTimeout(()=>{
@@ -234,6 +279,7 @@ export class RoomSupervisor{
         if(state.misses<this.watchdogFailures)return;
         state.misses=0;
         state.restartRequested=true;
+        this.recordEvent(state,"watchdog");
         this.logger("["+state.entry.id+"] Watchdog: "+
           this.watchdogFailures+" verificacoes sem resposta; reiniciando apenas esta sala.");
         this.terminateProcess(child);
@@ -256,6 +302,7 @@ export class RoomSupervisor{
       cwd:root,stdio:["ignore","pipe","pipe"],windowsHide:true
     });
     state.child=child;
+    this.recordEvent(state,"started");
     state.startedAt=this.clock();
     state.misses=0;
     state.restartRequested=false;
@@ -285,12 +332,14 @@ export class RoomSupervisor{
         }catch(error){manual.reject(error);}
         return;
       }
-      if(this.closing)return;
+      if(this.closing||state.disabled)return;
+      this.recordEvent(state,"crashed");
       const now=this.clock();
       state.crashes=state.crashes.filter(at=>now-at<CRASH_WINDOW_MS);
       state.crashes.push(now);
       if(state.crashes.length>MAX_CRASHES){
         state.disabled=true;
+        this.recordEvent(state,"disabled");
         this.logger("["+id+"] Desativada apos muitas falhas; verifique logs/portas/mods.");
         return;
       }
