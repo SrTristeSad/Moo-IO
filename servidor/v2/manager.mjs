@@ -8,7 +8,7 @@ import { scanRooms, statusText, statusKey } from "./core/monitor.mjs";
 const args=process.argv.slice(2);
 const cmd=args.shift()||"help";
 function parseArgs(args){
-  const flags={rooms:DEFAULT_ROOMS,json:false,interval:15};
+  const flags={rooms:DEFAULT_ROOMS,json:false,interval:15,intervalPassed:false};
   const seen=new Set();
   while(args.length){
     const option=args.shift();
@@ -20,6 +20,7 @@ function parseArgs(args){
     if(!value||value.startsWith("--"))throw Error("Use "+option+" com um valor");
     if(option==="--rooms")flags.rooms=path.resolve(value);
     else{
+      flags.intervalPassed=true;
       flags.interval=Number(value);
       if(!Number.isInteger(flags.interval)||flags.interval<3||flags.interval>3600)
         throw Error("Intervalo do monitor: 3 a 3600 segundos");
@@ -48,7 +49,7 @@ async function main(){
   }
   if(!["check","status","health","watch","start"].includes(cmd))throw Error("Comando desconhecido: "+cmd);
   if(flags.json&&!["status","health"].includes(cmd))throw Error("--json somente para status/health");
-  if(flags.interval!==15&&cmd!=="watch")throw Error("--interval somente para watch");
+  if(flags.intervalPassed&&cmd!=="watch")throw Error("--interval somente para watch");
   const rooms=await checkRooms(discoverRooms(flags.rooms));
   if(cmd==="check"){
     for(const {id,room} of rooms)console.log("OK "+id+" | "+room.name+" | "+room.host+":"+room.port+" | jogadores "+room.capacity+" | mods "+room.mods.length);
