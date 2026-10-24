@@ -72,7 +72,7 @@ test("browser login: cross-site blocked, salted password, PKCE, registration, on
     const token=await authorize(base,"player@example.org","correct-long-password-2026");
     const passwordFile=fs.readFileSync(path.join(identityDir,"v2-credentials.json"),"utf8");
     assert.doesNotMatch(passwordFile,/correct-long-password-2026/);
-    assert.equal(fs.statSync(path.join(identityDir,"hub.secret")).mode&0o777,0o600);
+    if(process.platform!=="win32")assert.equal(fs.statSync(path.join(identityDir,"hub.secret")).mode&0o777,0o600);
     const secret=fs.readFileSync(path.join(identityDir,"hub.secret"),"utf8");
     const introspect=(secretValue,tokenValue)=>post(base+"/internal/introspect",{token:tokenValue},
       {"X-MooIO-Internal-Secret":secretValue});
