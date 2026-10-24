@@ -25,7 +25,8 @@ local function fonts()
 end
 function M.new()
  return setmetatable({moveId=nil,fireId=nil,moveX=0,moveY=0,
-   moveOrigin=nil,fireOrigin=nil,fireActive=false,aimDir=0,fireOffsetX=0,fireOffsetY=0,
+   moveOrigin=nil,fireOrigin=nil,fireActive=false,aimDir=0,
+   aimLocked=false,lockedDir=nil,fireOffsetX=0,fireOffsetY=0,
    uiScale=1.20,uiOpacity=.90,moveScale=1,fireScale=1,deadzone=.15,
    auto=false,rankOpen=false,mapOpen=false,
    rankRefresh=0,rankingCategory="gold",lastPoint=nil,
@@ -42,6 +43,7 @@ function M:reset()
  self.barTouchMoved=false;self.barTouchDistance=0
  self.barScroll=0;self.barCount=0
  self.mapOpen=false;self.rankOpen=false;self.rankRefresh=0;self.auto=false
+ self.aimLocked=false;self.lockedDir=nil
 end
 function M:stopForOverlay()
  self.moveId=nil;self.fireId=nil
@@ -82,6 +84,7 @@ function M:layout(w,h)
  local l={u=u,move={x=142*u,y=h-128*u,r=86*u*self.moveScale},
    fire={x=w-135*u,y=h-132*u,r=86*u*self.fireScale},
    auto={x=w-88*u,y=h*.47,r=39*u},
+   lock={x=w-88*u,y=h*.47+96*u,r=35*u},
    hotbar={x=barX,y=h-76*u,r=35*u,step=73*u,
      clipX=w*.255,clipW=w*.49},
    shop={x=w-452*u,y=topY,r=35*u},
@@ -157,7 +160,19 @@ function M:movement()
  if self.moveId then return self.moveX,self.moveY end
  return 0,0
 end
-function M:aimAngle()return self.aimDir end
+function M:aimAngle()
+ if self.aimLocked and self.lockedDir~=nil then return self.lockedDir end
+ return self.aimDir
+end
+-- Only call after the Node K(0) command was sent successfully.
+-- Freezing the facing direction never turns AUTO or manual fire on/off.
+function M:setDirectionLock(locked)
+ locked=locked==true
+ if locked and not self.aimLocked then self.lockedDir=self:aimAngle() end
+ self.aimLocked=locked
+ if not locked then self.lockedDir=nil end
+ return self.aimLocked
+end
 -- The floating right control is always a single pointer. Aiming does not
 -- imply firing: firing is enabled only after moving past the outer threshold.
 function M:attacking()return self.fireId~=nil and self.fireActive end
@@ -241,6 +256,7 @@ function M:pressed(id,x,y,w,h,scale,total)
  -- The bottom shortcuts form ONE persistent line, not an inventory page.
  -- Capture the pointer until release so swiping never accidentally equips.
  if near(x,y,l.auto) then self.auto=not self.auto;return "server_auto",self.auto end
+ if near(x,y,l.lock) then return "lock_aim" end
  local slots,bar=self:hotbar(total,w,h)
  if self.barTouchId==nil and x>=bar.clipX and x<=bar.clipX+bar.clipW
    and y>=bar.top and y<=bar.bottom then
@@ -361,6 +377,19 @@ local function glyph(g,kind,p,u,active)
    g.setColor(.66,.9,.73,1)
    g.polygon("line",0,-24,20,-14,17,14,0,24,-17,14,-20,-14)
    g.line(-11,0,11,0);g.line(0,-12,0,13)
+ elseif kind=="lock" then
+   -- A small padlock: open when free, closed and highlighted when fixed.
+   g.setColor(active and .98 or .71,active and .79 or .90,
+     active and .38 or .85,1)
+   g.setLineWidth(3.2)
+   if active then
+     g.arc("line","open",0,-7,10,math.pi,2*math.pi)
+   else
+     g.arc("line","open",-4,-7,10,math.pi*.85,math.pi*1.87)
+   end
+   g.rectangle("line",-16,-7,32,28,4,4)
+   g.circle("fill",0,3,3.8)
+   g.rectangle("fill",-1.5,3,3,8)
  elseif kind=="auto" then
    g.setColor(active and .91 or .67,active and .9 or .82,.48,1)
    g.arc("line","open",0,0,18,-.3,math.pi*1.37)
@@ -590,6 +619,12 @@ function M:draw(world,scale)
  ring(g,l.auto,self.auto,true);glyph(g,"auto",l.auto,u,self.auto)
  g.setColor(.97,.97,.94,1);g.setFont(small)
  g.printf(self.auto and "AUTO ON" or "AUTO",l.auto.x-41*u,l.auto.y+43*u,82*u,"center")
+ -- Fixed-direction action is independent from AUTO and both joysticks.
+ ring(g,l.lock,self.aimLocked,self.aimLocked)
+ glyph(g,"lock",l.lock,u*.80,self.aimLocked)
+ g.setFont(small);g.setColor(.97,.97,.94,1)
+ g.printf(self.aimLocked and "MIRA FIXA" or "TRAVAR",
+   l.lock.x-46*u,l.lock.y+39*u,92*u,"center")
  -- Compact, lined-up HP and level capsules directly over the skill row.
  -- Health numbers are centered *inside* the health bar. No heart icon.
  local player=world and world.localPlayer and world:localPlayer()
