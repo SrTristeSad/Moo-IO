@@ -39,12 +39,13 @@ test("V2: senha scrypt persistida sem texto puro, rejeita senha incorreta e toke
     assert.equal((await newProcess.verifyLocalPassword("user@example.org","strong-correct-password-321")).id,valid.id);
   }finally{fs.rmSync(base,{recursive:true,force:true});}
 });
-test("V2: credenciais corrompidas impedem iniciar; nao substitui autenticação antiga",()=>{
+test("V2: credenciais corrompidas impedem iniciar; nao substitui autenticação antiga",async()=>{
   const base=temp();
   try{
     const regular=new AccountStore(base);
     const legacy=regular.accountForEmail("another@example.org");
     assert.equal(regular.verifyToken(regular.issueToken(legacy)).id,legacy.id);
+    await new Promise(resolve=>setTimeout(resolve,350)); // complete AccountStore debounced write before removing directory
     fs.writeFileSync(path.join(base,"v2-credentials.json"),"{invalid", {mode:0o600});
     assert.throws(()=>new AccountStore(base,{passwordMode:true}));
     assert.ok(new AccountStore(base)); // local LAN does not depend on V2 credential store
