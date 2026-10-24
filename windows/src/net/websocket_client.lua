@@ -14,7 +14,7 @@ function Client.new(options)
   assert(type(options.sha1)=="function","sha1 digest required")
   local socket=options.socket or require("socket")
   return setmetatable({
-    socketLib=socket,random=options.secureRandom,sha1=options.sha1,
+    socketLib=socket,random=options.secureRandom,sha1=options.sha1,secure=options.secure==true,
     state="idle",tcp=nil,out="",input="",events={},error=nil,
     host=nil,port=nil,path=nil,expected=nil,
     maxBuffer=options.maxBuffer or 1048576
@@ -57,7 +57,7 @@ function Client:connect(host,port,path)
     self:fail(connectError or "connect failed")
     return false,self.error
   end
-  self.out=Upgrade.request(host,port,path,key)
+  self.out=Upgrade.request(host,port,path,key,nil,self.secure)
   self.state=(ok or connectError=="already connected") and "upgrading" or "tcp_connecting"
   return true
 end
