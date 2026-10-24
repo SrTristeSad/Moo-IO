@@ -40,7 +40,7 @@ export async function gatewayPlan({rooms,domain}){
   const entries=await checkRooms(discoverRooms(rooms));
   return buildGatewayPlan(entries,{domain});
 }
-export function renderCaddyfile(plan){
+export function renderCaddyfile(plan,{identityHost=null,identityPort=8788}={}){
   if(!Array.isArray(plan)||!plan.length)throw Error("Plano de gateway vazio");
   // Do not interpolate any user-controlled Caddy directives. Hostname and port
   // are previously checked against strict DNS/numeric patterns.
@@ -75,6 +75,32 @@ export function renderCaddyfile(plan){
     all.push("            header_up X-Forwarded-Proto https");
     all.push("        }");
     all.push("    }");
+    all.push("}");
+    all.push("");
+  }
+  if(identityHost!==null){
+    const parts=identityHost.split(".");
+    if(parts.length<3||parts.some(x=>!validDnsLabel(x))||
+       !Number.isInteger(identityPort)||identityPort<1024||identityPort>65534||
+       plan.some(x=>x.hostname===identityHost))
+      throw Error("Hostname/porta do login publico invalidos ou duplicados");
+    all.push("# Login via navegador: somente rotas publicas explicitamente permitidas.");
+    all.push(identityHost+" {");
+    all.push("    encode zstd gzip");
+    all.push("    header {");
+    all.push('        Strict-Transport-Security "max-age=31536000"');
+    all.push('        X-Content-Type-Options "nosniff"');
+    all.push("    }");
+    all.push("    @auth_public path /login /login/submit /v1/authorize/start /v1/authorize/token /v1/session/revoke /health");
+    all.push("    handle @auth_public {");
+    all.push("        reverse_proxy 127.0.0.1:"+identityPort+" {");
+    all.push("            header_up Host {host}");
+    all.push("            header_up -Forwarded");
+    all.push("            header_up X-Forwarded-For {remote_host}");
+    all.push("            header_up X-Forwarded-Proto https");
+    all.push("        }");
+    all.push("    }");
+    all.push("    respond 404");
     all.push("}");
     all.push("");
   }
