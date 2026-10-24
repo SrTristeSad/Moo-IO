@@ -10,6 +10,7 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 
 const ID=/^[a-z][a-z0-9_-]{0,47}$/;
 const MAX_REQUEST=4096;
+const MAX_RESPONSE=16384; // 40 player rows with bounded Unicode display names
 export function controlPaths(roomsDirectory){
   const folder=path.resolve(roomsDirectory);
   const privateDir=path.join(folder,".control");
@@ -151,7 +152,7 @@ async function requestRoomCommand(roomsDirectory,id,command,playerId){
     socket.once("connect",()=>socket.write(JSON.stringify({token,command,room:id,...(playerId?{playerId}:{})})+"\n"));
     socket.on("data",data=>{
       result+=data.toString("utf8");
-      if(Buffer.byteLength(result)>MAX_REQUEST)return finish(Error("Resposta muito grande"));
+      if(Buffer.byteLength(result)>MAX_RESPONSE)return finish(Error("Resposta muito grande"));
       const line=result.indexOf("\n");if(line<0)return;
       try{
         const payload=JSON.parse(result.slice(0,line));
