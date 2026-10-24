@@ -120,6 +120,7 @@ function love.load()
     local ok,err=pcall(function()
       require("src.test_room_choice")(homeAction,home,hosted,
         function() return client end)
+      require("src.test_browser_auth")()
     end)
     if not ok then print("MOO IO ROOM CHOICE FAIL: "..tostring(err)) end
     allowQuit=true -- mocked owner must not block an automated test exit
