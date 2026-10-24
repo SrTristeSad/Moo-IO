@@ -23,6 +23,7 @@
     "rooms:unban": "node manager.mjs unban",
     "rooms:history": "node manager.mjs history",
     "panel:staff": "node panel.mjs staff",
+    "identity:serve": "node identity.mjs serve",
     "panel:serve": "node panel.mjs serve",
     "panel:password": "node panel.mjs password",
     "panel:check": "node panel.mjs check",
