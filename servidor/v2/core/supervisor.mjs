@@ -118,13 +118,13 @@ export class RoomSupervisor{
   // Game moderation uses Node's private child IPC channel, not HTTP exposed
   // through Caddy. Responses are tied to the precise worker process and
   // request ID, preventing stale responses from a restarted game.
-  async playerAdmin(id,action,playerId){
+  async playerAdmin(id,action,options={}){
     if(this.closing||!this.started)throw Error("Supervisor nao esta ativo");
     const state=this.states.get(id);
     if(!state||!state.child||state.disabled||state.stopping||state.restartRequested)
       throw Error("Sala sem processo ativo: "+id);
-    if(!["players","kick"].includes(action))throw Error("Comando invalido");
-    if(action==="kick"&&!/^[a-f0-9]{16}$/.test(playerId))
+    if(!["players","kick","ban","bans","history","unban"].includes(action))throw Error("Comando invalido");
+    if(["kick","ban"].includes(action)&&!/^[a-f0-9]{16}$/.test(options.playerId))
       throw Error("ID de jogador invalido");
     const child=state.child;
     if(typeof child.send!=="function"||!child.connected)
@@ -149,13 +149,18 @@ export class RoomSupervisor{
       const timeout=setTimeout(()=>finish(Error("Tempo esgotado para consultar jogadores")),3500);
       child.on("message",onMessage);
       child.once("exit",onExit);
-      try{child.send({type:"v2-player-admin",requestId,action,...(action==="kick"?{playerId}:{})},
+      try{child.send({type:"v2-player-admin",requestId,action,...options},
         error=>{if(error)finish(Error("Falha no IPC: "+error.message));});}
       catch(error){finish(error);}
     });
   }
   listPlayers(id){return this.playerAdmin(id,"players");}
-  kickPlayer(id,playerId){return this.playerAdmin(id,"kick",playerId);}
+  kickPlayer(id,playerId){return this.playerAdmin(id,"kick",{playerId});
+  }
+  banPlayer(id,playerId,minutes,reason){return this.playerAdmin(id,"ban",{playerId,minutes,reason});}
+  listBans(id){return this.playerAdmin(id,"bans");}
+  moderationHistory(id){return this.playerAdmin(id,"history");}
+  unbanPlayer(id,banId){return this.playerAdmin(id,"unban",{banId});}
   // Deliberately expose only structured supervisor lifecycle events. Child
   // stdout/stderr may contain tokens and must NEVER enter the admin UI.
   recordEvent(state,kind){

@@ -16,7 +16,9 @@
       <h1>Acesso ao servidor</h1>
       <p>Entre com a senha administrativa definida no terminal. O painel aceita somente conexões locais ou túnel SSH.</p>
       <form id="login-form">
-        <label for="password">Senha administrativa</label>
+        <label for="email">E-mail da equipe (deixe vazio para proprietário)</label>
+        <input id="email" type="email" autocomplete="username" placeholder="moderador@exemplo.com">
+        <label for="password">Senha de acesso</label>
         <input id="password" type="password" autocomplete="current-password" minlength="12" required placeholder="Digite sua senha">
         <button class="primary" type="submit">Entrar no painel <span aria-hidden="true">→</span></button>
       </form>

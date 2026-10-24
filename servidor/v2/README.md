@@ -2,6 +2,60 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Banimento temporario, historico e permissoes do painel (novo)
+
+O painel agora permite banir por **5, 15, 60, 360, 1440 ou 10080
+minutos** (ate sete dias), consultar banimentos ativos, revoga-los
+antes do vencimento e consultar um historico das ultimas 50 acoes.
+O historico e armazenado no disco privado de cada sala (ate 200
+registros) e permanece apos reiniciar o processo. Dados brutos
+de IP e dispositivo **nao sao mostrados** no painel.
+
+Na VPS:
+
+```bash
+node servidor/v2/manager.mjs ban normal ID_DA_SESSAO 60
+node servidor/v2/manager.mjs bans normal
+node servidor/v2/manager.mjs history normal
+node servidor/v2/manager.mjs unban normal ID_DO_BANIMENTO
+```
+
+Banimentos atuam na identidade persistente da conta ou dispositivo
+reconhecido pelo motor. Nao sao aplicados por IP compartilhado neste
+controle; convidados sem identificacao persistente podem ser expulsos,
+mas nao banidos por prazo. Moderadores e administradores dentro do
+jogo nao podem ser banidos por este painel. Expulsar nao e banir.
+
+**Permissoes para o painel:**
+- **Proprietario**: administra salas, mods, jogadores, banimentos e
+  configuracoes. Continua entrando com sua senha atual, sem email.
+- **Moderador**: consulta salas e jogadores; expulsa, bane e revoga
+  banimentos. Nao pode criar, alterar, iniciar, parar ou reiniciar salas.
+- **Observador (viewer)**: consulta salas, jogadores e historico de
+  moderacao; nao pode realizar alteracoes.
+
+Somente o proprietario da VPS configura as credenciais da equipe, pelo
+terminal da conta Linux que executa o servico. O email nunca aparece
+em listas de jogadores:
+
+```bash
+read -rsp "Senha do moderador: " SENHA; echo
+printf '%s\n' "$SENHA" | node servidor/v2/panel.mjs staff moderador@exemplo.com moderator
+unset SENHA
+
+# Observador: substitua moderator por viewer
+# Revogar acesso (sem enviar senha):
+node servidor/v2/panel.mjs staff moderador@exemplo.com revoke
+
+# Recarregar credenciais de login da equipe:
+systemctl --user restart mooio-v2-panel.service
+```
+
+A senha exige 12 a 128 caracteres, protegida por scrypt, com
+armazenamento em arquivo 0600. Mudancas de cargo e revogacao
+invalidam sessoes existentes assim que sao verificadas. O painel
+continua **somente localhost/SSH**; nao exponha a porta 8787.
+
 ## Administrar jogadores conectados (novo)
 
 A V2 agora permite visualizar **os jogadores conectados a cada sala**

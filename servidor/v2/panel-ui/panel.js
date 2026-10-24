@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Browser controls for the loopback-only server panel. No third-party scripts.
 const $=id=>document.getElementById(id);
-const state={csrf:null,rooms:[],mods:[],editing:null};
+const state={csrf:null,rooms:[],mods:[],editing:null,role:null};
 let timer=null,toastTimer=null;
 function notify(message,isError=false){
   const el=$("notice");
@@ -31,6 +31,7 @@ function showLogin(){
   clearInterval(timer);timer=null;
 }
 function showDashboard(){
+  $("new-room").classList.toggle("hidden",state.role!=="owner");
   $("login").classList.add("hidden");
   $("dashboard").classList.remove("hidden");
   $("logout").classList.remove("hidden");
@@ -122,7 +123,7 @@ function renderRooms(){
           const role={admin:"Administrador",mod:"Moderador",player:"Jogador",guest:"Convidado"}[user.role]||"Jogador";
           const name=element("span",user.name+" · "+role+" · "+user.id.slice(0,8));
           line.append(name);
-          if(user.role!=="mod"&&user.role!=="admin"){
+          if(state.role!=="viewer"&&user.role!=="mod"&&user.role!=="admin"){
             const kick=element("button","Expulsar","subtle");
             kick.type="button";
             kick.addEventListener("click",async()=>{
@@ -136,6 +137,27 @@ function renderRooms(){
               }catch(error){notify(error.message,true);kick.disabled=false;}
             });
             line.append(kick);
+            const ban=element("button","Banir","subtle");
+            ban.type="button";
+            ban.addEventListener("click",async()=>{
+              const chosen=prompt("Duração: 5, 15, 60, 360, 1440 ou 10080 minutos","60");
+              if(chosen===null)return;
+              const minutes=Number(chosen);
+              if(![5,15,60,360,1440,10080].includes(minutes)){
+                notify("Duração não permitida",true);return;
+              }
+              const reason=prompt("Motivo (opcional, até 120 caracteres)","") ;
+              if(reason===null)return;
+              if(reason.length>120){notify("Motivo muito longo",true);return;}
+              if(!confirm("Banir "+user.name+" por "+minutes+" minutos nesta sala?"))return;
+              try{
+                const result=await api("/api/rooms/"+encodeURIComponent(room.id)+"/ban","POST",
+                  {playerId:user.id,minutes,reason});
+                notify("Banimento ativo até "+new Date(result.result.until).toLocaleString("pt-BR"));
+                container.remove();await refresh();
+              }catch(error){notify(error.message,true);}
+            });
+            line.append(ban);
           }
           container.append(line);
         }
@@ -162,7 +184,48 @@ function renderRooms(){
       }catch(error){notify(error.message,true);}
       finally{events.disabled=false;}
     });
-    append(buttons,configure,restart,stop,playersButton,events);
+    if(state.role==="owner")append(buttons,configure,restart,stop);
+    append(buttons,playersButton);
+    if(state.role==="owner")buttons.append(events);
+    const modBtn=element("button","Moderação","subtle");
+    modBtn.type="button";
+    modBtn.addEventListener("click",async()=>{
+      modBtn.disabled=true;
+      try{
+        const [activity,active]=await Promise.all([
+          api("/api/rooms/"+encodeURIComponent(room.id)+"/history"),
+          state.role==="viewer"?Promise.resolve({bans:[]}):api("/api/rooms/"+encodeURIComponent(room.id)+"/bans")
+        ]);
+        const old=card.querySelector(".moderation-list");
+        if(old){old.remove();return;}
+        const box=element("div",null,"moderation-list");
+        box.append(element("strong","Histórico recente"));
+        for(const e of (activity.history||[]).slice(0,50)){
+          box.append(element("div",e.at+" · "+e.action+" · "+e.name+
+            (e.minutes?" ("+e.minutes+" min)":"")+(e.reason?" · "+e.reason:""),"moderation-row"));
+        }
+        if(state.role!=="viewer"){
+          box.append(element("strong","Banimentos ativos"));
+          for(const b of active.bans||[]){
+            const line=element("div",null,"moderation-row");
+            line.append(element("span",b.name+" · até "+new Date(b.until).toLocaleString("pt-BR")));
+            const remove=element("button","Revogar","subtle");
+            remove.type="button";
+            remove.addEventListener("click",async()=>{
+              if(!confirm("Revogar o banimento temporário de "+b.name+"?"))return;
+              try{
+                await api("/api/rooms/"+encodeURIComponent(room.id)+"/unban","POST",{banId:b.id});
+                notify("Banimento revogado");box.remove();
+              }catch(error){notify(error.message,true);}
+            });
+            line.append(remove);box.append(line);
+          }
+        }
+        info.append(box);
+      }catch(error){notify(error.message,true);}
+      finally{modBtn.disabled=false;}
+    });
+    buttons.append(modBtn);
     append(card,info,buttons);
     list.append(card);
   }
@@ -217,9 +280,10 @@ async function initialize(){
   try{
     const session=await api("/api/session");
     state.csrf=session.csrf;
+    state.role=session.role;
     if(session.authenticated){
       showDashboard();
-      state.mods=(await api("/api/mods")).mods||[];
+      state.mods=state.role==="owner"?(await api("/api/mods")).mods||[]:[];
       await refresh();
     }else showLogin();
   }catch(error){showLogin();notify(error.message,true);}
@@ -229,17 +293,18 @@ $("login-form").addEventListener("submit",async event=>{
   const submit=event.currentTarget.querySelector("button");
   submit.disabled=true;
   try{
-    const data=await api("/api/login","POST",{password:$("password").value});
+    const data=await api("/api/login","POST",{password:$("password").value,...($("email").value?{email:$("email").value}:{})});
     $("password").value="";
     state.csrf=data.csrf;
-    state.mods=(await api("/api/mods")).mods||[];
+    state.role=data.role;
+    state.mods=state.role==="owner"?(await api("/api/mods")).mods||[]:[];
     showDashboard();
     await refresh();
   }catch(error){notify(error.message,true);}
   finally{submit.disabled=false;}
 });
 $("logout").addEventListener("click",async()=>{
-  try{await api("/api/logout","POST",{});state.csrf=null;showLogin();}
+  try{await api("/api/logout","POST",{});state.csrf=null;state.role=null;showLogin();}
   catch(error){notify(error.message,true);}
 });
 $("refresh").addEventListener("click",()=>void refresh());

@@ -4,12 +4,14 @@
 import path from "node:path";
 import { RoomSupervisor, discoverRooms, checkRooms, DEFAULT_ROOMS } from "./core/supervisor.mjs";
 import { scanRooms, statusText, statusKey } from "./core/monitor.mjs";
-import { startControlServer, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents, requestRoomPlayers, requestPlayerKick } from "./core/control.mjs";
+import { startControlServer, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents, requestRoomPlayers, requestPlayerKick, requestPlayerBan, requestRoomBans, requestModerationHistory, requestPlayerUnban } from "./core/control.mjs";
 
 const args=process.argv.slice(2);
 const cmd=args.shift()||"help";
-const targetId=["restart","start-room","stop-room","events","players","kick"].includes(cmd)?args.shift():null;
-const kickId=cmd==="kick"?args.shift():null;
+const targetId=["restart","start-room","stop-room","events","players","kick","ban","bans","history","unban"].includes(cmd)?args.shift():null;
+const kickId=["kick","ban"].includes(cmd)?args.shift():null;
+const banMinutes=cmd==="ban"?Number(args.shift()):null;
+const banId=cmd==="unban"?args.shift():null;
 function parseArgs(args){
   const flags={rooms:DEFAULT_ROOMS,json:false,interval:15,intervalPassed:false};
   const seen=new Set();
@@ -48,6 +50,10 @@ async function main(){
       "  node servidor/v2/manager.mjs events ID [--rooms pasta]",
       "  node servidor/v2/manager.mjs players ID [--rooms pasta]",
       "  node servidor/v2/manager.mjs kick ID PLAYER_ID [--rooms pasta]",
+      "  node servidor/v2/manager.mjs ban ID PLAYER_ID MINUTOS [--rooms pasta]",
+      "  node servidor/v2/manager.mjs bans ID [--rooms pasta]",
+      "  node servidor/v2/manager.mjs unban ID BAN_ID [--rooms pasta]",
+      "  node servidor/v2/manager.mjs history ID [--rooms pasta]",
       "status: jogadores por sala; --json: relatorio para scripts.",
       "health: sai com codigo 1 se alguma sala estiver offline.",
       "watch: mostra alteracoes de jogadores/disponibilidade.",
@@ -58,14 +64,16 @@ async function main(){
       "events: consulta eventos operacionais recentes (sem stdout e sem segredos).",
       "players: jogadores online por sessao, sem IP/email.",
       "kick: desconecta jogador especifico, protege contas de equipe.",
+      "ban: suspensao temporaria (5,15,60,360,1440,10080 minutos).",
+      "bans/unban/history: suspensoes ativas, revogacao e historico.",
       "Administracao local; NAO disponibilize estes comandos como API publica."
     ].join("\n"));
     return;
   }
-  if(!["check","status","health","watch","start","restart","start-room","stop-room","events","players","kick"].includes(cmd))throw Error("Comando desconhecido: "+cmd);
+  if(!["check","status","health","watch","start","restart","start-room","stop-room","events","players","kick","ban","bans","unban","history"].includes(cmd))throw Error("Comando desconhecido: "+cmd);
   if(flags.json&&!["status","health"].includes(cmd))throw Error("--json somente para status/health");
   if(flags.intervalPassed&&cmd!=="watch")throw Error("--interval somente para watch");
-  if(["restart","start-room","stop-room","events","players","kick"].includes(cmd)){
+  if(["restart","start-room","stop-room","events","players","kick","ban","bans","unban","history"].includes(cmd)){
     if(flags.json||flags.intervalPassed)throw Error("Comando aceita somente --rooms");
     if(!targetId)throw Error("Informe o ID da sala");
     if(args.length)throw Error("Argumentos desconhecidos");
@@ -75,11 +83,16 @@ async function main(){
       "stop-room":requestRoomStop,
       events:requestRoomEvents,
       players:requestRoomPlayers,
-      kick:requestPlayerKick
+      kick:requestPlayerKick,
+      ban:requestPlayerBan,
+      bans:requestRoomBans,
+      unban:requestPlayerUnban,
+      history:requestModerationHistory
     };
-    const result=await actions[cmd](flags.rooms,targetId,...(cmd==="kick"?[kickId]:[]));
-    if(cmd==="events"||cmd==="players")console.log(JSON.stringify(result,null,2));
+    const result=await actions[cmd](flags.rooms,targetId,...(cmd==="kick"?[kickId]:cmd==="ban"?[kickId,banMinutes,""]:cmd==="unban"?[banId]:[]));
+    if(["events","players","bans","history"].includes(cmd))console.log(JSON.stringify(result,null,2));
     else if(cmd==="kick")console.log("Jogador "+result.playerId+" expulso desta sala.");
+    else if(cmd==="ban"||cmd==="unban")console.log(JSON.stringify(result));
     else console.log("Sala "+result.id+": "+result.status+". Outras salas permanecem ativas.");
     return;
   }
@@ -130,7 +143,10 @@ async function main(){
     try{
       control=await startControlServer(flags.rooms,{onRestart:id=>supervisor.restartRoom(id),onStart:id=>supervisor.startRoom(id),
         onStop:id=>supervisor.stopRoom(id),onEvents:id=>supervisor.roomEvents(id),
-        onPlayers:id=>supervisor.listPlayers(id),onKick:(id,playerId)=>supervisor.kickPlayer(id,playerId)});
+        onPlayers:id=>supervisor.listPlayers(id),onKick:(id,playerId)=>supervisor.kickPlayer(id,playerId),
+        onBan:(id,playerId,minutes,reason)=>supervisor.banPlayer(id,playerId,minutes,reason),
+        onBans:id=>supervisor.listBans(id),onHistory:id=>supervisor.moderationHistory(id),
+        onUnban:(id,banId)=>supervisor.unbanPlayer(id,banId)});
     }catch(error){
       await supervisor.stop();
       throw error;

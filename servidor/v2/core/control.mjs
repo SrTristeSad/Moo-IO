@@ -10,7 +10,7 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 
 const ID=/^[a-z][a-z0-9_-]{0,47}$/;
 const MAX_REQUEST=4096;
-const MAX_RESPONSE=16384; // 40 player rows with bounded Unicode display names
+const MAX_RESPONSE=65536; // bounded 200 active bans / 50 audit rows
 export function controlPaths(roomsDirectory){
   const folder=path.resolve(roomsDirectory);
   const privateDir=path.join(folder,".control");
@@ -63,13 +63,15 @@ async function clearStaleSocket(endpoint){
   if(active)throw Error("Outro supervisor ja usa o socket privado.");
   fs.unlinkSync(endpoint);
 }
-export async function startControlServer(roomsDirectory,{onRestart,onStart,onStop,onEvents,onPlayers,onKick}){
+export async function startControlServer(roomsDirectory,{onRestart,onStart,onStop,onEvents,onPlayers,onKick,onBan,onBans,onHistory,onUnban}){
   if(typeof onRestart!=="function")throw Error("Callback de reinicio ausente");
   if(onStart!==undefined&&typeof onStart!=="function")throw Error("Callback de inicializacao invalido");
   if(onStop!==undefined&&typeof onStop!=="function")throw Error("Callback de parada invalido");
   if(onEvents!==undefined&&typeof onEvents!=="function")throw Error("Callback de eventos invalido");
   if(onPlayers!==undefined&&typeof onPlayers!=="function")throw Error("Callback de jogadores invalido");
   if(onKick!==undefined&&typeof onKick!=="function")throw Error("Callback de expulsao invalido");
+  for(const fn of [onBan,onBans,onHistory,onUnban])
+    if(fn!==undefined&&typeof fn!=="function")throw Error("Callback de moderacao invalido");
   const {privateDir,endpoint,tokenFile}=controlPaths(roomsDirectory);
   ensureControlDirectory(privateDir);
   const token=loadToken(tokenFile,{create:true});
@@ -91,14 +93,21 @@ export async function startControlServer(roomsDirectory,{onRestart,onStart,onSto
       if(!equalToken(request?.token,token)){
         socket.end('{"ok":false,"error":"unauthorized"}\n');return;
       }
-      if(!["restart","start","stop","events","players","kick"].includes(request.command)||
+      if(!["restart","start","stop","events","players","kick","ban","bans","history","unban"].includes(request.command)||
          typeof request.room!=="string"||!ID.test(request.room)||
          (request.command==="start"&&typeof onStart!=="function")||
          (request.command==="stop"&&typeof onStop!=="function")||
          (request.command==="events"&&typeof onEvents!=="function")||
          (request.command==="players"&&typeof onPlayers!=="function")||
          (request.command==="kick"&&(typeof onKick!=="function"||
-          typeof request.playerId!=="string"||!/^[a-f0-9]{16}$/.test(request.playerId)))){
+          typeof request.playerId!=="string"||!/^[a-f0-9]{16}$/.test(request.playerId)))||
+         (request.command==="ban"&&(typeof onBan!=="function"||typeof request.playerId!=="string"||
+          !/^[a-f0-9]{16}$/.test(request.playerId)||![5,15,60,360,1440,10080].includes(request.minutes)||
+          typeof request.reason!=="string"||request.reason.length>120))||
+         (request.command==="bans"&&typeof onBans!=="function")||
+         (request.command==="history"&&typeof onHistory!=="function")||
+         (request.command==="unban"&&(typeof onUnban!=="function"||
+          typeof request.banId!=="string"||!/^[a-f0-9]{24}$/.test(request.banId)))){
         socket.end('{"ok":false,"error":"invalidCommand"}\n');return;
       }
       try{
@@ -108,7 +117,11 @@ export async function startControlServer(roomsDirectory,{onRestart,onStart,onSto
           stop:onStop,
           events:onEvents,
           players:onPlayers,
-          kick:()=>onKick(request.room,request.playerId)
+          kick:()=>onKick(request.room,request.playerId),
+          ban:()=>onBan(request.room,request.playerId,request.minutes,request.reason),
+          bans:onBans,
+          history:onHistory,
+          unban:()=>onUnban(request.room,request.banId)
         })[request.command](request.room);
         if(!socket.destroyed)socket.end(JSON.stringify({ok:true,result})+"\n");
       }catch(error){
@@ -136,7 +149,7 @@ export async function startControlServer(roomsDirectory,{onRestart,onStart,onSto
     }
   };
 }
-async function requestRoomCommand(roomsDirectory,id,command,playerId){
+async function requestRoomCommand(roomsDirectory,id,command,playerId,extra={}){
   if(!ID.test(id))throw Error("ID da sala invalido");
   const {privateDir,endpoint,tokenFile}=controlPaths(roomsDirectory);
   ensureControlDirectory(privateDir);
@@ -149,7 +162,7 @@ async function requestRoomCommand(roomsDirectory,id,command,playerId){
       if(error)reject(error);else resolve(value);
     };
     socket.setTimeout(15000,()=>finish(Error("Supervisor nao respondeu em 15 segundos")));
-    socket.once("connect",()=>socket.write(JSON.stringify({token,command,room:id,...(playerId?{playerId}:{})})+"\n"));
+    socket.once("connect",()=>socket.write(JSON.stringify({token,command,room:id,...(playerId?{playerId}:{}),...extra})+"\n"));
     socket.on("data",data=>{
       result+=data.toString("utf8");
       if(Buffer.byteLength(result)>MAX_RESPONSE)return finish(Error("Resposta muito grande"));
@@ -174,4 +187,17 @@ export function requestRoomPlayers(roomsDirectory,id){return requestRoomCommand(
 export function requestPlayerKick(roomsDirectory,id,playerId){
   if(typeof playerId!=="string"||!/^[a-f0-9]{16}$/.test(playerId))throw Error("ID do jogador invalido");
   return requestRoomCommand(roomsDirectory,id,"kick",playerId);
+}
+
+export function requestPlayerBan(dir,id,playerId,minutes,reason){
+  if(typeof playerId!=="string"||!/^[a-f0-9]{16}$/.test(playerId)||
+     ![5,15,60,360,1440,10080].includes(minutes)||typeof reason!=="string"||reason.length>120)
+    throw Error("Dados de banimento invalidos");
+  return requestRoomCommand(dir,id,"ban",playerId,{minutes,reason});
+}
+export function requestRoomBans(dir,id){return requestRoomCommand(dir,id,"bans");}
+export function requestModerationHistory(dir,id){return requestRoomCommand(dir,id,"history");}
+export function requestPlayerUnban(dir,id,banId){
+  if(typeof banId!=="string"||!/^[a-f0-9]{24}$/.test(banId))throw Error("ID de banimento invalido");
+  return requestRoomCommand(dir,id,"unban",null,{banId});
 }

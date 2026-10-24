@@ -7,11 +7,12 @@ import http from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { LocalCredentials } from "../../../windows/server/src/api/credentials.js";
-import { controlPaths, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents, requestRoomPlayers, requestPlayerKick } from "./control.mjs";
+import { controlPaths, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents, requestRoomPlayers, requestPlayerKick, requestPlayerBan, requestRoomBans, requestModerationHistory, requestPlayerUnban } from "./control.mjs";
 import { newRoom, createRoom, readRoom, readModFile, listMods, updateRoom } from "./config.mjs";
 import { discoverRooms, checkRooms, DEFAULT_ROOMS, MAX_ROOMS } from "./supervisor.mjs";
 import { scanRooms } from "./monitor.mjs";
 import { planRoom } from "./loader.mjs";
+import { readStaffRoles, can } from "./panel-roles.mjs";
 
 export const ADMIN_EMAIL="admin@panel.invalid";
 const ID=/^[a-z][a-z0-9-]{0,47}$/;
@@ -93,7 +94,7 @@ function catalog(){
   });
 }
 function safeIdFromPathname(url){
-  const match=/^\/api\/rooms\/([^/]+)(\/(?:restart|start|stop|events|players|kick))?$/.exec(url);
+  const match=/^\/api\/rooms\/([^/]+)(\/(?:restart|start|stop|events|players|kick|ban|bans|unban|history))?$/.exec(url);
   if(!match)return null;
   return {id:ensureRoomId(match[1]),action:match[2]?.slice(1)||null};
 }
@@ -216,9 +217,16 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
       if(req.method==="GET"&&url.pathname==="/")return filePage(res,"index.html","text/html; charset=utf-8");
       if(req.method==="GET"&&url.pathname==="/panel.css")return filePage(res,"panel.css","text/css; charset=utf-8");
       if(req.method==="GET"&&url.pathname==="/panel.js")return filePage(res,"panel.js","text/javascript; charset=utf-8");
-      const session=sessionFromCookie(req,sessions);
+      let session=sessionFromCookie(req,sessions);
+      if(session?.role!=="owner"&&session){
+        const current=readStaffRoles(privateDir(folder))[session.email];
+        if(current!==session.role){sessions.delete(session.sid);session=null;}
+      }
+      const permit=name=>{
+        if(!can(session?.role,name))throw httpError(403,"Permissao insuficiente");
+      };
       if(req.method==="GET"&&url.pathname==="/api/session")
-        return send(res,200,{authenticated:!!session,csrf:session?.csrf||null});
+        return send(res,200,{authenticated:!!session,csrf:session?.csrf||null,role:session?.role||null});
       if(req.method==="POST"){
         requireValidOrigin(req,allowed);
         if(!String(req.headers["content-type"]||"").toLowerCase().startsWith("application/json"))
@@ -230,12 +238,14 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
         const current=record&&now-record.start<600000?record:{start:now,count:0};
         if(current.count>=10)throw httpError(429,"Limite de tentativas. Tente depois.");
         const body=await readJson(req);
-        checkPayload(body,["password"]);
+        checkPayload(body,["password","email"]);
         if(typeof body.password!=="string"||body.password.length>128){
           current.count++;attempts.set(address,current);
           throw httpError(401,"Senha incorreta");
         }
-        const good=await creds.verify(ADMIN_EMAIL,body.password);
+        const email=body.email===undefined||body.email===""?ADMIN_EMAIL:body.email;
+        const role=email===ADMIN_EMAIL?"owner":readStaffRoles(privateDir(folder))[email];
+        const good=!!role&&await creds.verify(email,body.password);
         if(!good){
           current.count++;attempts.set(address,current);
           throw httpError(401,"Senha incorreta");
@@ -243,9 +253,9 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
         attempts.delete(address);
         if(sessions.size>=MAX_SESSIONS)sessions.delete(sessions.keys().next().value);
         const sid=hex(),csrf=hex();
-        sessions.set(sid,{csrf,expires:now+SESSION_TTL});
+        sessions.set(sid,{csrf,email,role,expires:now+SESSION_TTL});
         res.setHeader("Set-Cookie","mooio_admin="+sid+"; HttpOnly; SameSite=Strict; Path=/; Max-Age=7200");
-        return send(res,200,{authenticated:true,csrf});
+        return send(res,200,{authenticated:true,csrf,role});
       }
       if(!session)throw httpError(401,"Autenticacao necessaria");
       if(req.method==="POST"&&url.pathname==="/api/logout"){
@@ -254,29 +264,43 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
         res.setHeader("Set-Cookie","mooio_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
         return send(res,200,{ok:true});
       }
-      if(req.method==="GET"&&url.pathname==="/api/overview")
-        return send(res,200,await safeOverview(folder));
-      if(req.method==="GET"&&url.pathname==="/api/mods")
-        return send(res,200,{mods:catalog()});
+      if(req.method==="GET"&&url.pathname==="/api/overview"){permit("overview");
+        return send(res,200,await safeOverview(folder));}
+      if(req.method==="GET"&&url.pathname==="/api/mods"){permit("mods");
+        return send(res,200,{mods:catalog()});}
       if(req.method==="GET"){
         const match=safeIdFromPathname(url.pathname);
         if(match?.action==="players"){
+          permit("players");
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           return send(res,200,await requestRoomPlayers(folder,match.id));
         }
         if(match?.action==="events"){
+          permit("events");
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           return send(res,200,await requestRoomEvents(folder,match.id));
+        }
+      }
+      if(req.method==="GET"){
+        const match=safeIdFromPathname(url.pathname);
+        if(match?.action==="bans"||match?.action==="history"){
+          permit(match.action);
+          if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
+          const result=match.action==="bans"?
+            await requestRoomBans(folder,match.id):await requestModerationHistory(folder,match.id);
+          return send(res,200,result);
         }
       }
       if(req.method==="POST"){
         formRequest(req,allowed,session);
         if(url.pathname==="/api/rooms"){
+          permit("rooms");
           const body=await readJson(req);
           return send(res,201,await queue(()=>mutateRoom(folder,body.id,body,{create:true})));
         }
         const match=safeIdFromPathname(url.pathname);
         if(match?.action==="kick"){
+          permit("kick");
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           const body=await readJson(req);
           checkPayload(body,["playerId"]);
@@ -284,15 +308,34 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
             throw httpError(400,"Identificador da sessao invalido");
           return send(res,200,{result:await requestPlayerKick(folder,match.id,body.playerId)});
         }
+        if(match?.action==="ban"){
+          permit("ban");
+          if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
+          const body=await readJson(req);checkPayload(body,["playerId","minutes","reason"]);
+          if(typeof body.playerId!=="string"||!/^[a-f0-9]{16}$/.test(body.playerId)||
+             ![5,15,60,360,1440,10080].includes(body.minutes)||typeof body.reason!=="string"||
+             body.reason.length>120)throw httpError(400,"Dados de banimento invalidos");
+          return send(res,200,{result:await requestPlayerBan(folder,match.id,body.playerId,body.minutes,body.reason)});
+        }
+        if(match?.action==="unban"){
+          permit("unban");
+          if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
+          const body=await readJson(req);checkPayload(body,["banId"]);
+          if(typeof body.banId!=="string"||!/^[a-f0-9]{24}$/.test(body.banId))throw httpError(400,"ID de banimento invalido");
+          return send(res,200,{result:await requestPlayerUnban(folder,match.id,body.banId)});
+        }
         if(match?.action==="start"){
+          permit("start");
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           return send(res,200,{result:await requestRoomStart(folder,match.id)});
         }
         if(match?.action==="stop"){
+          permit("stop");
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           return send(res,200,{result:await requestRoomStop(folder,match.id)});
         }
         if(match?.action==="restart"){
+          permit("restart");
           // Fail-closed: cannot restart a room that no longer exists.
           if(!fs.existsSync(path.join(folder,match.id+".json")))throw httpError(404,"Sala nao encontrada");
           return send(res,200,{result:await requestRoomRestart(folder,match.id)});
@@ -302,6 +345,7 @@ export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
         formRequest(req,allowed,session);
         const match=safeIdFromPathname(url.pathname);
         if(match&&!match.action){
+          permit("rooms");
           const body=await readJson(req);
           return send(res,200,await queue(()=>mutateRoom(folder,match.id,body)));
         }

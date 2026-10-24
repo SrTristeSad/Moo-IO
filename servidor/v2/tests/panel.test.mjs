@@ -7,6 +7,7 @@ import net from "node:net";
 import path from "node:path";
 import { createPanel, panelCredentials, ADMIN_EMAIL } from "../core/panel.mjs";
 import { readRoom, createRoom, newRoom } from "../core/config.mjs";
+import { setStaffRole, readStaffRoles } from "../core/panel-roles.mjs";
 import { probeRoom } from "../core/supervisor.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -166,6 +167,58 @@ test("Painel cria e inicia sala nova com controlador ativo sem parar primeira sa
         new Promise(resolve=>setTimeout(resolve,5000))]);
       if(child.exitCode===null&&process.platform!=="win32")child.kill("SIGKILL");
     }
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+test("RBAC: viewer is read-only, moderator may moderate, owner alone edits rooms",{timeout:25000},async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"mooio-panel-roles-"));
+  let panel;
+  try{
+    const creds=panelCredentials(dir);
+    await creds.set(ADMIN_EMAIL,"owner-secret-password-2026");
+    await creds.set("watcher@example.org","viewer-secret-password-2026");
+    await creds.set("staff@example.org","moderator-secret-password-2026");
+    const privateDir=path.join(dir,".control");
+    setStaffRole(privateDir,"watcher@example.org","viewer");
+    setStaffRole(privateDir,"staff@example.org","moderator");
+    assert.equal(readStaffRoles(privateDir)["staff@example.org"],"moderator");
+    panel=await createPanel({rooms:dir,port:await port()});
+    const base="http://127.0.0.1:"+panel.port;
+    const request=(url,method="GET",body,cookie,csrf)=>fetch(base+url,{
+      method,headers:{"Origin":base,"Content-Type":"application/json",...(cookie?{"Cookie":cookie}:{}),
+        ...(csrf?{"X-CSRF-Token":csrf}:{})},body:body===undefined?undefined:JSON.stringify(body)
+    });
+    const login=async(email,password)=>{
+      const response=await request("/api/login","POST",{email,password});
+      assert.equal(response.status,200);
+      const cookie=response.headers.get("set-cookie").split(";")[0];
+      const json=await response.json();
+      return {cookie,csrf:json.csrf,role:json.role};
+    };
+    const view=await login("watcher@example.org","viewer-secret-password-2026");
+    const mod=await login("staff@example.org","moderator-secret-password-2026");
+    const owner=await login(ADMIN_EMAIL,"owner-secret-password-2026");
+    assert.equal(view.role,"viewer");assert.equal(mod.role,"moderator");assert.equal(owner.role,"owner");
+    assert.equal((await request("/api/overview","GET",undefined,view.cookie)).status,200);
+    assert.equal((await request("/api/mods","GET",undefined,view.cookie)).status,403);
+    assert.equal((await request("/api/rooms","POST",{},view.cookie,view.csrf)).status,403);
+    assert.equal((await request("/api/rooms","POST",{},mod.cookie,mod.csrf)).status,403);
+    assert.equal((await request("/api/rooms/normal/kick","POST",{playerId:"0123456789abcdef"},view.cookie,view.csrf)).status,403);
+    assert.equal((await request("/api/rooms/normal/ban","POST",{playerId:"0123456789abcdef",minutes:5,reason:""},view.cookie,view.csrf)).status,403);
+    assert.equal((await request("/api/rooms/normal/history","GET",undefined,view.cookie)).status,404);
+    assert.equal((await request("/api/mods","GET",undefined,owner.cookie)).status,200);
+    const info={id:"normal",name:"Normal",preset:"traditional",port:17880,capacity:20,bots:0,mods:[]};
+    assert.equal((await request("/api/rooms","POST",info,owner.cookie,owner.csrf)).status,201);
+    assert.equal((await request("/api/rooms/normal/ban","POST",{playerId:"0123456789abcdef",minutes:7,reason:""},mod.cookie,mod.csrf)).status,400);
+    assert.equal((await request("/api/rooms/normal/ban","POST",{playerId:"../../invalid",minutes:5,reason:""},mod.cookie,mod.csrf)).status,400);
+    assert.equal((await request("/api/rooms/normal/restart","POST",{},mod.cookie,mod.csrf)).status,403);
+    // Immediate role revocation invalidates existing cookie, without restart.
+    setStaffRole(privateDir,"staff@example.org","revoke");
+    assert.equal((await request("/api/overview","GET",undefined,mod.cookie)).status,401);
+    assert.equal((await request("/api/login","POST",{email:"staff@example.org",password:"moderator-secret-password-2026"})).status,401);
+  }finally{
+    if(panel)await panel.close();
     fs.rmSync(dir,{recursive:true,force:true});
   }
 });
