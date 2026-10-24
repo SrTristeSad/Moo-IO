@@ -74,3 +74,15 @@ test("arquivo Caddy nao sobrescreve por acidente, nao segue symlink e nao expoe 
     }
   }finally{fs.rmSync(folder,{force:true,recursive:true});}
 });
+
+test("optional auth domain gateway exposes only browser login endpoints",()=>{
+  const plan=buildGatewayPlan([{id:"normal",room:newRoom({port:18440})}],{domain:"play.example.com"});
+  const generated=renderCaddyfile(plan,{identityHost:"auth.play.example.com",identityPort:8788});
+  assert.match(generated,/auth\.play\.example\.com \{/);
+  assert.match(generated,/@auth_public path \/login \/login\/submit \/v1\/authorize\/start \/v1\/authorize\/token/);
+  assert.match(generated,/reverse_proxy @auth_public 127\.0\.0\.1:8788/);
+  assert.match(generated,/respond 404/);
+  assert.doesNotMatch(generated,/@auth_public.*\/internal\/introspect/);
+  assert.throws(()=>renderCaddyfile(plan,{identityHost:"normal.play.example.com"}),/duplicados/);
+  assert.throws(()=>renderCaddyfile(plan,{identityHost:"auth.play.example.com",identityPort:443}),/invalidos/);
+});

@@ -12,6 +12,10 @@ function argsParse(args){
   const out={};
   while(args.length){
     const key=args.shift();
+    if(key==="--auth"){
+      if(out.auth)throw Error("--auth repetido");
+      out.auth=true;continue;
+    }
     if(key==="--force"){
       if(out.force)throw Error("--force repetido");
       out.force=true;
@@ -28,7 +32,7 @@ function argsParse(args){
 function usage(){
   console.log("Moo-IO V2: gateway HTTPS/WSS por dominio, usando Caddy.");
   console.log("  node servidor/v2/gateway.mjs plan --domain jogo.exemplo.com [--rooms pasta]");
-  console.log("  node servidor/v2/gateway.mjs generate --domain jogo.exemplo.com [--rooms pasta]");
+  console.log("  node servidor/v2/gateway.mjs generate --domain jogo.exemplo.com [--auth] [--rooms pasta]");
   console.log("  node servidor/v2/gateway.mjs write --domain jogo.exemplo.com [--output caminho] [--force]");
   console.log("Exemplo: sala 'normal' vira https://normal.jogo.exemplo.com (WSS automatico).");
   console.log("Nenhum desses comandos instala Caddy, altera firewall ou publica portas.");
@@ -59,9 +63,10 @@ async function main(){
   const plan=await gatewayPlan({rooms:opts.rooms?path.resolve(opts.rooms):DEFAULT_ROOMS,domain:opts.domain});
   if(cmd==="plan"){
     for(const room of plan)console.log("HTTPS https://"+room.hostname+" -> "+room.upstream+" | WSS wss://"+room.hostname+"/s/LC");
+    if(opts.auth)console.log("HTTPS https://auth."+opts.domain+" -> 127.0.0.1:8788 (browser identity)");
     return;
   }
-  const output=renderCaddyfile(plan);
+  const output=renderCaddyfile(plan,opts.auth?{identityHost:"auth."+opts.domain}:{});
   if(cmd==="generate")process.stdout.write(output);
   else console.log("Caddyfile criado: "+writeCaddyfile(opts.output||DEFAULT_CADDYFILE,output,{force:opts.force}));
 }
