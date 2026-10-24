@@ -9,6 +9,7 @@ local Random=require("src.net.secure_random")
 local Build=require("src.protocol.original_build")
 local OriginalSession=require("src.protocol.original_session")
 local Join=require("src.net.original_join")
+local TLS=require("src.net.tls_bridge")
 local MessagePack=require("src.protocol.msgpack")
 local Original={}
 Original.__index=Original
@@ -19,13 +20,30 @@ end
 local function validPort(n)
   return type(n)=="number" and n>=1 and n<=65535 and n%1==0
 end
-local function httpPing(socketHttp,host,port)
+local function httpPing(socketHttp,host,port,secure)
+  local opts
+  if secure then
+    local why;opts,why=TLS.options(host,port)
+    if not opts then return nil,why end
+  end
   local oldTimeout=socketHttp.TIMEOUT
   socketHttp.TIMEOUT=2
-  local ok,data,code=pcall(socketHttp.request,
-    "http://"..host..":"..port.."/ping")
+  local data,code
+  if opts then
+    local ltn12=require("ltn12")
+    local chunks={}
+    local ok,result,status=pcall(socketHttp.request,{
+      url="http://"..host..":443/ping",method="GET",
+      create=opts.create,sink=ltn12.sink.table(chunks)
+    })
+    if ok and result then data=table.concat(chunks);code=status
+    else data=nil;code=tostring(status or result) end
+  else
+    local ok,result,status=pcall(socketHttp.request,
+      "http://"..host..":"..port.."/ping")
+    if ok then data=result;code=status else data=nil;code=tostring(result) end
+  end
   socketHttp.TIMEOUT=oldTimeout
-  if not ok then return nil,"GET /ping falhou: "..tostring(data) end
   if tonumber(code)~=200 then return nil,"GET /ping HTTP "..tostring(code) end
   if type(data)~="string" or #data>32768 then return nil,"resposta /ping invalida" end
   local build=data:match('"build"%s*:%s*"([%w]+)"')
@@ -41,6 +59,7 @@ function Original.new(options)
     name=options.name or "Jogador",
     autoSpawn=options.autoSpawn~=false,
     authToken=options.authToken,
+    secure=options.secure==true,
     join=options.join or Join,
     ltn12=options.ltn12,
     did=nil,ticket=nil,spawnSent=false,sid=nil,packetCount=0,
@@ -61,7 +80,13 @@ function Original:connect()
     return false,self.error
   end
   self:close()
-  local build,reason=httpPing(self.http,self.host,self.port)
+  if self.secure and (not TLS.validDomain(self.host) or self.port~=443) then
+    return false,"Servidor publico exige HTTPS DNS na porta 443"
+  end
+  if not self.secure and TLS.validDomain(self.host) then
+    return false,"Nao e permitido conectar a servidor publico sem TLS"
+  end
+  local build,reason=httpPing(self.http,self.host,self.port,self.secure)
   if not build then
     self.state="failed";self.error=reason
     self.status="Servidor original indisponivel: "..reason
@@ -75,6 +100,7 @@ function Original:connect()
     host=self.host,port=self.port,server=self.server,did=self.did,
     inviteCode=self.inviteCode,
     authToken=self.authToken,
+    secure=self.secure,
     http=self.http,ltn12=self.ltn12
   })
   if not grant then
@@ -88,7 +114,12 @@ function Original:connect()
   self.spawnSent=false
   self.sid=nil
   self.packetCount=0
-  local options={secureRandom=self.random,sha1=self.sha1}
+  local options={secureRandom=self.random,sha1=self.sha1,secure=self.secure}
+  if self.secure then
+    local transport,transportError=TLS.options(self.host,self.port)
+    if not transport then return false,transportError end
+    options.socket=transport.socket
+  end
   if self.socketLib then options.socket=self.socketLib end
   local ws=SocketWS.new(options)
   -- Keep ?b= bound to /ping and supply the authentic one-use join ticket.
@@ -128,7 +159,7 @@ function Original:update()
           self.handshake=handshake
           self.state="handshake_received"
           self.events[#self.events+1]={kind="io-init",data=handshake}
-          local params,buildError=Build.load(self.build,{host=self.host,port=self.port})
+          local params,buildError=Build.load(self.build,{host=self.host,port=self.port,secure=self.secure})
           if handshake.pinned and not params then
             self.state="blocked"
             self.error=tostring(buildError)
