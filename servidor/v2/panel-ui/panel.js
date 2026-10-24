@@ -80,6 +80,20 @@ function renderRooms(){
       }catch(error){notify(error.message,true);}
       finally{restart.disabled=false;}
     });
+    if(!room.online){
+      const start=element("button","Iniciar sala","primary");
+      start.type="button";
+      start.addEventListener("click",async()=>{
+        start.disabled=true;
+        try{
+          const data=await api("/api/rooms/"+encodeURIComponent(room.id)+"/start","POST",{});
+          notify("Sala "+room.id+": "+(data.result?.status||"iniciando")+".");
+          await refresh();
+        }catch(error){notify(error.message,true);}
+        finally{start.disabled=false;}
+      });
+      buttons.append(start);
+    }
     append(buttons,configure,restart);
     append(card,info,buttons);
     list.append(card);
@@ -114,7 +128,7 @@ function editRoom(room=null){
   $("room-bots").value=room?.bots||0;
   $("editor-note").textContent=room?
     "Alterações de regras e mods exigem reiniciar esta sala. Porta e ID não podem mudar aqui.":
-    "Salas novas entram em funcionamento após reiniciar o controlador.";
+    "A sala será iniciada automaticamente se o controlador estiver ativo.";
   renderMods();
   $("editor").classList.remove("hidden");
   $("editor").scrollIntoView({behavior:"smooth",block:"start"});
