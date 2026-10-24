@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import net from "node:net";
 import {randomBytes,createHash,timingSafeEqual} from "node:crypto";
 import {LocalCredentials,normalizeEmail} from "../../../windows/server/src/api/credentials.js";
 
@@ -132,6 +133,14 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
       if(!session||session.until<=now){delete sessions[key];changed=true;}
     if(changed)persist();
   }
+  function peer(req){
+    const local=["127.0.0.1","::ffff:127.0.0.1","::1"].includes(req.socket.remoteAddress);
+    const forwarded=req.headers["x-forwarded-for"];
+    // Our generated Caddyfile replaces this header with {remote_host}.
+    // Do not accept comma-separated client-supplied proxy chains.
+    if(local&&typeof forwarded==="string"&&net.isIP(forwarded))return forwarded;
+    return req.socket.remoteAddress||"unknown";
+  }
   function originAllowed(req){
     if(req.headers.origin!==publicUrl)fail(403,"Origem nao autorizada");
   }
@@ -145,7 +154,7 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
       if(url.pathname==="/v1/authorize/start"&&req.method==="POST"){
         const body=await readBody(req,"application/json");
         if(!CHALLENGE.test(body.challenge))fail(400,"PKCE challenge invalido");
-        rate("start:"+req.socket.remoteAddress,50);
+        rate("start:"+peer(req),50);
         clean();
         if(flows.size>=MAX_FLOWS)fail(503,"Muitas autorizacoes pendentes");
         const id=randomBytes(20).toString("hex");
@@ -215,9 +224,10 @@ export async function createIdentityService({dataDir,origin,port=8788,host="127.
         const match=/(?:^|;\s*)mooio_login_csrf=([a-f0-9]{48})(?:;|$)/.exec(req.headers.cookie||"");
         if(!match||!equal(match[1],flow.csrf)||!equal(body.csrf,flow.csrf))
           fail(403,"CSRF invalido");
-        rate("login:"+req.socket.remoteAddress,20);
+        rate("login:"+peer(req),20);
         const email=normalizeEmail(body.email);
         const password=body.password;
+        if(email)rate("email:"+hash(email),12);
         if(!email||typeof password!=="string")fail(400,"Credenciais invalidas");
         if(body.action==="register"&&allowRegistration){
           await queue(async()=>{
