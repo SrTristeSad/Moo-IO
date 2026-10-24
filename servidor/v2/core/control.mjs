@@ -62,8 +62,9 @@ async function clearStaleSocket(endpoint){
   if(active)throw Error("Outro supervisor ja usa o socket privado.");
   fs.unlinkSync(endpoint);
 }
-export async function startControlServer(roomsDirectory,{onRestart}){
+export async function startControlServer(roomsDirectory,{onRestart,onStart}){
   if(typeof onRestart!=="function")throw Error("Callback de reinicio ausente");
+  if(onStart!==undefined&&typeof onStart!=="function")throw Error("Callback de inicializacao invalido");
   const {privateDir,endpoint,tokenFile}=controlPaths(roomsDirectory);
   ensureControlDirectory(privateDir);
   const token=loadToken(tokenFile,{create:true});
@@ -85,11 +86,12 @@ export async function startControlServer(roomsDirectory,{onRestart}){
       if(!equalToken(request?.token,token)){
         socket.end('{"ok":false,"error":"unauthorized"}\n');return;
       }
-      if(request.command!=="restart"||typeof request.room!=="string"||!ID.test(request.room)){
+      if(!["restart","start"].includes(request.command)||typeof request.room!=="string"||!ID.test(request.room)||
+         (request.command==="start"&&typeof onStart!=="function")){
         socket.end('{"ok":false,"error":"invalidCommand"}\n');return;
       }
       try{
-        const result=await onRestart(request.room);
+        const result=request.command==="start"?await onStart(request.room):await onRestart(request.room);
         if(!socket.destroyed)socket.end(JSON.stringify({ok:true,result})+"\n");
       }catch(error){
         if(!socket.destroyed)socket.end(JSON.stringify({ok:false,error:String(error.message).slice(0,240)})+"\n");
@@ -116,7 +118,7 @@ export async function startControlServer(roomsDirectory,{onRestart}){
     }
   };
 }
-export async function requestRoomRestart(roomsDirectory,id){
+async function requestRoomCommand(roomsDirectory,id,command){
   if(!ID.test(id))throw Error("ID da sala invalido");
   const {privateDir,endpoint,tokenFile}=controlPaths(roomsDirectory);
   ensureControlDirectory(privateDir);
@@ -129,7 +131,7 @@ export async function requestRoomRestart(roomsDirectory,id){
       if(error)reject(error);else resolve(value);
     };
     socket.setTimeout(15000,()=>finish(Error("Supervisor nao respondeu em 15 segundos")));
-    socket.once("connect",()=>socket.write(JSON.stringify({token,command:"restart",room:id})+"\n"));
+    socket.once("connect",()=>socket.write(JSON.stringify({token,command,room:id})+"\n"));
     socket.on("data",data=>{
       result+=data.toString("utf8");
       if(Buffer.byteLength(result)>MAX_REQUEST)return finish(Error("Resposta muito grande"));
@@ -144,3 +146,6 @@ export async function requestRoomRestart(roomsDirectory,id){
     socket.once("end",()=>finish(Error("Supervisor encerrou sem responder")));
   });
 }
+
+export function requestRoomRestart(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"restart");}
+export function requestRoomStart(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"start");}
