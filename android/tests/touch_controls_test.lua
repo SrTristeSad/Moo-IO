@@ -65,6 +65,23 @@ assert(l.clan.y==l.shop.y and l.shop.y==l.tribe.y,
   "Clan, Shop and Tribe must share the top HUD row")
 assert(l.auto.x>w*.8 and l.auto.y<h*.55,
   "automatic attack button belongs to right side")
+assert(l.lock.x==l.auto.x and
+  l.lock.y-l.lock.r>l.auto.y+l.auto.r,
+  "direction lock must be a separate button below AUTO")
+-- Touching TRAVAR only emits an action; the local client must wait for a
+-- successful K(0) server command before showing it as locked.
+eq(m:pressed(173,l.lock.x,l.lock.y,w,h,14400,10),"lock_aim")
+eq(m.aimLocked,false)
+m.aimDir=1.15
+eq(m:setDirectionLock(true),true)
+eq(m:aimAngle(),1.15)
+m:stopForOverlay()
+assert(m.aimLocked and m:aimAngle()==1.15,
+  "opening options or shop cannot unlock direction")
+eq(m:setDirectionLock(false),false)
+eq(m:aimAngle(),1.15)
+assert(l.lock.y+l.lock.r < l.hotbar.y-14*l.u,
+  "fixed-direction button must not interfere with ability row")
 eq(m.topCollapsed,false)
 local folded,foldState=m:pressed(170,l.fold.x,l.fold.y,w,h,14400,10)
 eq(folded,"top_toggle");eq(foldState,true)
@@ -105,6 +122,23 @@ eq(m:released(1),"attack")
 assert(not m:attacking() and not m:aiming()
   and m.fireOffsetX==0 and m.fireOffsetY==0)
 assert(math.abs(m:aimAngle())<.001,"release retains last aim")
+-- Lock direction while still aiming: changing the joystick angle should
+-- change the underlying thumb, but never change the locked facing angle.
+eq(m:pressed(174,l.fire.x,l.fire.y,w,h,14400,10),"attack")
+eq(m:moved(174,l.fire.x,l.fire.y+56,w,h),"aim")
+local heldDir=m:aimAngle()
+eq(m:pressed(175,l.lock.x,l.lock.y,w,h,14400,10),"lock_aim")
+m:setDirectionLock(true)
+eq(m:moved(174,l.fire.x+110,l.fire.y,w,h),"aim")
+assert(math.abs(m:aimAngle()-heldDir)<.001 and m:attacking(),
+  "locked direction is held even during an outer-zone attack gesture")
+eq(m:released(174),"attack")
+assert(m.aimLocked and math.abs(m:aimAngle()-heldDir)<.001,
+  "releasing the attack finger must preserve direction lock")
+eq(m:pressed(176,l.lock.x,l.lock.y,w,h,14400,10),"lock_aim")
+m:setDirectionLock(false)
+assert(math.abs(m:aimAngle())<.001,
+  "unlocking restores the joystick's most recent direction")
 -- Left stick must work even if right attack is simultaneously held.
 eq(m:pressed(2,l.move.x,l.move.y,w,h,14400,10),"move")
 m:moved(2,l.move.x+55,l.move.y,w,h)
@@ -213,8 +247,8 @@ eq(m:pressed(55,l.tribe.x,l.tribe.y,w,h,14400,10),"tribe_open")
 local mx,my=w*.20,h*.65
 eq(m:pressed(53,mx,my,w,h,14400,10),"move")
 assert(m.moveOrigin.x==mx and m.moveOrigin.y==my)
-eq(m:pressed(54,w*.89,h*.63,w,h,14400,10),"attack")
-assert(m.fireOrigin.x==w*.89 and m.fireOrigin.y==h*.63)
+eq(m:pressed(54,w*.80,h*.63,w,h,14400,10),"attack")
+assert(m.fireOrigin.x==w*.80 and m.fireOrigin.y==h*.63)
 eq(m:released(53),"move")
 assert(m.fireOrigin and m:aiming(),"releasing movement must not stop independent aiming")
 eq(m:released(54),"attack")
@@ -226,6 +260,8 @@ assert(before~=adjusted and adjusted.move.r>before.move.r,
 assert(m.uiOpacity==.55)
 m:configure(100,-2)
 assert(m.uiScale==1.55 and m.uiOpacity==.5,"settings must clamp")
+m:setDirectionLock(true)
 m:reset()
+assert(not m:aimLocked and m.lockedDir==nil)
 assert(not m:attacking() and m.moveId==nil)
 print("MOO IO ANDROID TOUCH STABLE PASS")
