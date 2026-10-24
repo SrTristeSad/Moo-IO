@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
+import { LocalCredentials, normalizeEmail } from "./credentials.js";
 import { gameName, isRude } from "../moomoo/libs/nameFilter.js";
 
 const CLAN_MAX_MEMBERS = 80;               // [Ox]
@@ -51,7 +52,9 @@ function emptyStats() {
 
 export class AccountStore {
 
-    constructor(dataDir) {
+    constructor(dataDir, { passwordMode = false } = {}) {
+        this.passwordMode = Boolean(passwordMode);
+        this.localCredentials = this.passwordMode ? new LocalCredentials(dataDir) : null;
         this.file = path.join(dataDir, "accounts.json");
         fs.mkdirSync(dataDir, { recursive: true });
         const secretFile = path.join(dataDir, "secret.key");
@@ -125,6 +128,7 @@ export class AccountStore {
         const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
         const now = Math.floor(Date.now() / 1000);
         const payload = b64url(JSON.stringify({
+            secureAuth: this.passwordMode ? 1 : undefined,
             sub: account.id,
             iat: now,
             exp: now + 60 * 60 * 24 * 30,
@@ -144,13 +148,35 @@ export class AccountStore {
         try {
             const payload = JSON.parse(fromB64url(parts[1]).toString("utf8"));
             if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+            if (this.passwordMode && payload.secureAuth !== 1) return null;
             return this.data.accounts[this.data.legacyIds[payload.sub] || payload.sub] || null;
         } catch {
             return null;
         }
     }
 
-    // SIGN IN (no verification: any code / password is accepted)
+    // Verified local credentials for V2 private rooms; legacy LAN auth remains below.
+    localAccountForEmail(email) {
+        const key = normalizeEmail(email);
+        if(!key)return null;
+        const id=this.data.emails[key];
+        return id ? this.data.accounts[id] || null : null;
+    }
+    async setLocalPassword(email,password) {
+        if(!this.localCredentials)throw Error("Senha local disponivel somente na V2");
+        const key=normalizeEmail(email);
+        if(!key)throw Error("Email invalido");
+        await this.localCredentials.set(key,password);
+        return this.accountForEmail(key);
+    }
+    async verifyLocalPassword(email,password) {
+        if(!this.localCredentials)return null;
+        const account=this.localAccountForEmail(email);
+        if(!account)return null;
+        return await this.localCredentials.verify(account.email,password) ? account : null;
+    }
+
+    // LEGACY SIGN IN (unverified; only embedded LAN server)
     accountForEmail(email) {
         const key = String(email || "").trim().toLowerCase();
         if (!key || key.length > 120) return null;

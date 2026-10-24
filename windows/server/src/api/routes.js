@@ -57,21 +57,56 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
     // Chat, invites and online lists (before /clan/:action, which would take /clan/online).
     if (chat) router.use(chat.router({ requireAuth, requireStaff }));
 
-    // ---------- FRVR auth emulation (used by shim.js) ----------
-    // Email + code: any 6 digits work. Email + password: any password works.
+    // The V2 server disables fake email verification and passwords.
+    // Existing LAN clients retain the legacy endpoints; only the V2 requires
+    // provisioned password hashes. Never trust spoofable forwarded IP headers.
+    const securePasswords=Boolean(store.passwordMode);
+    const loginBuckets=new Map();
+    let activeLogins=0;
+    function allowPasswordAttempt(req){
+        const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase().slice(0,120):"invalid";
+        const key=(req.socket.remoteAddress||"unknown")+"|"+email;
+        const now=Date.now();
+        if(loginBuckets.size>5000)loginBuckets.clear();
+        const row=loginBuckets.get(key);
+        const bucket=row&&now-row.since<600000?row:{since:now,hits:0};
+        bucket.hits++;
+        loginBuckets.set(key,bucket);
+        return bucket.hits<=10;
+    }
+    // ---------- FRVR legacy compatibility and V2 verified passwords ----------
     router.post("/auth/code", (req, res) => {
+        if(securePasswords)return res.status(410).json({type:"passwordRequired"});
         const flow = store.startLogin(req.body && req.body.email);
         if (!flow) return res.status(400).json({ type: "invalidEmail" });
         res.json({ flow });
     });
     router.post("/auth/verify", (req, res) => {
+        if(securePasswords)return res.status(410).json({type:"passwordRequired"});
         const code = String((req.body && req.body.code) || "");
         if (!/^\d{6}$/.test(code)) return res.status(400).json({ type: "invalidCode" });
         const account = store.finishLogin(req.body.flow);
         if (!account) return res.status(400).json({ type: "serverError" });
         res.json({ token: store.issueToken(account), email: account.email, id: account.id });
     });
-    router.post("/auth/password", (req, res) => {
+    router.post("/auth/password", async (req, res) => {
+        if(securePasswords){
+            if(!allowPasswordAttempt(req)||activeLogins>=8)
+                return res.status(429).json({type:"rateLimited"});
+            const email=req.body?.email,password=req.body?.password;
+            if(typeof email!=="string"||typeof password!=="string"||
+                email.length>120||Buffer.byteLength(password,"utf8")>512)
+                return res.status(400).json({type:"invalidCredentials"});
+            activeLogins++;
+            try{
+                const account=await store.verifyLocalPassword(email,password);
+                if(!account)return res.status(400).json({type:"invalidCredentials"});
+                res.set("Cache-Control","no-store");
+                return res.json({token:store.issueToken(account),email:account.email,id:account.id});
+            }catch{
+                return res.status(503).json({type:"serverError"});
+            }finally{activeLogins--;}
+        }
         const account = store.accountForEmail(req.body && req.body.email);
         if (!account || !String((req.body && req.body.password) || "").length) {
             return res.status(400).json({ type: "invalidCredentials" });
@@ -98,6 +133,7 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
         const body = req.body || {};
         const account = body.auth ? store.verifyToken(body.auth) : null;
         if (body.auth && !account) return res.status(403).json({ error: "auth" });
+        if (securePasswords && !account) return res.status(403).json({ error: "auth" });
         const ip = clientIp(req);
         const did = typeof body.did === "string" ? body.did : null;
         const ban = moderation.banEntry(ip, account && account.id, did) || (account && account.verdict === "ban" ? {} : null);

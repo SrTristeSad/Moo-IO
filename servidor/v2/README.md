@@ -2,6 +2,43 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Autenticacao de jogadores na V2 (nova)
+
+Salas V2 agora **exigem conta e senha real** antes de emitir tickets de
+ingresso. O sistema de login de teste (qualquer senha/codigo de seis digitos)
+fica exclusivamente no servidor LAN antigo e esta **desabilitado** na V2.
+A V2 armazena hashes scrypt com salt aleatorio e nao grava senhas em
+texto puro. Cada sala tem sua propria base de jogadores e credenciais.
+
+**Por enquanto o cadastro e administrado pelo dono do servidor**, sem
+registro publico, envio de email ou recuperacao automatica de senha.
+O jogador autenticado usa a rota de login por senha ja existente.
+Para criar uma conta, rode na VPS como usuario dono das salas:
+
+```bash
+# Leia a senha sem mostra-la no terminal e encaminhe apenas pelo stdin:
+read -rsp "Senha do jogador (12+ caracteres): " SENHA; echo
+printf '%s\n' "$SENHA" | node servidor/v2/accounts.mjs set-password \
+  --file servidor/v2/rooms/principal.json --email jogador@example.org
+unset SENHA
+
+# Reinicie a sala se ela ja estiver executando, para carregar nova credencial.
+systemctl --user restart mooio-v2.service
+```
+
+O comando nunca aceita `--password` na linha de comandos e nao imprime
+a senha. **Nao envie arquivos de credenciais nem senhas ao Git**.
+As tentativas de login sao limitadas; `/api/auth/code` e
+`/api/auth/verify` retornam 410 em salas V2. Entrar como convidado,
+inclusive mandando `captcha:true`, nao emite um ticket na V2.
+
+O modo `traditional` preserva a jogabilidade original; agora tambem
+exige autenticacao por senha como qualquer outra sala privada V2.
+Essa implementacao NAO inclui ainda cadastro integrado ao cliente,
+recuperacao de senhas nem gateway HTTPS/WSS. Ela e base de seguranca,
+**nao autoriza publicar portas na Internet**. Clientes so poderao
+autenticar diretamente se tiverem suporte ao fluxo de login por senha.
+
 ## Instalacao em VPS Ubuntu/Debian (nova)
 
 A V2 ganhou um assistente para instalar o motor com Node.js 22+ e criar
@@ -41,10 +78,9 @@ Para continuar funcionando **apos desconectar do SSH**, habilite
 explicitamente o linger da conta (administrador da VPS):
 `sudo loginctl enable-linger "$(id -un)"`.
 
-O instalador nao exige sudo nem mexe no firewall. **Importante:** esta
-etapa NAO transforma a V2 em servidor publico: autenticacao herdada de
-teste, ausencia de TLS/WSS e falta de gateway seguro impedem expor as
-portas do jogo diretamente na Internet. Uso de loopback/VPN privada
+O instalador nao exige sudo nem mexe no firewall. **Importante:** esta etapa NAO transforma a V2 em servidor publico:
+autenticacao real por senha na V2 ja existe, mas faltam HTTPS/WSS,
+seguranca de proxy, protecao contra abuso e gateway publico. Uso de loopback/VPN privada
 e adequado apenas para testes controlados. Para acesso publico,
 faltam autenticacao de producao, gateway e protecao contra abuso.
 

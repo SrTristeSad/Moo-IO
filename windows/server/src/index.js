@@ -75,7 +75,7 @@ const build = await createProtocolBuild({
     outDir: path.join(ROOT, "dist/protocol"),
     pinFile
 });
-const accounts = new AccountStore(DATA_DIR);
+const accounts = new AccountStore(DATA_DIR, { passwordMode: V2_ROOM });
 const moderation = new ModerationStore(DATA_DIR);
 moderation.migrateIds(accounts.migratedIds);
 if (Object.keys(accounts.migratedIds).length) log(`accounts: moved ${Object.keys(accounts.migratedIds).length} account id(s) to the FRVR id format`);
