@@ -122,8 +122,43 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
         res.json({ token: store.issueToken(account), email: account.email, id: account.id });
     });
 
-    // V2: a shared VPS browser identity is exchanged for this room's own JWT.
-    // No password ever enters the native/Lua game client.
+    // Browser identity is verified ONLY via a private loopback request.
+    // The client must never learn the hub's internal secret.
+    function identityPort(){
+        const port=process.env.MOO_IO_V2_AUTH_PORT||"8788";
+        if(!/^[0-9]{4,5}$/.test(port)||Number(port)<1024||Number(port)>65534)
+            throw Error("Invalid hub port");
+        return port;
+    }
+    async function hubPost(route,payload,headers={}){
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2500);
+        try{
+            return await fetch("http://127.0.0.1:"+identityPort()+route,{
+                method:"POST",signal:controller.signal,
+                headers:{"Content-Type":"application/json",...headers},
+                body:JSON.stringify(payload)
+            });
+        }finally{clearTimeout(timer);}
+    }
+    async function accountFromIdentity(token){
+        const secretFile=path.join(process.env.MOO_IO_V2_AUTH_DIR,"hub.secret");
+        const st=fs.lstatSync(secretFile);
+        if(!st.isFile()||st.isSymbolicLink()||st.size!==64||
+           (process.platform!=="win32"&&(st.mode&0o077)!==0))
+            throw Error("Invalid private hub key");
+        const secret=fs.readFileSync(secretFile,"utf8");
+        if(!/^[a-f0-9]{64}$/.test(secret))throw Error("Invalid private hub key");
+        const response=await hubPost("/internal/introspect",{token},
+          {"X-MooIO-Internal-Secret":secret});
+        if(!response.ok)throw Error("Hub unavailable");
+        const identity=await response.json();
+        if(identity?.active!==true||typeof identity.email!=="string"||
+           identity.email.length>120)return null;
+        return store.accountForEmail(identity.email);
+    }
+    function roomToken(account){
+        return {token:store.issueToken(account,{ttlSeconds:900}),id:account.id,email:account.email};
+    }
     router.post("/auth/browser",async(req,res)=>{
         if(!securePasswords||!process.env.MOO_IO_V2_AUTH_DIR)
             return res.status(404).json({type:"notAvailable"});
@@ -132,36 +167,68 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
             return res.status(400).json({type:"invalidToken"});
         if(!allowBridgeAttempt(clientIp(req)))return res.status(429).json({type:"rateLimited"});
         try{
-            const secretFile=path.join(process.env.MOO_IO_V2_AUTH_DIR,"hub.secret");
-            const st=fs.lstatSync(secretFile);
-            if(!st.isFile()||st.isSymbolicLink()||st.size!==64||
-               (process.platform!=="win32"&&(st.mode&0o077)!==0))
-                throw Error("Invalid private hub key");
-            const secret=fs.readFileSync(secretFile,"utf8");
-            if(!/^[a-f0-9]{64}$/.test(secret))throw Error("Invalid private hub key");
-            const port=process.env.MOO_IO_V2_AUTH_PORT||"8788";
-            if(!/^[0-9]{4,5}$/.test(port))throw Error("Invalid hub port");
-            const controller=new AbortController();
-            const timer=setTimeout(()=>controller.abort(),2500);
-            let response;
-            try{
-                response=await fetch("http://127.0.0.1:"+port+"/internal/introspect",{
-                    method:"POST",signal:controller.signal,
-                    headers:{"Content-Type":"application/json","X-MooIO-Internal-Secret":secret},
-                    body:JSON.stringify({token})
-                });
-            }finally{clearTimeout(timer);}
-            if(!response.ok)throw Error("Identity unavailable");
-            const identity=await response.json();
-            if(identity?.active!==true||typeof identity.email!=="string"||
-               identity.email.length>120)return res.status(403).json({type:"notAuthenticated"});
-            const account=store.accountForEmail(identity.email);
-            if(!account)throw Error("Unable to map account");
+            const account=await accountFromIdentity(token);
+            if(!account)return res.status(403).json({type:"notAuthenticated"});
             res.set("Cache-Control","no-store");
-            return res.json({token:store.issueToken(account,{ttlSeconds:900}),id:account.id,email:account.email});
-        }catch{
-            return res.status(503).json({type:"identityUnavailable"});
-        }
+            return res.json(roomToken(account));
+        }catch{return res.status(503).json({type:"identityUnavailable"});}
+    });
+
+    // Native LAN/VPN client does not need to perform HTTPS inside Lua:
+    // it asks its already-connected private room to forward PKCE to the hub.
+    // ONLY a short-lived room JWT returns to the game client; the central
+    // seven-day token remains in the backend and is revoked immediately.
+    router.post("/auth/v2/start",async(req,res)=>{
+        if(!securePasswords||!process.env.MOO_IO_V2_AUTH_DIR)
+            return res.status(404).json({type:"notAvailable"});
+        const challenge=req.body?.challenge;
+        if(typeof challenge!=="string"||!/^[A-Za-z0-9_-]{43}$/.test(challenge))
+            return res.status(400).json({type:"invalidChallenge"});
+        if(!allowBridgeAttempt(clientIp(req)))return res.status(429).json({type:"rateLimited"});
+        try{
+            const response=await hubPost("/v1/authorize/start",{challenge});
+            if(!response.ok)return res.status(503).json({type:"identityUnavailable"});
+            const result=await response.json();
+            if(typeof result.id!=="string"||!/^[a-f0-9]{40}$/.test(result.id)||
+               typeof result.verificationUri!=="string"||
+               !result.verificationUri.startsWith("https://"))
+                throw Error("Untrusted login URL");
+            res.set("Cache-Control","no-store");
+            return res.json({
+                id:result.id,verificationUri:result.verificationUri,
+                expiresIn:result.expiresIn,interval:result.interval
+            });
+        }catch{return res.status(503).json({type:"identityUnavailable"});}
+    });
+    router.post("/auth/v2/token",async(req,res)=>{
+        if(!securePasswords||!process.env.MOO_IO_V2_AUTH_DIR)
+            return res.status(404).json({type:"notAvailable"});
+        const {id,verifier}=req.body||{};
+        if(typeof id!=="string"||!/^[a-f0-9]{40}$/.test(id)||
+           typeof verifier!=="string"||!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier))
+            return res.status(400).json({type:"invalidAuthorization"});
+        if(!allowBridgeAttempt(clientIp(req)))return res.status(429).json({type:"rateLimited"});
+        try{
+            const response=await hubPost("/v1/authorize/token",{id,verifier});
+            if(response.status===202)return res.status(202).json({status:"pending"});
+            if(response.status===403)return res.status(403).json({type:"invalidAuthorization"});
+            if(response.status===410)return res.status(410).json({type:"expired"});
+            if(!response.ok)throw Error("Hub failed");
+            const result=await response.json();
+            if(typeof result.token!=="string"||!/^[a-f0-9]{64}$/.test(result.token))
+                throw Error("Invalid hub grant");
+            let account;
+            try{account=await accountFromIdentity(result.token);}
+            finally{
+                // Central long-lived tokens never need to cross the LAN/VPN.
+                await hubPost("/v1/session/revoke",{},{
+                  "Authorization":"Bearer "+result.token
+                }).catch(()=>{});
+            }
+            if(!account)return res.status(403).json({type:"notAuthenticated"});
+            res.set("Cache-Control","no-store");
+            return res.json({status:"authorized",...roomToken(account)});
+        }catch{return res.status(503).json({type:"identityUnavailable"});}
     });
 
     // ---------- servers / join ----------
