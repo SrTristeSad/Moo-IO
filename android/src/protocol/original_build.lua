@@ -112,7 +112,24 @@ function M.load(expectedBuildId,remote)
     local http=require("socket.http")
     local old=http.TIMEOUT
     http.TIMEOUT=3
-    local ok,body,code=pcall(http.request,"http://"..remote.host..":"..remote.port.."/mooio/protocol")
+    local ok,body,code
+    if remote.secure then
+      local TLS=require("src.net.tls_bridge")
+      local tunnel,reason=TLS.options(remote.host,remote.port)
+      if tunnel then
+        local ltn12=require("ltn12")
+        local chunks={}
+        local result,status
+        ok,result,status=pcall(http.request,{
+          url="http://"..remote.host..":443/mooio/protocol",method="GET",
+          create=tunnel.create,sink=ltn12.sink.table(chunks)
+        })
+        body=ok and result and table.concat(chunks) or nil
+        code=status
+      else ok=false;body=nil;code=reason end
+    else
+      ok,body,code=pcall(http.request,"http://"..remote.host..":"..remote.port.."/mooio/protocol")
+    end
     http.TIMEOUT=old
     if ok and tonumber(code)==200 and type(body)=="string" then
       local params=M.parse(body)

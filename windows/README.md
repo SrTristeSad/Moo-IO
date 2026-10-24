@@ -1,5 +1,18 @@
 # Moo-IO — Windows
 
+## Acesso público direto com HTTPS/WSS verificados
+
+**Novo:** o cliente reconhece convites de salas publicados pelo gateway Caddy, no formato `https://normal.jogo.seudominio.com/CODIGO`. Ao entrar em uma sala V2, a página de autenticação abre no navegador; as solicitações da API, o ticket, o protocolo e o WebSocket passam por uma ponte TLS validada. Para partidas públicas, não existe fallback para HTTP/WS.
+
+O certificado do servidor é verificado pelo mecanismo confiável da plataforma: `tls.connect` do Node 22 já distribuído no **Windows**, ou `SSLSocketFactory`/`SSLParameters.setEndpointIdentificationAlgorithm("HTTPS")` no **Android**. Ambos validam autoridade certificadora, validade, hostname SNI e TLS 1.2+. Certificados vencidos, autoassinados não confiáveis ou de outro domínio impedem a conexão. Não há opção de ignorar certificados.
+
+No Windows, o jogo inicia sob demanda um relay Node oculto, em `127.0.0.1:8469`, usando `runtime/node/node.exe` + `scripts/tls-relay.mjs`. O filho é encerrado ao sair do jogo. No Android, `MooIOActivity` inicia a ponte Java no processo normal do app, sem iniciar o servidor Node de hospedagem e sem notificação persistente. A comunicação local requer um token aleatório privado, e a ponte só permite destinos DNS e porta 443.
+
+O jogador deve informar o convite HTTPS completo na tela **Jogar**. O backend da VPS precisa estar configurado com Caddy, DNS e TLS válidos; as portas internas da sala e do painel administrativo continuam privadas. Em redes LAN/VPN, convites por IP continuam usando o modo anterior.
+
+Esta versão muda o **código-fonte** Android e Windows. O Windows exige reconstrução do ZIP; o Android exige um novo APK nativo com `MooIOTlsBridge.java`. Instalações antigas não ganham TLS até receberem um pacote atualizado. O teste do transportador no GitHub não substitui uma validação real em dispositivos Android conectados a uma VPS.
+
+
 ## Login V2 pelo navegador (LAN/VPN privada)
 
 O cliente não solicita senha no jogo. No menu **Jogar**, informe o convite privado da sala (IP/porta/código), escolha **Entrar na conta V2 (navegador)** e autorize no site HTTPS da VPS. Volte ao Moo-IO; o cliente consulta a sala automaticamente e entra quando a autorização termina. O código PKCE é gerado com fonte criptográfica de entropia e usado uma só vez.

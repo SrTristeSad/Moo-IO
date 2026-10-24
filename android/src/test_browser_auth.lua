@@ -60,6 +60,6 @@ return function()
   assert(granted and not errorMessage and granted.token==token)
   assert(granted.email=="test@example.org")
   local invalid,reasonBad=Auth.begin("8.8.8.8",443,"testing-room-code",opts)
-  assert(invalid==nil and type(reasonBad)=="string" and reasonBad:find("VPN",1,true))
+  assert(invalid==nil and type(reasonBad)=="string" and reasonBad:find("IP privado",1,true))
   print("MOO IO BROWSER AUTH PASS: PKCE, private transport, scoped JWT")
 end

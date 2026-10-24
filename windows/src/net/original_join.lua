@@ -3,6 +3,7 @@
 -- Moo IO permits trusted LAN sessions guarded by a room invite code.
 -- The inherited boolean CAPTCHA is ONLY a local test stub; do not expose to internet.
 local Join={}
+local TLS=require("src.net.tls_bridge")
 -- Moo IO modification: hosts may be reached from other machines on LAN.
 local function validHost(host)
   return type(host)=="string" and host:match("^[%w%.%-]+$")~=nil
@@ -39,7 +40,17 @@ function Join.guest(options)
   end
   local http=options.http or require("socket.http")
   local ltn12=options.ltn12 or require("ltn12")
-  local hostUrl="http://"..host..":"..port.."/s/"..server
+  local secure=options.secure==true
+  local secureOptions
+  if secure then
+    local why
+    secureOptions,why=TLS.options(host,port,options)
+    if not secureOptions then return nil,why end
+  elseif TLS.validDomain(host) then
+    return nil,"Endereco publico exige HTTPS/WSS"
+  end
+  local hostUrl=(secure and "https://" or "http://")..host..
+    (secure and "" or ":"..port).."/s/"..server
   -- The original local API deliberately uses a boolean stand-in for CAPTCHA.
   -- Do not send this to an internet-facing server.
   local auth=""
@@ -68,7 +79,8 @@ function Join.guest(options)
       ["X-MooIO-Code"]=roomCode
     },
     source=ltn12.source.string(body),
-    sink=ltn12.sink.table(chunks)
+    sink=ltn12.sink.table(chunks),
+    create=secureOptions and secureOptions.create or nil
   })
   http.TIMEOUT=oldTimeout
   if not ok then return nil,"API join falhou: "..tostring(result) end
