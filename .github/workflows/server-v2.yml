@@ -36,6 +36,7 @@ jobs:
         run: |
           test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/server/src/index.js
           test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/shared/config.js
+          test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/package.json
           test -f servidor/v2/dist/Moo-IO-Servidor-V2/windows/server/node_modules/ws/package.json
           cd servidor/v2/dist/Moo-IO-Servidor-V2
           node --test servidor/v2/tests/*.test.mjs
