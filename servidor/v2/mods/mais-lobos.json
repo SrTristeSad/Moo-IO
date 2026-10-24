@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "mais-lobos",
+  "name": "Mais Lobos",
+  "description": "Aumenta a populacao de lobos e fortalece sua vida.",
+  "requiresClient": "base",
+  "changes": {
+    "spawns": {
+      "4": {"desired": 15}
+    },
+    "animals": {
+      "4": {"health": 1000}
+    }
+  }
+}

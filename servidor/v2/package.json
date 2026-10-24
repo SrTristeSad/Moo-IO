@@ -1,0 +1,12 @@
+{
+  "name": "moo-io-private-server-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "help": "node cli.mjs help",
+    "mods": "node cli.mjs mods",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

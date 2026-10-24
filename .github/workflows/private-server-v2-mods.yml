@@ -1,0 +1,43 @@
+name: Moo-IO private V2 - mods and customization
+on:
+  push:
+    paths:
+      - "servidor/v2/**"
+      - "windows/server/src/**"
+      - "windows/server/package.json"
+      - "windows/shared/**"
+      - ".github/workflows/private-server-v2-mods.yml"
+  pull_request:
+    paths:
+      - "servidor/v2/**"
+      - "windows/server/src/**"
+      - "windows/server/package.json"
+      - "windows/shared/**"
+      - ".github/workflows/private-server-v2-mods.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mods:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install engine dependencies
+        working-directory: windows/server
+        run: npm install --no-audit --no-fund
+      - name: Validate mod system and real networking
+        run: node --test servidor/v2/tests/mods.test.mjs servidor/v2/tests/smoke.test.mjs
+      - name: Preview sample mod
+        shell: bash
+        run: |
+          node servidor/v2/cli.mjs init --preset custom --file servidor/v2/rooms/teste.json
+          node servidor/v2/cli.mjs enable colheita-farta --file servidor/v2/rooms/teste.json
+          node servidor/v2/cli.mjs preview --file servidor/v2/rooms/teste.json
