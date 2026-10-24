@@ -60,7 +60,7 @@ local function send(host,port,code,route,body,options)
   return data
 end
 local function url64(data)
-  return (Upgrade.base64(data):gsub("+","-"):gsub("/","_"):gsub("=",""))
+  return (Upgrade.base64(data):gsub("%+","-"):gsub("/","_"):gsub("=",""))
 end
 function M.begin(host,port,roomCode,options)
   options=options or {}
