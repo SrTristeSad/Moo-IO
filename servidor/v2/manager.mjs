@@ -4,9 +4,11 @@
 import path from "node:path";
 import { RoomSupervisor, discoverRooms, checkRooms, DEFAULT_ROOMS } from "./core/supervisor.mjs";
 import { scanRooms, statusText, statusKey } from "./core/monitor.mjs";
+import { startControlServer, requestRoomRestart } from "./core/control.mjs";
 
 const args=process.argv.slice(2);
 const cmd=args.shift()||"help";
+const restartId=cmd==="restart"?args.shift():null;
 function parseArgs(args){
   const flags={rooms:DEFAULT_ROOMS,json:false,interval:15,intervalPassed:false};
   const seen=new Set();
@@ -39,17 +41,26 @@ async function main(){
       "  node servidor/v2/manager.mjs health [--rooms pasta] [--json]",
       "  node servidor/v2/manager.mjs watch [--rooms pasta] [--interval 15]",
       "  node servidor/v2/manager.mjs start [--rooms pasta]",
+      "  node servidor/v2/manager.mjs restart ID [--rooms pasta]",
       "status: jogadores por sala; --json: relatorio para scripts.",
       "health: sai com codigo 1 se alguma sala estiver offline.",
       "watch: mostra alteracoes de jogadores/disponibilidade.",
       "start: inicia salas isoladas e reinicia apos falhas e travamentos.",
+      "restart: valida os mods e recarrega somente a sala indicada, sem reiniciar vizinhas.",
       "Administracao local; NAO disponibilize estes comandos como API publica."
     ].join("\n"));
     return;
   }
-  if(!["check","status","health","watch","start"].includes(cmd))throw Error("Comando desconhecido: "+cmd);
+  if(!["check","status","health","watch","start","restart"].includes(cmd))throw Error("Comando desconhecido: "+cmd);
   if(flags.json&&!["status","health"].includes(cmd))throw Error("--json somente para status/health");
   if(flags.intervalPassed&&cmd!=="watch")throw Error("--interval somente para watch");
+  if(cmd==="restart"){
+    if(flags.json||flags.intervalPassed)throw Error("restart aceita somente --rooms");
+    if(!restartId)throw Error("Informe o ID da sala, por exemplo: restart lobos");
+    const result=await requestRoomRestart(flags.rooms,restartId);
+    console.log("Sala "+result.id+": "+result.status+". As demais salas permaneceram no mesmo processo.");
+    return;
+  }
   const rooms=await checkRooms(discoverRooms(flags.rooms));
   if(cmd==="check"){
     for(const {id,room} of rooms)console.log("OK "+id+" | "+room.name+" | "+room.host+":"+room.port+" | jogadores "+room.capacity+" | mods "+room.mods.length);
@@ -92,19 +103,26 @@ async function main(){
     }
   }else{
     const supervisor=new RoomSupervisor(rooms);
+    supervisor.start();
+    let control;
+    try{
+      control=await startControlServer(flags.rooms,{onRestart:id=>supervisor.restartRoom(id)});
+    }catch(error){
+      await supervisor.stop();
+      throw error;
+    }
     let terminating=false;
     const shutdown=()=>{
       if(terminating)return;
       terminating=true;
-      void supervisor.stop().then(()=>{process.exitCode=0;}).catch(error=>{
+      void Promise.all([supervisor.stop(),control.close()]).then(()=>{process.exitCode=0;}).catch(error=>{
         console.error("Erro ao parar salas: "+error.message);
         process.exitCode=1;
       });
     };
     process.once("SIGINT",shutdown);
     process.once("SIGTERM",shutdown);
-    supervisor.start();
-    console.log("Controlador V2 ativo; "+rooms.length+" sala(s). Use Ctrl+C para encerrar.");
+    console.log("Controlador V2 ativo; "+rooms.length+" sala(s). Controle local privado: restart ID; Ctrl+C para encerrar.");
   }
 }
 main().catch(error=>{console.error("Erro no controlador V2: "+error.message);process.exitCode=1;});
