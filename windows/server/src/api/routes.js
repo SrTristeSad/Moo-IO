@@ -65,6 +65,7 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
     const securePasswords=Boolean(store.passwordMode);
     const loginBuckets=new Map();
     let activeLogins=0;
+    const allowBridgeAttempt=rateLimiter(30,60000);
     function allowPasswordAttempt(req){
         const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase().slice(0,120):"invalid";
         const key=(req.socket.remoteAddress||"unknown")+"|"+email;
@@ -129,7 +130,7 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
         const token=req.body?.token;
         if(typeof token!=="string"||!/^[a-f0-9]{64}$/.test(token))
             return res.status(400).json({type:"invalidToken"});
-        if(!allowPasswordAttempt(req))return res.status(429).json({type:"rateLimited"});
+        if(!allowBridgeAttempt(clientIp(req)))return res.status(429).json({type:"rateLimited"});
         try{
             const secretFile=path.join(process.env.MOO_IO_V2_AUTH_DIR,"hub.secret");
             const st=fs.lstatSync(secretFile);
