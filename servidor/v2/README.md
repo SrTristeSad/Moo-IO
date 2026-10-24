@@ -2,6 +2,41 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Login hospedado no navegador — serviço central V2
+
+O servidor privado V2 agora inclui um **serviço de contas compartilhadas por todas as salas da mesma VPS**, com página web própria de login e cadastro. O cliente não transmite nem armazena a senha.
+
+Fluxo PKCE S256: o aplicativo gera um `verifier` aleatório e envia o respectivo SHA-256/base64url como `challenge` a `POST /v1/authorize/start` via HTTPS. Abre no navegador externo o `verificationUri` devolvido pelo servidor. A página valida a senha e solicita a autorização; o aplicativo consulta `POST /v1/authorize/token` com `id` e `verifier` até receber um token de sessão de uso protegido. A autorização expira em 5 minutos e a troca é de uso único.
+
+Para entrar numa sala, o aplicativo usa `POST /api/auth/browser` dessa sala com o token central. A sala consulta o hub exclusivamente em localhost, usando um segredo privado, e emite seu JWT próprio de 15 minutos. O ticket de `/api/join` e a partida continuam usando o protocolo original; as salas preservam seus banimentos e controles independentes.
+
+### Instalar na VPS
+
+```bash
+git pull origin main
+node servidor/v2/identity.mjs configure --origin https://auth.jogo.seudominio.com
+bash servidor/v2/deploy/install-ubuntu.sh
+systemctl --user status mooio-v2-identity.service
+```
+
+O instalador cria `mooio-v2-identity.service` e somente o ativa automaticamente se a origem HTTPS já estiver configurada. O hub fica restrito a `127.0.0.1:8788`, independente dos serviços de salas e do painel.
+
+Gere o gateway HTTPS para as salas e o login:
+
+```bash
+node servidor/v2/gateway.mjs generate --domain jogo.seudominio.com --auth
+```
+
+Configure o DNS de `auth.jogo.seudominio.com` e dos subdomínios das salas, certificados HTTPS do Caddy e firewall expondo somente portas 80/443. **Nunca exponha 8787, 8788, portas internas do motor, `/internal/introspect` ou seus arquivos de segredo.** O Caddy gerado aceita somente rotas públicas explicitamente permitidas.
+
+### Limites atuais
+
+- Contas antigas armazenadas em cada sala não são migradas automaticamente. A identidade central funciona apenas entre salas da mesma VPS.
+- O cadastro ainda não verifica a propriedade do e-mail e ainda não fornece recuperação de senha por e-mail; não trate o endereço como verificado.
+- O token central pode ser revogado, mas JWTs de sala já emitidos podem continuar válidos até expirar (até 15 minutos).
+- **A interface dos clientes Lua Windows e Android ainda precisa implementar o fluxo de navegador, a consulta PKCE e os transportes HTTPS/WSS com certificados validados.** O backend está disponível, mas isso por si só não torna o APK existente capaz de jogar numa VPS pública.
+- O cliente LAN e o login legado para salas locais permanecem separados e não foram removidos.
+
 ## Banimento temporario, historico e permissoes do painel (novo)
 
 O painel agora permite banir por **5, 15, 60, 360, 1440 ou 10080
