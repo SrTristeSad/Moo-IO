@@ -10,6 +10,7 @@ local Pause=require("src.game.mooio_pause")
 local Host=require("src.net.mooio_host")
 local Auth=require("src.net.local_auth")
 local BrowserAuth=require("src.net.browser_auth")
+local TLS=require("src.net.tls_bridge")
 local Config=require("src.game.config")
 local Hud=require("src.game.reference_hud")
 local Panels=require("src.game.reference_panels")
@@ -224,7 +225,7 @@ function love.update(dt)
           local target=pendingBrowserLogin.target
           pendingBrowserLogin=nil
           home:setStatus("Conta autorizada! Conectando a partida...")
-          connectRoom(target.host,target.port,target.code,result.token)
+          connectRoom(target.host,target.port,target.code,result.token,target.secure)
         elseif why~="pending" then
           pendingBrowserLogin=nil
           home:setStatus(why or "Login V2 recusado.",true)
@@ -578,12 +579,12 @@ menuAction=function(action)
 end
 
 -- Native menu actions. Only one authoritative Node session exists at a time.
-connectRoom=function(ip,port,inviteCode,authToken)
+connectRoom=function(ip,port,inviteCode,authToken,secure)
   if client then client:close();client=nil end
   world=World.new()
   local ok,connection=pcall(Original.new,{
     host=ip,port=port,server="LC",inviteCode=inviteCode,autoSpawn=false,
-    authToken=authToken
+    authToken=authToken,secure=secure==true
   })
   if not ok then
     home:setStatus("Cliente de rede: "..tostring(connection),true)
@@ -618,7 +619,7 @@ homeAction=function(action)
     end
   elseif action=="server_to_play" then
     home.screen="play"
-    home:setStatus("Entre usando IP, porta e codigo fornecidos pelo anfitriao.")
+    home:setStatus("Use convite privado ou https://sala.dominio/CODIGO.")
   elseif action=="provider_lite" then
     home:setStatus("V2 Lite: requer um servidor dedicado e compatibilidade de protocolo.")
   elseif action=="provider_firebase" then
@@ -649,7 +650,7 @@ homeAction=function(action)
     end
     local target,why=Home.parseInvite(home.invite,home.joinCode)
     if not target then home:setStatus(why,true);return end
-    local request,err=BrowserAuth.begin(target.host,target.port,target.code)
+    local request,err=BrowserAuth.begin(target.host,target.port,target.code,{secure=target.secure})
     if not request then home:setStatus(err,true);return end
     local ok,opened=pcall(function()
       return love.system.openURL(request.verificationUri)
@@ -663,7 +664,7 @@ homeAction=function(action)
   elseif action=="join" then
     local target,why=Home.parseInvite(home.invite,home.joinCode)
     if not target then home:setStatus(why,true);return end
-    connectRoom(target.host,target.port,target.code)
+    connectRoom(target.host,target.port,target.code,nil,target.secure)
   elseif action=="play_local" then
     if hosted.state=="ready" then
       connectRoom(hosted.hostIP,hosted.port,hosted.code)
@@ -1065,6 +1066,7 @@ function love.quit()
   end
   if client then client:close() end
   if hosted then hosted:stop() end
+  TLS.stop()
 end
 
 function love.resize(w,h)
