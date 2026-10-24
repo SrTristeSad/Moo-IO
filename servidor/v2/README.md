@@ -2,6 +2,52 @@
 
 Esta e a **primeira etapa funcional de mods de dados** para um servidor independente, instalado pelo dono na propria maquina/VPS. **Nao e um novo cliente.** Reutiliza o motor autoritativo de `windows/server/src/`, os dados de referencia `windows/shared/` e o protocolo existente.
 
+## Instalacao em VPS Ubuntu/Debian (nova)
+
+A V2 ganhou um assistente para instalar o motor com Node.js 22+ e criar
+uma sala tradicional privada por padrao (`127.0.0.1:8080`), se nao
+existirem outras salas configuradas. Execute como **usuario normal**, nunca
+como root:
+
+```bash
+bash servidor/v2/deploy/install-ubuntu.sh
+```
+
+O instalador instala as dependencias em `windows/server`, valida todas
+as salas/mods, cria `~/.config/systemd/user/mooio-v2.service` e habilita
+o controlador para iniciar suas salas com o systemd de usuario. Se ja
+existirem salas, nenhuma sera sobrescrita. Os arquivos com codigos
+de convite continuam protegidos com permissao 0600.
+
+Diagnostico ou preparacao manual, sem ativar o servico:
+
+```bash
+node servidor/v2/vps.mjs setup
+node servidor/v2/vps.mjs doctor
+node servidor/v2/vps.mjs unit   # imprime a configuracao de systemd, sem instalar
+```
+
+Comandos de manutencao:
+
+```bash
+systemctl --user status mooio-v2.service
+journalctl --user -u mooio-v2.service -f
+node servidor/v2/manager.mjs status
+systemctl --user restart mooio-v2.service
+systemctl --user stop mooio-v2.service
+```
+
+Para continuar funcionando **apos desconectar do SSH**, habilite
+explicitamente o linger da conta (administrador da VPS):
+`sudo loginctl enable-linger "$(id -un)"`.
+
+O instalador nao exige sudo nem mexe no firewall. **Importante:** esta
+etapa NAO transforma a V2 em servidor publico: autenticacao herdada de
+teste, ausencia de TLS/WSS e falta de gateway seguro impedem expor as
+portas do jogo diretamente na Internet. Uso de loopback/VPN privada
+e adequado apenas para testes controlados. Para acesso publico,
+faltam autenticacao de producao, gateway e protecao contra abuso.
+
 ## Comece sem programar
 
 Requisitos: Node.js 22+, codigo completo do repo, dependencias preparadas no `windows/server` (`npm install --prefix windows/server` em Linux; `cd windows/server && npm install` no Windows).
