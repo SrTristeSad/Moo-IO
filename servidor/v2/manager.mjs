@@ -79,6 +79,7 @@ async function main(){
     };
     const result=await actions[cmd](flags.rooms,targetId,...(cmd==="kick"?[kickId]:[]));
     if(cmd==="events"||cmd==="players")console.log(JSON.stringify(result,null,2));
+    else if(cmd==="kick")console.log("Jogador "+result.playerId+" expulso desta sala.");
     else console.log("Sala "+result.id+": "+result.status+". Outras salas permanecem ativas.");
     return;
   }
