@@ -10,7 +10,7 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 
 const ID=/^[a-z][a-z0-9_-]{0,47}$/;
 const MAX_REQUEST=4096;
-const MAX_RESPONSE=16384; // 40 player rows with bounded Unicode display names
+const MAX_RESPONSE=65536; // bounded 200 active bans / 50 audit rows
 export function controlPaths(roomsDirectory){
   const folder=path.resolve(roomsDirectory);
   const privateDir=path.join(folder,".control");
