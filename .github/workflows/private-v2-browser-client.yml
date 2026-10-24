@@ -5,6 +5,8 @@ on:
       - "android/**"
       - "windows/src/**"
       - "windows/main.lua"
+      - "windows/scripts/tls-relay.mjs"
+      - "windows/tests/tls-relay.test.mjs"
       - "windows/src/test_browser_auth.lua"
       - ".github/workflows/private-v2-browser-client.yml"
   push:
@@ -13,6 +15,8 @@ on:
       - "android/**"
       - "windows/src/**"
       - "windows/main.lua"
+      - "windows/scripts/tls-relay.mjs"
+      - "windows/tests/tls-relay.test.mjs"
       - ".github/workflows/private-v2-browser-client.yml"
 permissions:
   contents: read
@@ -22,6 +26,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
       - name: Install Lua
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.4
       - name: Validate syntax of all Windows and Android Lua sources
@@ -35,3 +46,20 @@ jobs:
           set -euo pipefail
           (cd windows && lua -e 'require("src.test_browser_auth")()')
           (cd android && lua -e 'require("src.test_browser_auth")()')
+          (cd windows && lua -e 'require("src.test_tls_bridge")()')
+          (cd android && lua -e 'require("src.test_tls_bridge")()')
+      - name: Test Windows Node TLS tunnel against real self-signed and trusted CA
+        run: node --test windows/tests/tls-relay.test.mjs
+      - name: Compile native Android TLS bridge with Java 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/src/android/util" "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/src/android/util/Log.java" <<'JAVA'
+          package android.util;
+          public final class Log {
+            public static int d(String tag,String msg){return 0;}
+            public static int w(String tag,String msg){return 0;}
+          }
+          JAVA
+          javac -d "$RUNNER_TEMP/bin" "$RUNNER_TEMP/src/android/util/Log.java" android/native/MooIOTlsBridge.java
