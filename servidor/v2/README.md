@@ -24,11 +24,30 @@ printf '%s\n' "$SENHA" | node servidor/v2/panel.mjs password
 unset SENHA
 ```
 
-**2. Inicie o painel em outro terminal da mesma conta:**
+**2. Para VPS Ubuntu/Debian com systemd:** rode novamente o instalador
+atualizado (na conta Linux que hospeda o servidor). Ele configura os
+**dois servicos separados**, sem reinstalar ou sobrescrever as salas:
 
+```bash
+bash servidor/v2/deploy/install-ubuntu.sh
+systemctl --user status mooio-v2.service
+systemctl --user status mooio-v2-panel.service
+```
+
+O servico `mooio-v2-panel.service` so e ativado quando a senha
+administrativa foi cadastrada; caso contrario, fica instalado mas
+desativado. Para ativar apos definir a senha, rode:
+
+```bash
+systemctl --user enable --now mooio-v2-panel.service
+```
+
+Alternativamente, inicie o painel manualmente:
 ```bash
 node servidor/v2/panel.mjs serve
 ```
+Para verificar a senha configurada, sem exibí-la:
+`node servidor/v2/panel.mjs check`.
 
 **3. No seu computador Windows, estabeleca um tunel SSH ate a VPS:**
 
@@ -45,9 +64,17 @@ encaminhamento SSH e no endereco do navegador.
 
 As configuracoes sao salvas e verificadas contra as definicoes reais
 do jogo. Depois de editar uma sala existente, clique em **Reiniciar sala**
-para aplicar as alteracoes sem derrubar as demais. Salas novas precisam
-de um reinicio planejado do **controlador inteiro** para serem descobertas;
-esse reinicio desconecta temporariamente jogadores das salas existentes.
+para aplicar as alteracoes sem derrubar as demais. **Salas novas sao
+iniciadas automaticamente** pelo controlador privado em execucao; as
+outras salas continuam conectadas. Se o controlador estiver offline,
+a nova configuracao sera salva e o painel mostrara **Iniciar sala** para
+tentar novamente quando o controlador voltar.
+
+Tambem pode iniciar uma sala recem-criada pelo terminal:
+`node servidor/v2/manager.mjs start-room ID`.
+Esse comando valida portas e mods e nao altera o processo das salas
+existentes. O gateway Caddy precisa ser reconfigurado separadamente
+para expor um novo subdominio; a criacao da sala nao publica portas.
 
 **Nao** adicione a porta 8787 ao firewall publico, nao a exponha no
 Caddy nem use redirecionamento publico de portas no roteador. O painel nao oferece
