@@ -64,7 +64,8 @@ export function createApiRouter({ store, moderation, servers, game, social, stre
     const loginBuckets=new Map();
     let activeLogins=0;
     function allowPasswordAttempt(req){
-        const key=req.socket.remoteAddress||"unknown";
+        const email=typeof req.body?.email==="string"?req.body.email.trim().toLowerCase().slice(0,120):"invalid";
+        const key=(req.socket.remoteAddress||"unknown")+"|"+email;
         const now=Date.now();
         if(loginBuckets.size>5000)loginBuckets.clear();
         const row=loginBuckets.get(key);
