@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 import { buildPlan, applyPlan, validateManifest } from "../core/mods.mjs";
 import { newRoom, validateRoom, readModFile, listMods, createRoom, readRoom } from "../core/config.mjs";
 
@@ -56,7 +57,7 @@ test("mods/arquivos nao podem escapar da pasta",()=>{
   assert.throws(()=>readModFile("__proto__"),/invalido/);
 });
 test("cria sala e nao sobrescreve configuracao existente",()=>{
-  const folder=fs.mkdtempSync(path.join((await import("node:os")).tmpdir(),"mooio-v2-"));
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),"mooio-v2-"));
   try{
     const filename=path.join(folder,"sala.json"),r=newRoom({preset:"custom"});
     createRoom(filename,r);
