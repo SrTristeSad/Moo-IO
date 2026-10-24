@@ -40,14 +40,22 @@ async function main(){
       "Moo-IO V2 - painel administrativo local da VPS",
       "  node servidor/v2/panel.mjs password [--rooms pasta] < senha-protegida.txt",
       "  node servidor/v2/panel.mjs serve [--rooms pasta] [--port 8787]",
+      "  node servidor/v2/panel.mjs check [--rooms pasta]",
       "",
       "Abra http://127.0.0.1:8787 localmente ou use tunel SSH.",
       "Nunca encaminhe o painel pelo Caddy nem publique a porta na VPS."
     ].join("\n"));
     return;
   }
-  if(!["password","serve"].includes(action))throw Error("Comando nao suportado: "+action);
+  if(!["password","serve","check"].includes(action))throw Error("Comando nao suportado: "+action);
   const {flags,seen}=parse(args);
+  if(action==="check"){
+    if(seen.has("--port"))throw Error("--port nao e aceito por check");
+    const credentials=panelCredentials(flags.rooms);
+    if(!credentials.users[ADMIN_EMAIL])throw Error("Defina a senha administrativa antes de habilitar o painel");
+    console.log("Senha administrativa configurada; painel pronto para iniciar em localhost.");
+    return;
+  }
   if(action==="password"){
     if(seen.has("--port"))throw Error("--port nao e valido para password");
     const password=await readPassword();
