@@ -14,7 +14,7 @@ const DEFAULT_PORT=8469;
 export function validHostname(value){
   return typeof value==="string"&&value===value.toLowerCase()&&DNS.test(value);
 }
-export async function startRelay({token=process.env.MOOIO_TLS_TOKEN,port=DEFAULT_PORT}={}){
+export async function startRelay({token=process.env.MOOIO_TLS_TOKEN,port=DEFAULT_PORT,createTls=tls.connect}={}){
   if(!TOKEN.test(token||"")||!Number.isInteger(port)||port<1024||port>65535)
     throw Error("Credencial ou porta TLS local invalida");
   const server=net.createServer(client=>{
@@ -38,7 +38,7 @@ export async function startRelay({token=process.env.MOOIO_TLS_TOKEN,port=DEFAULT
       }
       connected=true;client.removeListener("data",start);
       client.pause();
-      remote=tls.connect({
+      remote=createTls({
         host:match[2],port:443,servername:match[2],
         rejectUnauthorized:true,minVersion:"TLSv1.2"
       });
