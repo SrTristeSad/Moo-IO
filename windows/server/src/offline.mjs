@@ -15300,11 +15300,11 @@ var require_mime_types = __commonJS({
       }
       return exts[0];
     }
-    function lookup(path9) {
-      if (!path9 || typeof path9 !== "string") {
+    function lookup(path10) {
+      if (!path10 || typeof path10 !== "string") {
         return false;
       }
-      var extension3 = extname("x." + path9).toLowerCase().slice(1);
+      var extension3 = extname("x." + path10).toLowerCase().slice(1);
       if (!extension3) {
         return false;
       }
@@ -19104,13 +19104,13 @@ var require_view = __commonJS({
      * MIT Licensed
      */
     var debug = require_src()("express:view");
-    var path9 = __require("node:path");
-    var fs9 = __require("node:fs");
-    var dirname = path9.dirname;
-    var basename = path9.basename;
-    var extname = path9.extname;
-    var join = path9.join;
-    var resolve = path9.resolve;
+    var path10 = __require("node:path");
+    var fs10 = __require("node:fs");
+    var dirname = path10.dirname;
+    var basename = path10.basename;
+    var extname = path10.extname;
+    var join = path10.join;
+    var resolve = path10.resolve;
     module.exports = View;
     function View(name, options) {
       var opts = options || {};
@@ -19139,17 +19139,17 @@ var require_view = __commonJS({
       this.path = this.lookup(fileName);
     }
     View.prototype.lookup = function lookup(name) {
-      var path10;
+      var path11;
       var roots = [].concat(this.root);
       debug('lookup "%s"', name);
-      for (var i = 0; i < roots.length && !path10; i++) {
+      for (var i = 0; i < roots.length && !path11; i++) {
         var root = roots[i];
         var loc = resolve(root, name);
         var dir = dirname(loc);
         var file = basename(loc);
-        path10 = this.resolve(dir, file);
+        path11 = this.resolve(dir, file);
       }
-      return path10;
+      return path11;
     };
     View.prototype.render = function render(options, callback) {
       var sync = true;
@@ -19171,21 +19171,21 @@ var require_view = __commonJS({
     };
     View.prototype.resolve = function resolve2(dir, file) {
       var ext = this.ext;
-      var path10 = join(dir, file);
-      var stat = tryStat(path10);
+      var path11 = join(dir, file);
+      var stat = tryStat(path11);
       if (stat && stat.isFile()) {
-        return path10;
+        return path11;
       }
-      path10 = join(dir, basename(file, ext), "index" + ext);
-      stat = tryStat(path10);
+      path11 = join(dir, basename(file, ext), "index" + ext);
+      stat = tryStat(path11);
       if (stat && stat.isFile()) {
-        return path10;
+        return path11;
       }
     };
-    function tryStat(path10) {
-      debug('stat "%s"', path10);
+    function tryStat(path11) {
+      debug('stat "%s"', path11);
       try {
-        return fs9.statSync(path10);
+        return fs10.statSync(path11);
       } catch (e) {
         return void 0;
       }
@@ -20358,15 +20358,15 @@ var require_dist2 = __commonJS({
       let index = 0;
       function consumeUntil(end) {
         const output = [];
-        let path9 = "";
+        let path10 = "";
         function writePath() {
-          if (!path9)
+          if (!path10)
             return;
           output.push({
             type: "text",
-            value: encodePath(path9)
+            value: encodePath(path10)
           });
-          path9 = "";
+          path10 = "";
         }
         while (index < chars.length) {
           const value = chars[index++];
@@ -20378,7 +20378,7 @@ var require_dist2 = __commonJS({
             if (index === chars.length) {
               throw new PathError(`Unexpected end after \\ at index ${index}`, str);
             }
-            path9 += chars[index++];
+            path10 += chars[index++];
             continue;
           }
           if (value === ":" || value === "*") {
@@ -20422,7 +20422,7 @@ var require_dist2 = __commonJS({
           if (value === "}" || value === "(" || value === ")" || value === "[" || value === "]" || value === "+" || value === "?" || value === "!") {
             throw new PathError(`Unexpected ${value} at index ${index - 1}`, str);
           }
-          path9 += value;
+          path10 += value;
         }
         if (end) {
           throw new PathError(`Unexpected end at index ${index}, expected ${end}`, str);
@@ -20432,17 +20432,17 @@ var require_dist2 = __commonJS({
       }
       return new TokenData(consumeUntil(""), str);
     }
-    function compile(path9, options = {}) {
+    function compile(path10, options = {}) {
       const { encode: encode2 = encodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
-      const data = typeof path9 === "object" ? path9 : parse(path9, options);
+      const data = typeof path10 === "object" ? path10 : parse(path10, options);
       const fn = tokensToFunction(data.tokens, delimiter, encode2);
-      return function path10(params = {}) {
+      return function path11(params = {}) {
         const missing = [];
-        const path11 = fn(params, missing);
+        const path12 = fn(params, missing);
         if (missing.length) {
           throw new TypeError(`Missing parameters: ${missing.join(", ")}`);
         }
-        return path11;
+        return path12;
       };
     }
     function tokensToFunction(tokens, delimiter, encode2) {
@@ -20504,9 +20504,9 @@ var require_dist2 = __commonJS({
         return encodeValue(value);
       };
     }
-    function match(path9, options = {}) {
+    function match(path10, options = {}) {
       const { decode: decode2 = decodeURIComponent, delimiter = DEFAULT_DELIMITER } = options;
-      const { regexp: regexp2, keys } = pathToRegexp(path9, options);
+      const { regexp: regexp2, keys } = pathToRegexp(path10, options);
       const decoders = keys.map((key) => {
         if (decode2 === false)
           return NOOP_VALUE;
@@ -20518,7 +20518,7 @@ var require_dist2 = __commonJS({
         const m = regexp2.exec(input);
         if (!m)
           return false;
-        const path10 = m[0];
+        const path11 = m[0];
         const params = /* @__PURE__ */ Object.create(null);
         for (let i = 1; i < m.length; i++) {
           if (m[i] === void 0)
@@ -20527,21 +20527,21 @@ var require_dist2 = __commonJS({
           const decoder = decoders[i - 1];
           params[key.name] = decoder(m[i]);
         }
-        return { path: path10, params };
+        return { path: path11, params };
       };
     }
-    function pathToRegexp(path9, options = {}) {
+    function pathToRegexp(path10, options = {}) {
       const { delimiter = DEFAULT_DELIMITER, end = true, sensitive = false, trailing = true } = options;
       const keys = [];
       let source = "";
       let combinations = 0;
-      function process2(path10) {
-        if (Array.isArray(path10)) {
-          for (const p of path10)
+      function process2(path11) {
+        if (Array.isArray(path11)) {
+          for (const p of path11)
             process2(p);
           return;
         }
-        const data = typeof path10 === "object" ? path10 : parse(path10, options);
+        const data = typeof path11 === "object" ? path11 : parse(path11, options);
         flatten(data.tokens, 0, [], (tokens) => {
           if (combinations >= 256) {
             throw new PathError("Too many path combinations", data.originalPath);
@@ -20552,7 +20552,7 @@ var require_dist2 = __commonJS({
           combinations++;
         });
       }
-      process2(path9);
+      process2(path10);
       let pattern = `^(?:${source})`;
       if (trailing)
         pattern += "(?:" + escape2(delimiter) + "$)?";
@@ -20698,18 +20698,18 @@ var require_layer = __commonJS({
     var TRAILING_SLASH_REGEXP = /\/+$/;
     var MATCHING_GROUP_REGEXP = /\((?:\?<(.*?)>)?(?!\?)/g;
     module.exports = Layer;
-    function Layer(path9, options, fn) {
+    function Layer(path10, options, fn) {
       if (!(this instanceof Layer)) {
-        return new Layer(path9, options, fn);
+        return new Layer(path10, options, fn);
       }
-      debug("new %o", path9);
+      debug("new %o", path10);
       const opts = options || {};
       this.handle = fn;
       this.keys = [];
       this.name = fn.name || "<anonymous>";
       this.params = void 0;
       this.path = void 0;
-      this.slash = path9 === "/" && opts.end === false;
+      this.slash = path10 === "/" && opts.end === false;
       function matcher(_path) {
         if (_path instanceof RegExp) {
           const keys = [];
@@ -20748,7 +20748,7 @@ var require_layer = __commonJS({
           decode: decodeParam
         });
       }
-      this.matchers = Array.isArray(path9) ? path9.map(matcher) : [matcher(path9)];
+      this.matchers = Array.isArray(path10) ? path10.map(matcher) : [matcher(path10)];
     }
     Layer.prototype.handleError = function handleError(error, req, res, next) {
       const fn = this.handle;
@@ -20788,9 +20788,9 @@ var require_layer = __commonJS({
         next(err);
       }
     };
-    Layer.prototype.match = function match(path9) {
+    Layer.prototype.match = function match(path10) {
       let match2;
-      if (path9 != null) {
+      if (path10 != null) {
         if (this.slash) {
           this.params = {};
           this.path = "";
@@ -20798,7 +20798,7 @@ var require_layer = __commonJS({
         }
         let i = 0;
         while (!match2 && i < this.matchers.length) {
-          match2 = this.matchers[i](path9);
+          match2 = this.matchers[i](path10);
           i++;
         }
       }
@@ -20826,13 +20826,13 @@ var require_layer = __commonJS({
         throw err;
       }
     }
-    function loosen(path9) {
-      if (path9 instanceof RegExp || path9 === "/") {
-        return path9;
+    function loosen(path10) {
+      if (path10 instanceof RegExp || path10 === "/") {
+        return path10;
       }
-      return Array.isArray(path9) ? path9.map(function(p) {
+      return Array.isArray(path10) ? path10.map(function(p) {
         return loosen(p);
-      }) : String(path9).replace(TRAILING_SLASH_REGEXP, "");
+      }) : String(path10).replace(TRAILING_SLASH_REGEXP, "");
     }
   }
 });
@@ -20854,9 +20854,9 @@ var require_route = __commonJS({
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
     module.exports = Route;
-    function Route(path9) {
-      debug("new %o", path9);
-      this.path = path9;
+    function Route(path10) {
+      debug("new %o", path10);
+      this.path = path10;
       this.stack = [];
       this.methods = /* @__PURE__ */ Object.create(null);
     }
@@ -21070,8 +21070,8 @@ var require_router = __commonJS({
         if (++sync > 100) {
           return setImmediate(next, err);
         }
-        const path9 = getPathname(req);
-        if (path9 == null) {
+        const path10 = getPathname(req);
+        if (path10 == null) {
           return done(layerError);
         }
         let layer;
@@ -21079,7 +21079,7 @@ var require_router = __commonJS({
         let route;
         while (match !== true && idx < stack.length) {
           layer = stack[idx++];
-          match = matchLayer(layer, path9);
+          match = matchLayer(layer, path10);
           route = layer.route;
           if (typeof match !== "boolean") {
             layerError = layerError || match;
@@ -21117,18 +21117,18 @@ var require_router = __commonJS({
           } else if (route) {
             layer.handleRequest(req, res, next);
           } else {
-            trimPrefix(layer, layerError, layerPath, path9);
+            trimPrefix(layer, layerError, layerPath, path10);
           }
           sync = 0;
         });
       }
-      function trimPrefix(layer, layerError, layerPath, path9) {
+      function trimPrefix(layer, layerError, layerPath, path10) {
         if (layerPath.length !== 0) {
-          if (layerPath !== path9.substring(0, layerPath.length)) {
+          if (layerPath !== path10.substring(0, layerPath.length)) {
             next(layerError);
             return;
           }
-          const c = path9[layerPath.length];
+          const c = path10[layerPath.length];
           if (c && c !== "/") {
             next(layerError);
             return;
@@ -21152,7 +21152,7 @@ var require_router = __commonJS({
     };
     Router.prototype.use = function use(handler) {
       let offset = 0;
-      let path9 = "/";
+      let path10 = "/";
       if (typeof handler !== "function") {
         let arg = handler;
         while (Array.isArray(arg) && arg.length !== 0) {
@@ -21160,7 +21160,7 @@ var require_router = __commonJS({
         }
         if (typeof arg !== "function") {
           offset = 1;
-          path9 = handler;
+          path10 = handler;
         }
       }
       const callbacks = flatten.call(slice.call(arguments, offset), Infinity);
@@ -21172,8 +21172,8 @@ var require_router = __commonJS({
         if (typeof fn !== "function") {
           throw new TypeError("argument handler must be a function");
         }
-        debug("use %o %s", path9, fn.name || "<anonymous>");
-        const layer = new Layer(path9, {
+        debug("use %o %s", path10, fn.name || "<anonymous>");
+        const layer = new Layer(path10, {
           sensitive: this.caseSensitive,
           strict: false,
           end: false
@@ -21183,9 +21183,9 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router.prototype.route = function route(path9) {
-      const route2 = new Route(path9);
-      const layer = new Layer(path9, {
+    Router.prototype.route = function route(path10) {
+      const route2 = new Route(path10);
+      const layer = new Layer(path10, {
         sensitive: this.caseSensitive,
         strict: this.strict,
         end: true
@@ -21198,8 +21198,8 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router.prototype[method] = function(path9) {
-        const route = this.route(path9);
+      Router.prototype[method] = function(path10) {
+        const route = this.route(path10);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
       };
@@ -21228,9 +21228,9 @@ var require_router = __commonJS({
       const fqdnIndex = url.substring(0, pathLength).indexOf("://");
       return fqdnIndex !== -1 ? url.substring(0, url.indexOf("/", 3 + fqdnIndex)) : void 0;
     }
-    function matchLayer(layer, path9) {
+    function matchLayer(layer, path10) {
       try {
-        return layer.match(path9);
+        return layer.match(path10);
       } catch (err) {
         return err;
       }
@@ -21465,7 +21465,7 @@ var require_application = __commonJS({
     };
     app2.use = function use(fn) {
       var offset = 0;
-      var path9 = "/";
+      var path10 = "/";
       if (typeof fn !== "function") {
         var arg = fn;
         while (Array.isArray(arg) && arg.length !== 0) {
@@ -21473,7 +21473,7 @@ var require_application = __commonJS({
         }
         if (typeof arg !== "function") {
           offset = 1;
-          path9 = fn;
+          path10 = fn;
         }
       }
       var fns = flatten.call(slice.call(arguments, offset), Infinity);
@@ -21483,12 +21483,12 @@ var require_application = __commonJS({
       var router = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router.use(path9, fn2);
+          return router.use(path10, fn2);
         }
-        debug(".use app under %s", path9);
-        fn2.mountpath = path9;
+        debug(".use app under %s", path10);
+        fn2.mountpath = path10;
         fn2.parent = this;
-        router.use(path9, function mounted_app(req, res, next) {
+        router.use(path10, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -21500,8 +21500,8 @@ var require_application = __commonJS({
       }, this);
       return this;
     };
-    app2.route = function route(path9) {
-      return this.router.route(path9);
+    app2.route = function route(path10) {
+      return this.router.route(path10);
     };
     app2.engine = function engine(ext, fn) {
       if (typeof fn !== "function") {
@@ -21544,7 +21544,7 @@ var require_application = __commonJS({
       }
       return this;
     };
-    app2.path = function path9() {
+    app2.path = function path10() {
       return this.parent ? this.parent.path() + this.mountpath : "";
     };
     app2.enabled = function enabled(setting) {
@@ -21560,17 +21560,17 @@ var require_application = __commonJS({
       return this.set(setting, false);
     };
     methods.forEach(function(method) {
-      app2[method] = function(path9) {
+      app2[method] = function(path10) {
         if (method === "get" && arguments.length === 1) {
-          return this.set(path9);
+          return this.set(path10);
         }
-        var route = this.route(path9);
+        var route = this.route(path10);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
       };
     });
-    app2.all = function all(path9) {
-      var route = this.route(path9);
+    app2.all = function all(path10) {
+      var route = this.route(path10);
       var args = slice.call(arguments, 1);
       for (var i = 0; i < methods.length; i++) {
         route[methods[i]].apply(route, args);
@@ -22453,7 +22453,7 @@ var require_request = __commonJS({
       var subdomains2 = !isIP(hostname) ? hostname.split(".").reverse() : [hostname];
       return subdomains2.slice(offset);
     });
-    defineGetter(req, "path", function path9() {
+    defineGetter(req, "path", function path10() {
       return parse(this).pathname;
     });
     defineGetter(req, "host", function host() {
@@ -23003,32 +23003,32 @@ var require_send = __commonJS({
     var escapeHtml = require_escape_html();
     var etag = require_etag();
     var fresh = require_fresh();
-    var fs9 = __require("fs");
+    var fs10 = __require("fs");
     var mime = require_mime_types();
     var ms = require_ms();
     var onFinished = require_on_finished();
     var parseRange = require_range_parser();
-    var path9 = __require("path");
+    var path10 = __require("path");
     var statuses = require_statuses();
     var Stream = __require("stream");
     var util = __require("util");
-    var extname = path9.extname;
-    var join = path9.join;
-    var normalize = path9.normalize;
-    var resolve = path9.resolve;
-    var sep = path9.sep;
+    var extname = path10.extname;
+    var join = path10.join;
+    var normalize = path10.normalize;
+    var resolve = path10.resolve;
+    var sep = path10.sep;
     var BYTES_RANGE_REGEXP = /^ *bytes=/;
     var MAX_MAXAGE = 60 * 60 * 24 * 365 * 1e3;
     var UP_PATH_REGEXP = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
     module.exports = send;
-    function send(req, path10, options) {
-      return new SendStream(req, path10, options);
+    function send(req, path11, options) {
+      return new SendStream(req, path11, options);
     }
-    function SendStream(req, path10, options) {
+    function SendStream(req, path11, options) {
       Stream.call(this);
       var opts = options || {};
       this.options = opts;
-      this.path = path10;
+      this.path = path11;
       this.req = req;
       this._acceptRanges = opts.acceptRanges !== void 0 ? Boolean(opts.acceptRanges) : true;
       this._cacheControl = opts.cacheControl !== void 0 ? Boolean(opts.cacheControl) : true;
@@ -23142,10 +23142,10 @@ var require_send = __commonJS({
       var lastModified = this.res.getHeader("Last-Modified");
       return parseHttpDate(lastModified) <= parseHttpDate(ifRange);
     };
-    SendStream.prototype.redirect = function redirect(path10) {
+    SendStream.prototype.redirect = function redirect(path11) {
       var res = this.res;
       if (hasListeners(this, "directory")) {
-        this.emit("directory", res, path10);
+        this.emit("directory", res, path11);
         return;
       }
       if (this.hasTrailingSlash()) {
@@ -23165,38 +23165,38 @@ var require_send = __commonJS({
     SendStream.prototype.pipe = function pipe(res) {
       var root = this._root;
       this.res = res;
-      var path10 = decode2(this.path);
-      if (path10 === -1) {
+      var path11 = decode2(this.path);
+      if (path11 === -1) {
         this.error(400);
         return res;
       }
-      if (~path10.indexOf("\0")) {
+      if (~path11.indexOf("\0")) {
         this.error(400);
         return res;
       }
       var parts;
       if (root !== null) {
-        if (path10) {
-          path10 = normalize("." + sep + path10);
+        if (path11) {
+          path11 = normalize("." + sep + path11);
         }
-        if (UP_PATH_REGEXP.test(path10)) {
-          debug('malicious path "%s"', path10);
+        if (UP_PATH_REGEXP.test(path11)) {
+          debug('malicious path "%s"', path11);
           this.error(403);
           return res;
         }
-        parts = path10.split(sep);
-        path10 = normalize(join(root, path10));
+        parts = path11.split(sep);
+        path11 = normalize(join(root, path11));
       } else {
-        if (UP_PATH_REGEXP.test(path10)) {
-          debug('malicious path "%s"', path10);
+        if (UP_PATH_REGEXP.test(path11)) {
+          debug('malicious path "%s"', path11);
           this.error(403);
           return res;
         }
-        parts = normalize(path10).split(sep);
-        path10 = resolve(path10);
+        parts = normalize(path11).split(sep);
+        path11 = resolve(path11);
       }
       if (containsDotFile(parts)) {
-        debug('%s dotfile "%s"', this._dotfiles, path10);
+        debug('%s dotfile "%s"', this._dotfiles, path11);
         switch (this._dotfiles) {
           case "allow":
             break;
@@ -23210,13 +23210,13 @@ var require_send = __commonJS({
         }
       }
       if (this._index.length && this.hasTrailingSlash()) {
-        this.sendIndex(path10);
+        this.sendIndex(path11);
         return res;
       }
-      this.sendFile(path10);
+      this.sendFile(path11);
       return res;
     };
-    SendStream.prototype.send = function send2(path10, stat) {
+    SendStream.prototype.send = function send2(path11, stat) {
       var len = stat.size;
       var options = this.options;
       var opts = {};
@@ -23228,9 +23228,9 @@ var require_send = __commonJS({
         this.headersAlreadySent();
         return;
       }
-      debug('pipe "%s"', path10);
-      this.setHeader(path10, stat);
-      this.type(path10);
+      debug('pipe "%s"', path11);
+      this.setHeader(path11, stat);
+      this.type(path11);
       if (this.isConditionalGET()) {
         if (this.isPreconditionFailure()) {
           this.error(412);
@@ -23279,30 +23279,30 @@ var require_send = __commonJS({
         res.end();
         return;
       }
-      this.stream(path10, opts);
+      this.stream(path11, opts);
     };
-    SendStream.prototype.sendFile = function sendFile(path10) {
+    SendStream.prototype.sendFile = function sendFile(path11) {
       var i = 0;
       var self = this;
-      debug('stat "%s"', path10);
-      fs9.stat(path10, function onstat(err, stat) {
-        var pathEndsWithSep = path10[path10.length - 1] === sep;
-        if (err && err.code === "ENOENT" && !extname(path10) && !pathEndsWithSep) {
+      debug('stat "%s"', path11);
+      fs10.stat(path11, function onstat(err, stat) {
+        var pathEndsWithSep = path11[path11.length - 1] === sep;
+        if (err && err.code === "ENOENT" && !extname(path11) && !pathEndsWithSep) {
           return next(err);
         }
         if (err) return self.onStatError(err);
-        if (stat.isDirectory()) return self.redirect(path10);
+        if (stat.isDirectory()) return self.redirect(path11);
         if (pathEndsWithSep) return self.error(404);
-        self.emit("file", path10, stat);
-        self.send(path10, stat);
+        self.emit("file", path11, stat);
+        self.send(path11, stat);
       });
       function next(err) {
         if (self._extensions.length <= i) {
           return err ? self.onStatError(err) : self.error(404);
         }
-        var p = path10 + "." + self._extensions[i++];
+        var p = path11 + "." + self._extensions[i++];
         debug('stat "%s"', p);
-        fs9.stat(p, function(err2, stat) {
+        fs10.stat(p, function(err2, stat) {
           if (err2) return next(err2);
           if (stat.isDirectory()) return next();
           self.emit("file", p, stat);
@@ -23310,7 +23310,7 @@ var require_send = __commonJS({
         });
       }
     };
-    SendStream.prototype.sendIndex = function sendIndex2(path10) {
+    SendStream.prototype.sendIndex = function sendIndex2(path11) {
       var i = -1;
       var self = this;
       function next(err) {
@@ -23318,9 +23318,9 @@ var require_send = __commonJS({
           if (err) return self.onStatError(err);
           return self.error(404);
         }
-        var p = join(path10, self._index[i]);
+        var p = join(path11, self._index[i]);
         debug('stat "%s"', p);
-        fs9.stat(p, function(err2, stat) {
+        fs10.stat(p, function(err2, stat) {
           if (err2) return next(err2);
           if (stat.isDirectory()) return next();
           self.emit("file", p, stat);
@@ -23329,10 +23329,10 @@ var require_send = __commonJS({
       }
       next();
     };
-    SendStream.prototype.stream = function stream2(path10, options) {
+    SendStream.prototype.stream = function stream2(path11, options) {
       var self = this;
       var res = this.res;
-      var stream3 = fs9.createReadStream(path10, options);
+      var stream3 = fs10.createReadStream(path11, options);
       this.emit("stream", stream3);
       stream3.pipe(res);
       function cleanup() {
@@ -23347,17 +23347,17 @@ var require_send = __commonJS({
         self.emit("end");
       });
     };
-    SendStream.prototype.type = function type(path10) {
+    SendStream.prototype.type = function type(path11) {
       var res = this.res;
       if (res.getHeader("Content-Type")) return;
-      var ext = extname(path10);
+      var ext = extname(path11);
       var type2 = mime.contentType(ext) || "application/octet-stream";
       debug("content-type %s", type2);
       res.setHeader("Content-Type", type2);
     };
-    SendStream.prototype.setHeader = function setHeader(path10, stat) {
+    SendStream.prototype.setHeader = function setHeader(path11, stat) {
       var res = this.res;
-      this.emit("headers", res, path10, stat);
+      this.emit("headers", res, path11, stat);
       if (this._acceptRanges && !res.getHeader("Accept-Ranges")) {
         debug("accept ranges");
         res.setHeader("Accept-Ranges", "bytes");
@@ -23415,9 +23415,9 @@ var require_send = __commonJS({
       }
       return err instanceof Error ? createError(status, err, { expose: false }) : createError(status, err);
     }
-    function decode2(path10) {
+    function decode2(path11) {
       try {
-        return decodeURIComponent(path10);
+        return decodeURIComponent(path11);
       } catch (err) {
         return -1;
       }
@@ -23572,7 +23572,7 @@ var require_response = __commonJS({
     var http = __require("node:http");
     var onFinished = require_on_finished();
     var mime = require_mime_types();
-    var path9 = __require("node:path");
+    var path10 = __require("node:path");
     var pathIsAbsolute = __require("node:path").isAbsolute;
     var statuses = require_statuses();
     var sign = require_cookie_signature().sign;
@@ -23581,9 +23581,9 @@ var require_response = __commonJS({
     var setCharset = require_utils3().setCharset;
     var cookie = require_cookie();
     var send = require_send();
-    var extname = path9.extname;
-    var resolve = path9.resolve;
-    var basename = path9.basename;
+    var extname = path10.extname;
+    var resolve = path10.resolve;
+    var basename = path10.basename;
     var vary = require_vary();
     var { Buffer: Buffer2 } = __require("node:buffer");
     var res = Object.create(http.ServerResponse.prototype);
@@ -23727,26 +23727,26 @@ var require_response = __commonJS({
       this.type("txt");
       return this.send(body);
     };
-    res.sendFile = function sendFile(path10, options, callback) {
+    res.sendFile = function sendFile(path11, options, callback) {
       var done = callback;
       var req = this.req;
       var res2 = this;
       var next = req.next;
       var opts = options || {};
-      if (!path10) {
+      if (!path11) {
         throw new TypeError("path argument is required to res.sendFile");
       }
-      if (typeof path10 !== "string") {
+      if (typeof path11 !== "string") {
         throw new TypeError("path must be a string to res.sendFile");
       }
       if (typeof options === "function") {
         done = options;
         opts = {};
       }
-      if (!opts.root && !pathIsAbsolute(path10)) {
+      if (!opts.root && !pathIsAbsolute(path11)) {
         throw new TypeError("path must be absolute or specify root to res.sendFile");
       }
-      var pathname = encodeURI(path10);
+      var pathname = encodeURI(path11);
       opts.etag = this.app.enabled("etag");
       var file = send(req, pathname, opts);
       sendfile(res2, file, opts, function(err) {
@@ -23757,7 +23757,7 @@ var require_response = __commonJS({
         }
       });
     };
-    res.download = function download(path10, filename, options, callback) {
+    res.download = function download(path11, filename, options, callback) {
       var done = callback;
       var name = filename;
       var opts = options || null;
@@ -23774,7 +23774,7 @@ var require_response = __commonJS({
         opts = filename;
       }
       var headers = {
-        "Content-Disposition": contentDisposition.create(basename(name || path10))
+        "Content-Disposition": contentDisposition.create(basename(name || path11))
       };
       if (opts && opts.headers) {
         var keys = Object.keys(opts.headers);
@@ -23787,7 +23787,7 @@ var require_response = __commonJS({
       }
       opts = Object.create(opts);
       opts.headers = headers;
-      var fullPath = !opts.root ? resolve(path10) : path10;
+      var fullPath = !opts.root ? resolve(path11) : path11;
       return this.sendFile(fullPath, opts, done);
     };
     res.contentType = res.type = function contentType(type) {
@@ -24078,11 +24078,11 @@ var require_serve_static = __commonJS({
         }
         var forwardError = !fallthrough;
         var originalUrl = parseUrl.original(req);
-        var path9 = parseUrl(req).pathname;
-        if (path9 === "/" && originalUrl.pathname.substr(-1) !== "/") {
-          path9 = "";
+        var path10 = parseUrl(req).pathname;
+        if (path10 === "/" && originalUrl.pathname.substr(-1) !== "/") {
+          path10 = "";
         }
-        var stream2 = send(req, path9, opts);
+        var stream2 = send(req, path10, opts);
         stream2.on("directory", onDirectory);
         if (setHeaders) {
           stream2.on("headers", setHeaders);
@@ -26442,7 +26442,7 @@ var require_websocket = __commonJS({
     var http = __require("http");
     var net = __require("net");
     var tls = __require("tls");
-    var { randomBytes: randomBytes10, createHash: createHash3 } = __require("crypto");
+    var { randomBytes: randomBytes11, createHash: createHash3 } = __require("crypto");
     var { Duplex, Readable } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -26993,7 +26993,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key = randomBytes10(16).toString("base64");
+      const key = randomBytes11(16).toString("base64");
       const request = isSecure ? https.request : http.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -31356,8 +31356,8 @@ var require_msgpack_lite = __commonJS({
 
 // server/src/index.js
 var import_express5 = __toESM(require_express2(), 1);
-import path8 from "node:path";
-import fs8 from "node:fs";
+import path9 from "node:path";
+import fs9 from "node:fs";
 import { createServer } from "node:http";
 
 // server/node_modules/ws/wrapper.mjs
@@ -39276,11 +39276,80 @@ var AdminConsole = class {
   }
 };
 
+// server/src/admin/v2-moderation.js
+import fs8 from "node:fs";
+import path8 from "node:path";
+import { randomBytes as randomBytes9 } from "node:crypto";
+var DURATIONS = [5, 15, 60, 360, 1440, 10080];
+var V2ModerationJournal = class {
+  constructor(dir) {
+    fs8.mkdirSync(dir, { recursive: true, mode: 448 });
+    this.file = path8.join(dir, "v2-moderation.json");
+    this.data = { schemaVersion: 1, active: [], history: [] };
+    if (fs8.existsSync(this.file)) {
+      const s = fs8.lstatSync(this.file);
+      if (!s.isFile() || s.isSymbolicLink() || s.size > 262144 || process.platform !== "win32" && s.mode & 63)
+        throw Error("Registro privado de moderacao invalido");
+      const d = JSON.parse(fs8.readFileSync(this.file, "utf8"));
+      if (d?.schemaVersion !== 1 || !Array.isArray(d.active) || !Array.isArray(d.history) || d.active.length > 200 || d.history.length > 200) throw Error("Registro de moderacao corrompido");
+      this.data = d;
+    }
+  }
+  save() {
+    const tmp = this.file + "." + randomBytes9(6).toString("hex") + ".tmp";
+    fs8.writeFileSync(tmp, JSON.stringify(this.data), { flag: "wx", mode: 384 });
+    try {
+      fs8.renameSync(tmp, this.file);
+    } finally {
+      if (fs8.existsSync(tmp)) fs8.unlinkSync(tmp);
+    }
+  }
+  clean() {
+    const now = Date.now(), before = this.data.active.length;
+    this.data.active = this.data.active.filter((x) => x.until > now);
+    if (before !== this.data.active.length) this.save();
+  }
+  history() {
+    return this.data.history.slice(-50).reverse();
+  }
+  bans() {
+    this.clean();
+    return this.data.active.map(({ id, name, reason, until, at }) => ({ id, name, reason, until, at }));
+  }
+  record(action, { name, reason = "", minutes = void 0, until = void 0 }) {
+    const event = { at: (/* @__PURE__ */ new Date()).toISOString(), action, name: String(name).slice(0, 80), reason: String(reason).slice(0, 120) };
+    if (minutes !== void 0) event.minutes = minutes;
+    if (until !== void 0) event.until = until;
+    this.data.history.push(event);
+    this.data.history = this.data.history.slice(-200);
+    this.save();
+    return event;
+  }
+  add({ name, reason, minutes, kind, key }) {
+    this.clean();
+    if (!DURATIONS.includes(minutes) || !["account", "device"].includes(kind) || typeof key !== "string" || !key || this.data.active.length >= 200) throw Error("Banimento invalido ou limite atingido");
+    const row = { id: randomBytes9(12).toString("hex"), kind, key, name: String(name).slice(0, 80), reason: String(reason).slice(0, 120), at: (/* @__PURE__ */ new Date()).toISOString(), until: Date.now() + minutes * 6e4 };
+    this.data.active.push(row);
+    this.record("ban", { name, reason, minutes, until: row.until });
+    return row;
+  }
+  remove(id) {
+    if (typeof id !== "string" || !/^[a-f0-9]{24}$/.test(id)) throw Error("ID de banimento invalido");
+    this.clean();
+    const i = this.data.active.findIndex((x) => x.id === id);
+    if (i < 0) throw Error("Banimento nao encontrado");
+    const [row] = this.data.active.splice(i, 1);
+    this.record("unban", { name: row.name });
+    return row;
+  }
+};
+
 // server/src/admin/v2-players.js
 var PLAYER_ID = /^[a-f0-9]{16}$/;
 var REQUEST_ID = /^[a-f0-9]{16,64}$/;
 var ROLES = /* @__PURE__ */ new Set(["admin", "mod", "player", "guest"]);
-function createPlayerAdmin(games2) {
+function createPlayerAdmin(games2, { moderation: moderation2 = null, dataDir = null, journal = null } = {}) {
+  const audit = journal || (dataDir ? new V2ModerationJournal(dataDir) : null);
   const game = games2.get("LC");
   if (!game) throw Error("Mundo LC nao encontrado");
   function safeRole(player) {
@@ -39305,18 +39374,62 @@ function createPlayerAdmin(games2) {
       throw Error("Jogador com permissao de equipe nao pode ser expulso por este painel");
     if (typeof player.kick !== "function") throw Error("Jogador nao possui conexao expulsavel");
     player.kick("kicked");
+    audit?.record("kick", { name: player.name });
     return { playerId, status: "kicked" };
   }
-  function execute({ action, playerId }) {
+  function ban(playerId, minutes, reason) {
+    if (!audit || !moderation2) throw Error("Moderacao persistente indisponivel");
+    if (typeof playerId !== "string" || !PLAYER_ID.test(playerId)) throw Error("ID de jogador invalido");
+    if (!DURATIONS.includes(minutes)) throw Error("Duracao de banimento nao permitida");
+    if (typeof reason !== "string" || reason.length > 120 || /[\x00-\x1f\x7f]/.test(reason))
+      throw Error("Motivo do banimento invalido");
+    const player = game.players.find((p) => p.id === playerId);
+    if (!player) throw Error("Jogador nao conectado");
+    if (["admin", "mod"].includes(safeRole(player))) throw Error("Equipe protegida contra banimento");
+    const kind = player.account?.id ? "account" : player.did ? "device" : null;
+    const key = kind === "account" ? String(player.account.id) : kind === "device" ? String(player.did) : null;
+    if (!kind || !key) throw Error("Jogador sem identificador persistente; use expulsar");
+    audit.clean();
+    if (audit.data.active.some((x) => x.kind === kind && x.key === key))
+      throw Error("Jogador ja possui banimento temporario ativo");
+    const until = Date.now() + minutes * 6e4;
+    moderation2.ban({
+      ...kind === "account" ? { accountId: key } : { did: key },
+      name: player.name,
+      reason,
+      until
+    }, { name: "V2 panel" });
+    const record = audit.add({ name: player.name, reason, minutes, kind, key });
+    player.kick("banned");
+    return { id: record.id, playerId, status: "banned", until: record.until };
+  }
+  function unban(id) {
+    if (!audit || !moderation2) throw Error("Moderacao persistente indisponivel");
+    const row = audit.remove(id);
+    if (row.kind === "account") moderation2.unbanAccount(row.key);
+    else moderation2.unbanIp(null, row.key);
+    return { id, status: "unbanned" };
+  }
+  function execute({ action, playerId, minutes, reason, banId }) {
     if (action === "players") return { players: players() };
     if (action === "kick") return kick(playerId);
+    if (action === "ban") return ban(playerId, minutes, reason);
+    if (action === "bans") {
+      if (!audit) throw Error("Historico indisponivel");
+      return { bans: audit.bans() };
+    }
+    if (action === "history") {
+      if (!audit) throw Error("Historico indisponivel");
+      return { history: audit.history() };
+    }
+    if (action === "unban") return unban(banId);
     throw Error("Comando de jogador nao autorizado");
   }
   return { execute };
 }
-function installPlayerAdmin(games2) {
+function installPlayerAdmin(games2, options = {}) {
   if (typeof process.send !== "function") throw Error("Canal privado com supervisor ausente");
-  const control = createPlayerAdmin(games2);
+  const control = createPlayerAdmin(games2, options);
   process.on("message", (message) => {
     if (message?.type !== "v2-player-admin" || !REQUEST_ID.test(message.requestId)) return;
     let payload;
@@ -39330,7 +39443,7 @@ function installPlayerAdmin(games2) {
 }
 
 // server/src/index.js
-import { randomBytes as randomBytes9, timingSafeEqual as timingSafeEqual5 } from "node:crypto";
+import { randomBytes as randomBytes10, timingSafeEqual as timingSafeEqual5 } from "node:crypto";
 
 // server/src/mooio/invite.js
 import { timingSafeEqual as timingSafeEqual4 } from "node:crypto";
@@ -39389,11 +39502,11 @@ function allowedRoomInterface(value, mode) {
 }
 
 // server/src/index.js
-var __dirname = path8.dirname(fileURLToPath(import.meta.url));
-var ROOT = path8.resolve(__dirname, "../..");
-var OFFICIAL_DIR = path8.join(ROOT, "dist/official");
-var PUBLIC_DIR = path8.join(ROOT, "client/public");
-var DATA_DIR = process.env.DATA_DIR ? path8.resolve(process.env.DATA_DIR) : path8.join(ROOT, "server/data");
+var __dirname = path9.dirname(fileURLToPath(import.meta.url));
+var ROOT = path9.resolve(__dirname, "../..");
+var OFFICIAL_DIR = path9.join(ROOT, "dist/official");
+var PUBLIC_DIR = path9.join(ROOT, "client/public");
+var DATA_DIR = process.env.DATA_DIR ? path9.resolve(process.env.DATA_DIR) : path9.join(ROOT, "server/data");
 var PORT = Number(process.env.PORT ?? 8080);
 var HOST = process.env.HOST ?? "127.0.0.1";
 var ROOM_CODE = process.env.MOO_IO_ROOM_CODE || "";
@@ -39412,10 +39525,10 @@ var GAME_SERVERS = V2_ROOM ? [{ key: "LC", capacity: V2_CAPACITY, membersOnly: f
 ];
 var REGION = { id: "local", name: "Local" };
 var log = (msg) => console.log(`${(/* @__PURE__ */ new Date()).toISOString().slice(11, 19)} ${msg}`);
-var pinFile = process.env.PROTOCOL_BUILD_FILE || path8.join(DATA_DIR, "protocol-build.json");
-if (process.env.ROTATE_BUILD && fs8.existsSync(pinFile)) fs8.rmSync(pinFile);
+var pinFile = process.env.PROTOCOL_BUILD_FILE || path9.join(DATA_DIR, "protocol-build.json");
+if (process.env.ROTATE_BUILD && fs9.existsSync(pinFile)) fs9.rmSync(pinFile);
 var build = await createProtocolBuild({
-  outDir: path8.join(ROOT, "dist/protocol"),
+  outDir: path9.join(ROOT, "dist/protocol"),
   pinFile
 });
 var accounts = new AccountStore(DATA_DIR, { passwordMode: V2_ROOM });
@@ -39432,7 +39545,7 @@ var sandboxTransform = (source, name) => {
   log(`sandbox: client bundle ${name} served with its sandbox flag on`);
   return source.replace(SANDBOX_FLAG, "$1=!0");
 };
-var bundle = new ClientBundle(path8.join(OFFICIAL_DIR, "assets"), { transform: process.env.IS_SANDBOX ? sandboxTransform : null });
+var bundle = new ClientBundle(path9.join(OFFICIAL_DIR, "assets"), { transform: process.env.IS_SANDBOX ? sandboxTransform : null });
 var stream = new PageStream({ store: accounts, bundle, log });
 var chat = null;
 var gameHooks = {
@@ -39458,7 +39571,7 @@ for (const def of GAME_SERVERS) {
     botCount: def.key === "LC" ? BOT_COUNT : 0
   }));
 }
-if (V2_ROOM && typeof process.send === "function") installPlayerAdmin(games);
+if (V2_ROOM && typeof process.send === "function") installPlayerAdmin(games, { moderation, dataDir: DATA_DIR });
 var gameApi = {
   kickAccount: (id, reason) => [...games.values()].reduce((n, g) => n + g.kickAccount(id, reason), 0),
   setShadow: (id, on) => games.forEach((g) => g.setShadow(id, on)),
@@ -39506,9 +39619,9 @@ var servers = {
     restartAt: g.restartAt > Date.now() ? g.restartAt : void 0
   }))
 };
-var tokenFile = path8.join(DATA_DIR, "admin.token");
-if (!fs8.existsSync(tokenFile)) fs8.writeFileSync(tokenFile, randomBytes9(24).toString("hex"));
-var ADMIN_TOKEN = Buffer.from(fs8.readFileSync(tokenFile, "utf8").trim());
+var tokenFile = path9.join(DATA_DIR, "admin.token");
+if (!fs9.existsSync(tokenFile)) fs9.writeFileSync(tokenFile, randomBytes10(24).toString("hex"));
+var ADMIN_TOKEN = Buffer.from(fs9.readFileSync(tokenFile, "utf8").trim());
 var adminConsole = new AdminConsole({ games, accounts, moderation, build, dataDir: DATA_DIR, log, social, stream, chat, baseUrl: `http://${["0.0.0.0", "127.0.0.1", "::1", "::"].includes(HOST) ? "localhost" : HOST}:${PORT}` });
 var app = (0, import_express5.default)();
 app.disable("x-powered-by");
@@ -39521,13 +39634,13 @@ app.post("/admin/console", import_express5.default.json({ limit: "8kb" }), (req,
   }
   res.json({ lines: adminConsole.execute(String(req.body && req.body.command || "")) });
 });
-var indexFile = path8.join(OFFICIAL_DIR, "index.html");
+var indexFile = path9.join(OFFICIAL_DIR, "index.html");
 var sendIndex = (_req, res) => {
-  if (!fs8.existsSync(indexFile)) {
+  if (!fs9.existsSync(indexFile)) {
     res.status(503).type("text").send("Official client not built. Run: npm run build");
     return;
   }
-  const html = fs8.readFileSync(indexFile, "utf8").replace("__PROTOCOL_MODULE__", build.publicPath).replace("__SEAL_MODULE__", build.sealPath);
+  const html = fs9.readFileSync(indexFile, "utf8").replace("__PROTOCOL_MODULE__", build.publicPath).replace("__SEAL_MODULE__", build.sealPath);
   res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.type("html").send(html);
 };
@@ -39546,7 +39659,7 @@ app.get(/^\/assets\/index-[\w-]+\.js$/, (req, res, next) => {
   res.set("Cache-Control", "no-cache");
   res.type("application/javascript").send(current.bytes);
 });
-app.use("/assets", import_express5.default.static(path8.join(OFFICIAL_DIR, "assets"), { fallthrough: false }));
+app.use("/assets", import_express5.default.static(path9.join(OFFICIAL_DIR, "assets"), { fallthrough: false }));
 app.use("/api/join", (req, res, next) => requireRoomInvite(ROOM_CODE, req, res, next));
 app.use("/api", createApiRouter({ store: accounts, moderation, servers, game: gameApi, social, stream, chat }));
 app.get("/player/:name", (req, res) => res.redirect(302, "/?profile=" + encodeURIComponent(req.params.name)));
@@ -39565,7 +39678,7 @@ app.get("/ping", (_req, res) => {
 });
 app.get("/mooio/protocol", (_req, res) => {
   try {
-    const params = publicProtocol(JSON.parse(fs8.readFileSync(pinFile, "utf8")));
+    const params = publicProtocol(JSON.parse(fs9.readFileSync(pinFile, "utf8")));
     res.set("Cache-Control", "no-store");
     res.json(params);
   } catch {
@@ -39640,7 +39753,7 @@ if (process.env.MOO_IO_GUI_HOST === "1") {
 server.listen(PORT, HOST, () => {
   log(`Moo IO LAN room on http://${HOST === "0.0.0.0" ? "localhost" : HOST}:${PORT}`);
   log(`protocol build ${build.BUILD_ID} (${build.publicPath}), servers: ${GAME_SERVERS.map((s) => s.key + (s.membersOnly ? " (members)" : "")).join(", ")}`);
-  if (!fs8.existsSync(indexFile)) log("official client is not built yet - run `npm run build`");
+  if (!fs9.existsSync(indexFile)) log("official client is not built yet - run `npm run build`");
 });
 var stopping = false;
 var shutdown = () => {
