@@ -184,6 +184,20 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     }
     assert.equal(updated,true,"new mod only in the restarted room; logs: "+logs.slice(-2000));
     assert.equal(normalSocket.readyState,WebSocket.OPEN,"neighboring room remains connected");
+    // Exact authenticated websocket player appears only in the correct V2 room,
+    // without exposing IP, account email or any access tokens.
+    const rosterResult=command(["players","normal","--rooms",dir]);
+    assert.equal(rosterResult.exit,0,rosterResult.output);
+    const roster=JSON.parse(rosterResult.output);
+    assert.equal(roster.players.length,1);
+    const victim=roster.players[0];
+    assert.match(victim.id,/^[a-f0-9]{16}$/);
+    assert.equal(victim.role,"player");
+    assert.equal(Object.hasOwn(victim,"ip"),false);
+    assert.equal(Object.hasOwn(victim,"email"),false);
+    const otherRoster=command(["players","lobos","--rooms",dir]);
+    assert.equal(otherRoster.exit,0,otherRoster.output);
+    assert.deepEqual(JSON.parse(otherRoster.output).players,[]);
     const unaffected=await fetch(a+"/mooio/status").then(r=>r.json());
     assert.deepEqual(unaffected.v2.mods,[]);
     assert.equal(unaffected.v2.world.treesPerArea,9);
@@ -263,6 +277,17 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     const newStatus=command(["status","--rooms",dir,"--json"]);
     assert.equal(newStatus.exit,0,newStatus.output);
     assert.equal(JSON.parse(newStatus.output).healthy,true);
+    // Actual kick targets this socket only; the other room survives.
+    const closed=new Promise(resolve=>normalSocket.once("close",resolve));
+    const kicked=command(["kick","normal",victim.id,"--rooms",dir]);
+    assert.equal(kicked.exit,0,kicked.output);
+    assert.match(kicked.output,/Jogador .* expulso desta sala/);
+    await Promise.race([closed,sleep(4000)]);
+    assert.equal(normalSocket.readyState,WebSocket.CLOSED);
+    assert.equal((await probeRoom({id:"lobos",file:moddedFile,room:changed},{timeout:500})).online,true);
+    const empty=command(["players","normal","--rooms",dir]);
+    assert.equal(empty.exit,0,empty.output);
+    assert.equal(JSON.parse(empty.output).players.length,0);
   }finally{
     normalSocket?.terminate();
     if(child&&child.exitCode===null){

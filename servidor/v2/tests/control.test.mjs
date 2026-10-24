@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
-import { startControlServer, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents, controlPaths } from "../core/control.mjs";
+import { startControlServer, requestRoomRestart, requestRoomStart, requestRoomStop, requestRoomEvents, requestRoomPlayers, requestPlayerKick, controlPaths } from "../core/control.mjs";
 
 const makeDir=()=>fs.mkdtempSync(path.join(os.tmpdir(),"mooio-v2-control-"));
 const responseFrom=(endpoint,request)=>new Promise((resolve,reject)=>{
@@ -25,7 +25,9 @@ test("controlador local exige autenticacao e so aceita o comando autorizado", {t
       onRestart:async id=>{called.push("restart:"+id);return {id,status:"restarted"};},
       onStart:async id=>{called.push("start:"+id);return {id,status:"starting"};},
       onStop:async id=>{called.push("stop:"+id);return {id,status:"stopped"};},
-      onEvents:async id=>({id,stopped:false,events:[{at:"2026-10-24T00:00:00.000Z",kind:"started"}]})
+      onEvents:async id=>({id,stopped:false,events:[{at:"2026-10-24T00:00:00.000Z",kind:"started"}]}),
+      onPlayers:async id=>({players:[{id:"0123456789abcdef",name:"A",role:"guest"}]}),
+      onKick:async (id,playerId)=>({playerId,status:"kicked"})
     });
     const paths=controlPaths(dir);
     if(process.platform!=="win32"){
@@ -52,6 +54,11 @@ test("controlador local exige autenticacao e so aceita o comando autorizado", {t
     const events=await requestRoomEvents(dir,"arena");
     assert.equal(events.events[0].kind,"started");
     assert.deepEqual(called,["restart:normal","start:arena","stop:arena"]);
+    const roster=await requestRoomPlayers(dir,"normal");
+    assert.equal(roster.players[0].name,"A");
+    const expelled=await requestPlayerKick(dir,"normal","0123456789abcdef");
+    assert.equal(expelled.status,"kicked");
+    assert.throws(()=>requestPlayerKick(dir,"normal","../../escape"),/invalido/);
     await assert.rejects(()=>requestRoomRestart(dir,"../normal"),/ID da sala invalido/);
     await assert.rejects(()=>requestRoomStart(dir,"../arena"),/ID da sala invalido/);
     await assert.rejects(()=>requestRoomStop(dir,"../arena"),/ID da sala invalido/);

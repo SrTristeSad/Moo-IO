@@ -10,6 +10,7 @@ import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
 
 const ID=/^[a-z][a-z0-9_-]{0,47}$/;
 const MAX_REQUEST=4096;
+const MAX_RESPONSE=16384; // 40 player rows with bounded Unicode display names
 export function controlPaths(roomsDirectory){
   const folder=path.resolve(roomsDirectory);
   const privateDir=path.join(folder,".control");
@@ -62,11 +63,13 @@ async function clearStaleSocket(endpoint){
   if(active)throw Error("Outro supervisor ja usa o socket privado.");
   fs.unlinkSync(endpoint);
 }
-export async function startControlServer(roomsDirectory,{onRestart,onStart,onStop,onEvents}){
+export async function startControlServer(roomsDirectory,{onRestart,onStart,onStop,onEvents,onPlayers,onKick}){
   if(typeof onRestart!=="function")throw Error("Callback de reinicio ausente");
   if(onStart!==undefined&&typeof onStart!=="function")throw Error("Callback de inicializacao invalido");
   if(onStop!==undefined&&typeof onStop!=="function")throw Error("Callback de parada invalido");
   if(onEvents!==undefined&&typeof onEvents!=="function")throw Error("Callback de eventos invalido");
+  if(onPlayers!==undefined&&typeof onPlayers!=="function")throw Error("Callback de jogadores invalido");
+  if(onKick!==undefined&&typeof onKick!=="function")throw Error("Callback de expulsao invalido");
   const {privateDir,endpoint,tokenFile}=controlPaths(roomsDirectory);
   ensureControlDirectory(privateDir);
   const token=loadToken(tokenFile,{create:true});
@@ -88,11 +91,14 @@ export async function startControlServer(roomsDirectory,{onRestart,onStart,onSto
       if(!equalToken(request?.token,token)){
         socket.end('{"ok":false,"error":"unauthorized"}\n');return;
       }
-      if(!["restart","start","stop","events"].includes(request.command)||
+      if(!["restart","start","stop","events","players","kick"].includes(request.command)||
          typeof request.room!=="string"||!ID.test(request.room)||
          (request.command==="start"&&typeof onStart!=="function")||
          (request.command==="stop"&&typeof onStop!=="function")||
-         (request.command==="events"&&typeof onEvents!=="function")){
+         (request.command==="events"&&typeof onEvents!=="function")||
+         (request.command==="players"&&typeof onPlayers!=="function")||
+         (request.command==="kick"&&(typeof onKick!=="function"||
+          typeof request.playerId!=="string"||!/^[a-f0-9]{16}$/.test(request.playerId)))){
         socket.end('{"ok":false,"error":"invalidCommand"}\n');return;
       }
       try{
@@ -100,7 +106,9 @@ export async function startControlServer(roomsDirectory,{onRestart,onStart,onSto
           start:onStart,
           restart:onRestart,
           stop:onStop,
-          events:onEvents
+          events:onEvents,
+          players:onPlayers,
+          kick:()=>onKick(request.room,request.playerId)
         })[request.command](request.room);
         if(!socket.destroyed)socket.end(JSON.stringify({ok:true,result})+"\n");
       }catch(error){
@@ -128,7 +136,7 @@ export async function startControlServer(roomsDirectory,{onRestart,onStart,onSto
     }
   };
 }
-async function requestRoomCommand(roomsDirectory,id,command){
+async function requestRoomCommand(roomsDirectory,id,command,playerId){
   if(!ID.test(id))throw Error("ID da sala invalido");
   const {privateDir,endpoint,tokenFile}=controlPaths(roomsDirectory);
   ensureControlDirectory(privateDir);
@@ -141,10 +149,10 @@ async function requestRoomCommand(roomsDirectory,id,command){
       if(error)reject(error);else resolve(value);
     };
     socket.setTimeout(15000,()=>finish(Error("Supervisor nao respondeu em 15 segundos")));
-    socket.once("connect",()=>socket.write(JSON.stringify({token,command,room:id})+"\n"));
+    socket.once("connect",()=>socket.write(JSON.stringify({token,command,room:id,...(playerId?{playerId}:{})})+"\n"));
     socket.on("data",data=>{
       result+=data.toString("utf8");
-      if(Buffer.byteLength(result)>MAX_REQUEST)return finish(Error("Resposta muito grande"));
+      if(Buffer.byteLength(result)>MAX_RESPONSE)return finish(Error("Resposta muito grande"));
       const line=result.indexOf("\n");if(line<0)return;
       try{
         const payload=JSON.parse(result.slice(0,line));
@@ -161,3 +169,9 @@ export function requestRoomRestart(roomsDirectory,id){return requestRoomCommand(
 export function requestRoomStart(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"start");}
 export function requestRoomStop(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"stop");}
 export function requestRoomEvents(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"events");}
+
+export function requestRoomPlayers(roomsDirectory,id){return requestRoomCommand(roomsDirectory,id,"players");}
+export function requestPlayerKick(roomsDirectory,id,playerId){
+  if(typeof playerId!=="string"||!/^[a-f0-9]{16}$/.test(playerId))throw Error("ID do jogador invalido");
+  return requestRoomCommand(roomsDirectory,id,"kick",playerId);
+}

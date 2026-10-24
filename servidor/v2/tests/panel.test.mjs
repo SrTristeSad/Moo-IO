@@ -30,6 +30,8 @@ test("painel protege sessao, sala e mods",{timeout:30000},async()=>{
         ...(csrf?{"X-CSRF-Token":csrf}:{})},body:body===undefined?undefined:JSON.stringify(body)
     });
     assert.equal((await request("/api/overview")).status,401);
+    assert.equal((await request("/api/rooms/normal/players")).status,401);
+    assert.equal((await request("/api/rooms/normal/kick","POST",{playerId:"0123456789abcdef"})).status,401);
     assert.equal((await request("/api/login","POST",{password},undefined,undefined,"https://external.invalid")).status,403);
     const login=await request("/api/login","POST",{password});
     assert.equal(login.status,200);
@@ -53,6 +55,12 @@ test("painel protege sessao, sala e mods",{timeout:30000},async()=>{
     const data=await overview.json();
     assert.equal(data.rooms.length,1);
     assert.equal(JSON.stringify(data).includes(first.roomCode),false);
+    const badKick=await request("/api/rooms/normal/kick","POST",{playerId:"../escape"},cookie,csrf);
+    assert.equal(badKick.status,400);
+    const noCsrf=await request("/api/rooms/normal/kick","POST",{playerId:"0123456789abcdef"},cookie);
+    assert.equal(noCsrf.status,403);
+    const forged=await request("/api/rooms/normal/kick","POST",{playerId:"0123456789abcdef"},cookie,csrf,"https://evil.invalid");
+    assert.equal(forged.status,403);
     const modList=await request("/api/mods","GET",undefined,cookie);
     assert.equal(modList.status,200);
     assert.ok((await modList.json()).mods.length>0);

@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { readRoom } from "./config.mjs";
 import { planRoom } from "./loader.mjs";
@@ -114,6 +115,47 @@ export class RoomSupervisor{
     this.closing=false;
     this.started=false;
   }
+  // Game moderation uses Node's private child IPC channel, not HTTP exposed
+  // through Caddy. Responses are tied to the precise worker process and
+  // request ID, preventing stale responses from a restarted game.
+  async playerAdmin(id,action,playerId){
+    if(this.closing||!this.started)throw Error("Supervisor nao esta ativo");
+    const state=this.states.get(id);
+    if(!state||!state.child||state.disabled||state.stopping||state.restartRequested)
+      throw Error("Sala sem processo ativo: "+id);
+    if(!["players","kick"].includes(action))throw Error("Comando invalido");
+    if(action==="kick"&&!/^[a-f0-9]{16}$/.test(playerId))
+      throw Error("ID de jogador invalido");
+    const child=state.child;
+    if(typeof child.send!=="function"||!child.connected)
+      throw Error("Canal privado do jogo indisponivel");
+    const requestId=randomBytes(12).toString("hex");
+    return await new Promise((resolve,reject)=>{
+      let settled=false;
+      const finish=(err,result)=>{
+        if(settled)return;settled=true;
+        clearTimeout(timeout);
+        child.off("message",onMessage);
+        child.off("exit",onExit);
+        if(err)reject(err);else resolve(result);
+      };
+      const onMessage=reply=>{
+        if(reply?.type!=="v2-player-admin-result"||reply.requestId!==requestId)return;
+        if(state.child!==child)return finish(Error("Processo da sala foi substituido"));
+        if(!reply.ok)return finish(Error(String(reply.error||"Operacao recusada").slice(0,180)));
+        finish(null,reply.result);
+      };
+      const onExit=()=>finish(Error("Processo da sala encerrou durante comando"));
+      const timeout=setTimeout(()=>finish(Error("Tempo esgotado para consultar jogadores")),3500);
+      child.on("message",onMessage);
+      child.once("exit",onExit);
+      try{child.send({type:"v2-player-admin",requestId,action,...(action==="kick"?{playerId}:{})},
+        error=>{if(error)finish(Error("Falha no IPC: "+error.message));});}
+      catch(error){finish(error);}
+    });
+  }
+  listPlayers(id){return this.playerAdmin(id,"players");}
+  kickPlayer(id,playerId){return this.playerAdmin(id,"kick",playerId);}
   // Deliberately expose only structured supervisor lifecycle events. Child
   // stdout/stderr may contain tokens and must NEVER enter the admin UI.
   recordEvent(state,kind){
@@ -299,7 +341,7 @@ export class RoomSupervisor{
     const {id,file,room}=state.entry;
     this.logger("Iniciando "+id+" ("+room.host+":"+room.port+", mods="+room.mods.length+")");
     const child=spawn(process.execPath,[cli,"start","--file",file],{
-      cwd:root,stdio:["ignore","pipe","pipe"],windowsHide:true
+      cwd:root,stdio:["ignore","pipe","pipe","ipc"],windowsHide:true
     });
     state.child=child;
     this.recordEvent(state,"started");
