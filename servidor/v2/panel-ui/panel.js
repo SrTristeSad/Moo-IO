@@ -47,7 +47,8 @@ function append(parent,...nodes){nodes.forEach(node=>parent.appendChild(node));r
 function summary(room){
   return [room.host+":"+room.port,room.players+"/"+room.capacity+" jogadores",
     room.preset==="traditional"?"Tradicional":"Personalizada",
-    room.mods.length+" mods",room.bots+" bots"];
+    room.mods.length+" mods",room.bots+" bots",
+    ({normal:"Clássico",dificil:"Difícil",extremo:"Extremo"})[room.difficulty||"normal"]];
 }
 function renderRooms(){
   const list=$("rooms");
@@ -257,6 +258,7 @@ function editRoom(room=null){
   $("room-preset").value=room?.preset||"traditional";
   $("room-capacity").value=room?.capacity||40;
   $("room-bots").value=room?.bots||0;
+  $("room-difficulty").value=room?.difficulty||"normal";
   $("editor-note").textContent=room?
     "Alterações de regras e mods exigem reiniciar esta sala. Porta e ID não podem mudar aqui.":
     "A sala será iniciada automaticamente se o controlador estiver ativo.";
@@ -322,7 +324,7 @@ $("room-form").addEventListener("submit",async event=>{
     const data={
       name:$("room-name").value.trim(),preset,
       capacity:Number($("room-capacity").value),
-      bots:Number($("room-bots").value),mods
+      bots:Number($("room-bots").value),difficulty:$("room-difficulty").value,mods
     };
     let result;
     if(state.editing)result=await api("/api/rooms/"+encodeURIComponent(state.editing.id),"PUT",data);
