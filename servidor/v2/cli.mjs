@@ -17,7 +17,7 @@ function flags(args){
     let str=args[i];
     if(!str.startsWith("--")){opts._.push(str);continue;}
     let key=str.slice(2);
-    if(!["file","name","preset","host","port","network","bots","capacity","difficulty"].includes(key)||Object.hasOwn(opts,key)) throw new Error("Opcao desconhecida/repetida: "+str);
+    if(!["file","name","preset","host","port","network","bots","capacity"].includes(key)||Object.hasOwn(opts,key)) throw new Error("Opcao desconhecida/repetida: "+str);
     let value=args[++i];
     if(!value||value.startsWith("--")) throw new Error("Faltou valor para "+str);
     opts[key]=value;
@@ -30,7 +30,7 @@ function onlyFile(opts){
 }
 function usage(){
   console.log(`Servidor privado Moo-IO V2 — configuracao simples e mods JSON
-  node servidor/v2/cli.mjs init [--name "Minha sala"] [--preset traditional|custom] [--difficulty normal|dificil|extremo] [--host 127.0.0.1] [--port 8080] [--file caminho]
+  node servidor/v2/cli.mjs init [--name "Minha sala"] [--preset traditional|custom] [--host 127.0.0.1] [--port 8080] [--file caminho]
   node servidor/v2/cli.mjs mods
   node servidor/v2/cli.mjs enable ID [--file caminho]
   node servidor/v2/cli.mjs disable ID [--file caminho]
@@ -45,7 +45,7 @@ try{
   else if(action==="init"){
     if(opts._.length)throw Error("init nao recebe argumentos sem --opcao");
     const fields={};
-    for(const field of ["name","preset","host","network","difficulty"])if(opts[field]!==undefined)fields[field]=opts[field];
+    for(const field of ["name","preset","host","network"])if(opts[field]!==undefined)fields[field]=opts[field];
     for(const field of ["port","bots","capacity"])if(opts[field]!==undefined)fields[field]=Number(opts[field]);
     const room=newRoom(fields);
     createRoom(file,room);
@@ -112,10 +112,6 @@ try{
     const room=readRoom(file);
     const {plan}=await planRoom(room);
     console.log("Iniciando "+room.name+" | mods "+room.mods.length+" | alteracoes "+plan.length);
-    const {applyDifficulty}=await import("./core/difficulty.mjs");
-    const gameConfig=refRequire(path.join(root,"windows/shared/config.js"));
-    const {AI_TYPES}=await import(new URL("../../windows/server/src/moomoo/modules/aiManager.js",import.meta.url));
-    applyDifficulty(room.difficulty,{config:gameConfig,aiTypes:AI_TYPES});
     applyPlan(plan);
     const {run}=await import("./core/runtime.mjs");
     await run(room,file);
