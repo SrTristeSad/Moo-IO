@@ -34,7 +34,7 @@ jobs:
         working-directory: windows/server
         run: npm install --no-audit --no-fund
       - name: Validate mod system and real networking
-        run: node --test servidor/v2/tests/mods.test.mjs servidor/v2/tests/smoke.test.mjs servidor/v2/tests/multiroom.test.mjs servidor/v2/tests/vps.test.mjs servidor/v2/tests/auth.test.mjs servidor/v2/tests/gateway.test.mjs servidor/v2/tests/monitor.test.mjs servidor/v2/tests/control.test.mjs servidor/v2/tests/panel.test.mjs servidor/v2/tests/players.test.mjs servidor/v2/tests/identity.test.mjs
+        run: node --test servidor/v2/tests/public-directory.test.mjs servidor/v2/tests/mods.test.mjs servidor/v2/tests/smoke.test.mjs servidor/v2/tests/multiroom.test.mjs servidor/v2/tests/vps.test.mjs servidor/v2/tests/auth.test.mjs servidor/v2/tests/gateway.test.mjs servidor/v2/tests/monitor.test.mjs servidor/v2/tests/control.test.mjs servidor/v2/tests/panel.test.mjs servidor/v2/tests/players.test.mjs servidor/v2/tests/identity.test.mjs
       - name: Check Linux VPS installer syntax
         if: runner.os == 'Linux'
         run: bash -n servidor/v2/deploy/install-ubuntu.sh
