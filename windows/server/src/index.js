@@ -228,6 +228,22 @@ app.get(/^\/assets\/index-[\w-]+\.js$/, (req, res, next) => {
 });
 app.use("/assets", express.static(path.join(OFFICIAL_DIR, "assets"), { fallthrough: false }));
 // Guard ticket issuance: a client without a room invitation cannot join the world.
+// Listing is part of the dedicated V2 game server, not the localhost admin panel.
+app.get("/api/public/rooms", async (_req,res) => {
+    res.set("Cache-Control","no-store");
+    if (!V2_ROOM || !process.env.MOO_IO_V2_ROOMS_DIR) {
+        return res.status(404).json({error:"v2_directory_unavailable"});
+    }
+    try {
+        const {listPublicRooms}=await import("../../../servidor/v2/core/public-directory.mjs");
+        const directory=await listPublicRooms(process.env.MOO_IO_V2_ROOMS_DIR,
+            {currentId:process.env.MOO_IO_V2_ROOM_ID||""});
+        return res.json(directory);
+    }catch(error){
+        log("Directory unavailable: "+String(error.message).slice(0,120));
+        return res.status(503).json({error:"room_directory_unavailable"});
+    }
+});
 app.use("/api/join", (req, res, next) => requireRoomInvite(ROOM_CODE, req, res, next));
 // PKCE via the LAN/VPN room is only available to holders of its invite code.
 app.use(["/api/auth/v2/start","/api/auth/v2/token"],(req,res,next)=>requireRoomInvite(ROOM_CODE,req,res,next));
