@@ -257,6 +257,7 @@ function editRoom(room=null){
   $("room-preset").value=room?.preset||"traditional";
   $("room-capacity").value=room?.capacity||40;
   $("room-bots").value=room?.bots||0;
+  $("room-public-access").checked=room?.publicAccess===true;
   $("editor-note").textContent=room?
     "Alterações de regras e mods exigem reiniciar esta sala. Porta e ID não podem mudar aqui.":
     "A sala será iniciada automaticamente se o controlador estiver ativo.";
@@ -322,7 +323,7 @@ $("room-form").addEventListener("submit",async event=>{
     const data={
       name:$("room-name").value.trim(),preset,
       capacity:Number($("room-capacity").value),
-      bots:Number($("room-bots").value),mods
+      bots:Number($("room-bots").value),publicAccess:$("room-public-access").checked,mods
     };
     let result;
     if(state.editing)result=await api("/api/rooms/"+encodeURIComponent(state.editing.id),"PUT",data);
