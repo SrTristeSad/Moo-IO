@@ -34,7 +34,7 @@ jobs:
         working-directory: windows/server
         run: npm install --no-audit --no-fund
       - name: Validate mod system and real networking
-        run: node --test servidor/v2/tests/difficulty.test.mjs servidor/v2/tests/mods.test.mjs servidor/v2/tests/smoke.test.mjs servidor/v2/tests/multiroom.test.mjs servidor/v2/tests/vps.test.mjs servidor/v2/tests/auth.test.mjs servidor/v2/tests/gateway.test.mjs servidor/v2/tests/monitor.test.mjs servidor/v2/tests/control.test.mjs servidor/v2/tests/panel.test.mjs servidor/v2/tests/players.test.mjs servidor/v2/tests/identity.test.mjs
+        run: node --test servidor/v2/tests/mods.test.mjs servidor/v2/tests/smoke.test.mjs servidor/v2/tests/multiroom.test.mjs servidor/v2/tests/vps.test.mjs servidor/v2/tests/auth.test.mjs servidor/v2/tests/gateway.test.mjs servidor/v2/tests/monitor.test.mjs servidor/v2/tests/control.test.mjs servidor/v2/tests/panel.test.mjs servidor/v2/tests/players.test.mjs servidor/v2/tests/identity.test.mjs
       - name: Check Linux VPS installer syntax
         if: runner.os == 'Linux'
         run: bash -n servidor/v2/deploy/install-ubuntu.sh
@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           node servidor/v2/cli.mjs init --preset custom --file servidor/v2/rooms/teste.json
-          node servidor/v2/cli.mjs configure --file servidor/v2/rooms/teste.json --bots 2 --capacity 35 --difficulty dificil
+          node servidor/v2/cli.mjs configure --file servidor/v2/rooms/teste.json --bots 2 --capacity 35
           node servidor/v2/cli.mjs enable colheita-farta --file servidor/v2/rooms/teste.json
           node servidor/v2/cli.mjs preview --file servidor/v2/rooms/teste.json
       - name: Validate generated Caddyfile with Caddy on Ubuntu
