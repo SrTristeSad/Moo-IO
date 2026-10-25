@@ -50,7 +50,7 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
   let secondPort=await freePort();
   while(secondPort===firstPort)secondPort=await freePort();
   const normal=newRoom({name:"Normal",port:firstPort,capacity:15});
-  const modded=newRoom({name:"Mundo dos Lobos",port:secondPort,capacity:24,preset:"custom",mods:["mais-lobos"]});
+  const modded=newRoom({name:"Mundo dos Lobos",port:secondPort,capacity:24,preset:"custom",mods:["mais-lobos"],publicAccess:true});
   const normalFile=path.join(dir,"normal.json"),moddedFile=path.join(dir,"lobos.json");
   createRoom(normalFile,normal);
   createRoom(moddedFile,modded);
@@ -94,6 +94,18 @@ test("Supervisor: duas salas reais em paralelo, mods isolados, convite e desliga
     assert.equal(modifiedPing.servers.length,1);
     assert.equal(normalPing.servers[0].playerCapacity,15);
     assert.equal(modifiedPing.servers[0].playerCapacity,24);
+    const publicDirectory=await fetch(a+"/api/public/rooms").then(r=>r.json());
+    assert.equal(publicDirectory.serverType,"Moo-IO-V2");
+    assert.equal(publicDirectory.currentId,"normal");
+    assert.deepEqual(publicDirectory.rooms.map(x=>x.id),["lobos","normal"]);
+    const open=publicDirectory.rooms.find(x=>x.id==="lobos");
+    const gated=publicDirectory.rooms.find(x=>x.id==="normal");
+    assert.equal(open.inviteCode,modded.roomCode,"public room advertised intentionally");
+    assert.equal(Object.hasOwn(gated,"inviteCode"),false,"private room code never published");
+    assert.equal(JSON.stringify(publicDirectory).includes(normal.roomCode),false);
+    assert.equal(open.players,0);
+    assert.equal(open.capacity,24);
+    assert.equal(open.preset,"custom");
     const login=async(url,email)=>{
       const res=await fetch(url+"/api/auth/password",{
         method:"POST",headers:{"content-type":"application/json"},
