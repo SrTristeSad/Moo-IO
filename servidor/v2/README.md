@@ -1,5 +1,14 @@
 # Moo-IO — Servidor privado V2: mods e personalizacao
 
+## Catálogo de salas para o cliente Windows
+
+Os workers V2 existentes passam a disponibilizar **GET /api/public/rooms** no proprio endpoint do jogo, expondo apenas nome, modo (tradicional/personalizado), estado online, jogadores, limite e porta de cada sala. O painel administrativo continua privado na interface local, sem abrir sua API na rede.
+
+Ao criar ou editar uma sala pelo painel, **Sala pública no catálogo** permite escolher se o convite sera divulgado para ingresso direto. Por padrao, salas antigas e novas continuam privadas; elas aparecem como opcao, mas so podem ser acessadas com o codigo enviado pelo dono. A lista publica nunca divulga o codigo dessas salas privadas. Para entrar, o cliente usa a autenticacao pelo navegador e os canais de jogo V2 que ja existem.
+
+O cliente consulta pelo `IP:porta` de um worker acessivel em LAN/VPN, ou pelo hostname `https://id.dominio` fornecido pelo gateway HTTPS/WSS nas instalacoes publicas. O gateway deve continuar mantendo as portas internas das salas e o painel administrativo inacessiveis pela Internet; nao ha permissao para login em HTTP publico.
+
+
 ## Acesso público direto com HTTPS/WSS verificados
 
 **Novo:** o cliente reconhece convites de salas publicados pelo gateway Caddy, no formato `https://normal.jogo.seudominio.com/CODIGO`. Ao entrar em uma sala V2, a página de autenticação abre no navegador; as solicitações da API, o ticket, o protocolo e o WebSocket passam por uma ponte TLS validada. Para partidas públicas, não existe fallback para HTTP/WS.
