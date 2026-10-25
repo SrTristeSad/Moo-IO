@@ -10,7 +10,7 @@ export const V2_ROOT = path.resolve(import.meta.dirname || path.dirname(new URL(
 export const DEFAULT_ROOM = path.join(V2_ROOT, "rooms", "principal.json");
 export const MOD_DIR = path.join(V2_ROOT, "mods");
 export const MOD_ID = /^[a-z0-9][a-z0-9-]{1,47}$/;
-export const DEFAULTS = {schemaVersion:1,name:"Minha sala",preset:"traditional",host:"127.0.0.1",port:8080,network:"lan",capacity:40,bots:0,mods:[]};
+export const DEFAULTS = {schemaVersion:1,name:"Minha sala",preset:"traditional",host:"127.0.0.1",port:8080,network:"lan",capacity:40,bots:0,publicAccess:false,mods:[]};
 
 function jsonFile(filename, limit=65536) {
   const stat = fs.lstatSync(filename);
@@ -19,7 +19,7 @@ function jsonFile(filename, limit=65536) {
 }
 export function validateRoom(room) {
   if (!room || typeof room !== "object" || Array.isArray(room)) throw new Error("Sala deve ser um objeto JSON.");
-  const keys=["schemaVersion","name","preset","host","port","network","capacity","bots","roomCode","mods"];
+  const keys=["schemaVersion","name","preset","host","port","network","capacity","bots","roomCode","publicAccess","mods"];
   for (const key of Object.keys(room)) if (!keys.includes(key)) throw new Error("Opcao desconhecida na sala: "+key);
   if(room.schemaVersion!==1) throw new Error("schemaVersion deve ser 1");
   if(typeof room.name!=="string" || !room.name.trim() || room.name.length>60) throw new Error("name invalido");
@@ -29,6 +29,8 @@ export function validateRoom(room) {
   if(!Number.isInteger(room.port)||room.port<1024||room.port>65534) throw new Error("port deve estar entre 1024 e 65534");
   if(!Number.isInteger(room.capacity)||room.capacity<1||room.capacity>40) throw new Error("capacity deve estar entre 1 e 40");
   if(!Number.isInteger(room.bots)||room.bots<0||room.bots>8) throw new Error("bots deve estar entre 0 e 8");
+  if(room.publicAccess===undefined)room.publicAccess=false;
+  if(typeof room.publicAccess!=="boolean")throw new Error("publicAccess deve ser booleano");
   if(!validRoomCode(room.roomCode)) throw new Error("roomCode invalido");
   if(!Array.isArray(room.mods)||room.mods.length>32||room.mods.some(id=>typeof id!=="string"||!MOD_ID.test(id))||new Set(room.mods).size!==room.mods.length) throw new Error("mods: lista invalida ou repetida");
   if(room.preset==="traditional"&&room.mods.length) throw new Error("Sala traditional nao ativa mods; escolha preset custom");
