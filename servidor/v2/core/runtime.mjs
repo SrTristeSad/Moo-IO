@@ -14,6 +14,8 @@ export async function run(room,file){
   Object.assign(process.env,{
     MOO_IO_V2_PRIVATE_ROOM:"1",
     MOO_IO_V2_ROOM_NAME:room.name,
+    MOO_IO_V2_ROOM_ID:path.basename(file,".json"),
+    MOO_IO_V2_ROOMS_DIR:path.dirname(file),
     MOO_IO_V2_ACTIVE_MODS:room.mods.join(","),
     MOO_IO_V2_CAPACITY:String(room.capacity),
     MOO_IO_NETWORK_MODE:room.network,
