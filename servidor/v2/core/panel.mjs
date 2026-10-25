@@ -46,7 +46,7 @@ export function panelCredentials(rooms){
 function roomInfo(entry,status){
   const {id,room}=entry;
   return {id,name:room.name,preset:room.preset,host:room.host,port:room.port,
-    capacity:room.capacity,bots:room.bots,mods:[...room.mods],
+    capacity:room.capacity,bots:room.bots,publicAccess:room.publicAccess===true,mods:[...room.mods],
     online:!!status?.online,players:status?.online?status.players:0,
     reason:status?.online?null:status?.reason||"Sala ainda nao iniciou"};
 }
@@ -56,7 +56,7 @@ function checkPayload(data,fields){
 }
 function settings(body,{requireAll=false}={}){
   const result={};
-  for(const key of ["name","preset","capacity","bots","mods"]){
+  for(const key of ["name","preset","capacity","bots","publicAccess","mods"]){
     if(!Object.hasOwn(body,key)){
       if(requireAll)throw httpError(400,"Informe "+key);
       continue;
@@ -161,15 +161,15 @@ async function mutateRoom(rooms,id,payload,{create=false}={}){
   const current=entriesOrEmpty(rooms);
   let room;
   if(create){
-    checkPayload(payload,["id","name","preset","port","capacity","bots","mods"]);
+    checkPayload(payload,["id","name","preset","port","capacity","bots","publicAccess","mods"]);
     if(payload.id!==id||!Number.isInteger(payload.port))throw httpError(400,"ID ou porta invalido");
     if(current.length>=MAX_ROOMS)throw httpError(409,"Limite de salas atingido");
     if(current.some(entry=>entry.room.port===payload.port))throw httpError(409,"Porta ja ocupada por outra sala");
     room=newRoom({name:payload.name,preset:payload.preset,port:payload.port,
-      capacity:payload.capacity,bots:payload.bots,mods:payload.mods,
+      capacity:payload.capacity,bots:payload.bots,publicAccess:payload.publicAccess===true,mods:payload.mods,
       host:"127.0.0.1",network:"lan"});
   }else{
-    checkPayload(payload,["name","preset","capacity","bots","mods"]);
+    checkPayload(payload,["name","preset","capacity","bots","publicAccess","mods"]);
     room={...readRoom(file),...settings(payload)};
   }
   await planRoom(room);
@@ -190,7 +190,7 @@ async function mutateRoom(rooms,id,payload,{create=false}={}){
     }
   }
   return {id,name:room.name,preset:room.preset,port:room.port,
-    capacity:room.capacity,bots:room.bots,mods:room.mods,activation,notice};
+    capacity:room.capacity,bots:room.bots,publicAccess:room.publicAccess===true,mods:room.mods,activation,notice};
 }
 
 export async function createPanel({rooms=DEFAULT_ROOMS,port=8787}={}){
