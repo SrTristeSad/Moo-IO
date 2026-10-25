@@ -1,5 +1,12 @@
 # Moo-IO — Servidor privado V2: mods e personalizacao
 
+## Dificuldade e mods por sala
+
+No painel V2, ao criar ou editar uma sala, escolha **Clássico**, **Difícil** ou **Extremo**. O nível normal mantém os valores do jogo de referência. Difícil adiciona até 50% de animais comuns e aumenta em 20% o dano de criaturas hostis; Extremo aumenta até 100% a população comum e 50% o dano hostil, também ampliando a perseguição. Bosses e spawns especiais mantêm as regras originais. Mods JSON continuam disponíveis no preset Personalizado e suas alterações específicas prevalecem sobre o nível de dificuldade.
+
+Pela CLI: `node servidor/v2/cli.mjs configure --file caminho/sala.json --difficulty dificil`. Reinicie apenas essa sala para aplicar as novas regras. Salas antigas sem a propriedade `difficulty` continuam no Clássico, sem precisar migrar arquivos. As configurações são isoladas por processo; uma sala Extrema não altera as demais.
+
+
 ## Acesso público direto com HTTPS/WSS verificados
 
 **Novo:** o cliente reconhece convites de salas publicados pelo gateway Caddy, no formato `https://normal.jogo.seudominio.com/CODIGO`. Ao entrar em uma sala V2, a página de autenticação abre no navegador; as solicitações da API, o ticket, o protocolo e o WebSocket passam por uma ponte TLS validada. Para partidas públicas, não existe fallback para HTTP/WS.
