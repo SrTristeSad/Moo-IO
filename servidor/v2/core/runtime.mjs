@@ -16,7 +16,6 @@ export async function run(room,file){
     MOO_IO_V2_ROOM_NAME:room.name,
     MOO_IO_V2_ACTIVE_MODS:room.mods.join(","),
     MOO_IO_V2_CAPACITY:String(room.capacity),
-    MOO_IO_DIFFICULTY:room.difficulty||"normal",
     MOO_IO_NETWORK_MODE:room.network,
     MOO_IO_BOT_COUNT:String(room.bots),
     MOO_IO_ROOM_CODE:room.roomCode,
